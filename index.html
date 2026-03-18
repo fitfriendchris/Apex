@@ -3628,10 +3628,9 @@ const SUPABASE_URL = 'https://yiqilesbvthmwdrtlhgm.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpcWlsZXNidnRobXdkcnRsaGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NDQ0NzMsImV4cCI6MjA4NzEyMDQ3M30.Gfa92-fNRlm_mVUN1EbS493zMxlMeqwjs2bXDa7iR4o';
 const COACH_SECRET = (()=>{ const p=['APX','coach','9271','zK']; return p.join(''); })();
 // Anthropic API — used for AI Food Scanner (photo analysis)
-// Set your key here or store in localStorage as 'apex_anthropic_key'
-const ANTHROPIC_KEY = (() => {
-  try { return localStorage.getItem('apex_anthropic_key') || ''; } catch { return ''; }
-})();
+// AI features are handled server-side via Supabase Edge Function.
+// No API key required from clients.
+const ANTHROPIC_KEY = 'server-proxy'; // always truthy — suppresses all key-prompt UI
 
 // ── HTML SANITIZER — XSS Prevention ──────────────────
 function escHTML(str) {
@@ -6262,8 +6261,7 @@ async function renderClientDashboard(){
   const calPct=macros.calories>0?Math.min(Math.round(totals.calories/macros.calories*100),100):0;
   const wlog=getWorkoutLog(user.email,todayStr);
   const wDone=wlog?.completed;
-  const _storedKey=(()=>{try{return localStorage.getItem('apex_anthropic_key')||'';}catch{return '';}})();
-  const apiKeySet=!!(ANTHROPIC_KEY||_storedKey);
+  const apiKeySet = true; // AI always available via server proxy
 
   // Phase label
   const phaseLabel=macros.phase==='bulk'?'🔺 Lean Bulk':macros.phase==='cut'?'🔻 Cut Phase':'⟷ Maintain';
@@ -6320,14 +6318,6 @@ async function renderClientDashboard(){
       </div>
     </div>
 
-    ${!apiKeySet?`
-    <div onclick="ntSetApiKey()" style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.25);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:0.75rem">
-      <div>
-        <div style="font-family:var(--font-cond);font-size:0.75rem;font-weight:700;letter-spacing:0.1em;color:var(--gold2)">⚡ SET API KEY TO ENABLE AI</div>
-        <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">Tap to set your free Anthropic API key → unlocks AI Macro Logger & Photo Scanner</div>
-      </div>
-      <span style="color:var(--gold);font-size:1.2rem;flex-shrink:0">→</span>
-    </div>`:''}
 
     <!-- TODAY'S MACRO STATUS -->
     <div class="card" style="margin-bottom:0.875rem">
@@ -6949,14 +6939,7 @@ Restaurant orders, home cooking, recipes — anything works"
           <button class="btn btn-outline btn-sm" onclick="openModal('addFoodModal')" style="font-size:0.7rem">Manual entry</button>
         </div>
 
-        ${!(ANTHROPIC_KEY||(()=>{try{return localStorage.getItem('apex_anthropic_key')||'';}catch{return '';}})()) ? `
-        <div onclick="ntSetApiKey()" style="margin-top:0.875rem;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.25);border-radius:var(--radius-sm);padding:0.875rem 1rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:0.75rem">
-          <div>
-            <div style="font-family:var(--font-cond);font-size:0.72rem;font-weight:700;letter-spacing:0.1em;color:var(--gold2)">⚡ API KEY REQUIRED</div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">Tap to set your free Anthropic key to enable AI analysis</div>
-          </div>
-          <span style="color:var(--gold);font-size:1.1rem">→</span>
-        </div>` : `<div style="margin-top:0.5rem;font-size:0.7rem;color:var(--green);font-family:var(--font-cond)">✓ AI ready — type your meal above and hit Calculate</div>`}
+        <div style="margin-top:0.5rem;font-size:0.7rem;color:var(--green);font-family:var(--font-cond)">✓ AI ready — type your meal above and hit Calculate</div>
       </div>
 
       <!-- AI Results panel -->
@@ -7027,12 +7010,6 @@ Restaurant orders, home cooking, recipes — anything works"
             🔍 Analyze with AI
           </button>
 
-          ${!ANTHROPIC_KEY?`
-          <div style="margin-top:0.75rem;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:var(--radius-sm);padding:0.75rem;font-size:0.8rem;line-height:1.5">
-            ⚠️ No API key set.
-            <span style="cursor:pointer;color:var(--gold);font-weight:600;text-decoration:underline" onclick="ntSetApiKey()">Set Anthropic key →</span>
-            <span style="color:var(--muted);display:block;margin-top:2px;font-size:0.72rem">Free at console.anthropic.com</span>
-          </div>`:''}
 
           <!-- Tips card -->
           <div class="card" style="margin-top:0.875rem">
@@ -7184,13 +7161,6 @@ async function aiAnalyzeMeal(){
   const text = (input?.value || '').trim();
   if(!text){ showToast('Describe what you ate first','error'); input?.focus(); return; }
 
-  const apiKey = ANTHROPIC_KEY || (() => { try{ return localStorage.getItem('apex_anthropic_key')||''; }catch{ return ''; }})();
-  if(!apiKey){
-    ntSetApiKey();
-    showToast('Set your API key to use AI features', 'info', 4000);
-    return;
-  }
-
   const btn = document.getElementById('ai-analyze-btn');
   if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span>Calculating...'; }
 
@@ -7206,64 +7176,33 @@ async function aiAnalyzeMeal(){
   const macros = calcMacros(user);
   const sex = user.sex || 'male';
 
-  const SYSTEM = `You are an elite sports nutritionist and dietitian. The user will describe a meal in plain text. You must calculate precise nutritional information and return ONLY valid JSON — no markdown, no explanation, no extra text.
-
-Return this exact structure:
-{
-  "name": "concise meal name",
-  "portion": "estimated serving size/amount",
-  "calories": number,
-  "protein": number,
-  "carbs": number,
-  "fats": number,
-  "fiber": number,
-  "sugar": number,
-  "items": [
-    {"name": "ingredient/item name", "calories": number, "protein": number, "carbs": number, "fats": number}
-  ],
-  "micros": {
-    "vitaminA": {"amount": number, "unit": "mcg", "dv": number},
-    "vitaminC": {"amount": number, "unit": "mg", "dv": number},
-    "vitaminD": {"amount": number, "unit": "IU", "dv": number},
-    "vitaminE": {"amount": number, "unit": "mg", "dv": number},
-    "calcium": {"amount": number, "unit": "mg", "dv": number},
-    "iron": {"amount": number, "unit": "mg", "dv": number},
-    "magnesium": {"amount": number, "unit": "mg", "dv": number},
-    "zinc": {"amount": number, "unit": "mg", "dv": number},
-    "potassium": {"amount": number, "unit": "mg", "dv": number},
-    "sodium": {"amount": number, "unit": "mg", "dv": number},
-    "omega3": {"amount": number, "unit": "g", "dv": number},
-    "folate": {"amount": number, "unit": "mcg", "dv": number},
-    "b12": {"amount": number, "unit": "mcg", "dv": number},
-    "selenium": {"amount": number, "unit": "mcg", "dv": number}
-  },
-  "insights": ["performance/physique benefit of this meal", "what it lacks", "one specific improvement tip"],
-  "rating": number
-}
-
-The user's stats: weight=${user.weight}lbs, goal=${user.goal}, phase=${macros.phase}, daily targets: ${macros.calories}kcal / ${macros.protein}g protein. Be precise — use known nutritional databases.`;
-
   try{
     const _aiCtrl = new AbortController();
-    const _aiTimer = setTimeout(() => _aiCtrl.abort(), 25000); // 25s timeout
+    const _aiTimer = setTimeout(() => _aiCtrl.abort(), 25000);
     let res;
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1800,
-        system: SYSTEM,
-        messages: [{ role: 'user', content: `Calculate the macros for: ${text}` }]
-      })
-    });
+      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        signal: _aiCtrl.signal,
+        body: JSON.stringify({
+          type: 'text',
+          userEmail: currentUser?.email || 'anonymous',
+          meal: text,
+          userContext: {
+            weight: user.weight,
+            goal: user.goal,
+            phase: macros.phase,
+            calories: macros.calories,
+            protein: macros.protein
+          }
+        })
+      });
     } finally { clearTimeout(_aiTimer); }
+
     const data = await res.json();
-    if(data.error) throw new Error(data.error.type==='authentication_error'?'Invalid API key — check Settings → Platform.':data.error.message || 'API error');
-    const raw = data.content.map(c => c.text||'').join('').replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-    let food;
-    try { food = JSON.parse(raw); } catch(pe) { throw new Error('AI response was unclear. Try describing the meal differently.'); }
+    if(!res.ok || data.error) throw new Error(data.error || 'Calculation failed');
+    const food = data.food;
     food._inputText = text;
     aiRenderResult(food, text, macros, sex);
   } catch(err){
@@ -7271,7 +7210,7 @@ The user's stats: weight=${user.weight}lbs, goal=${user.goal}, phase=${macros.ph
     if(resultPanel) resultPanel.innerHTML = `
       <div class="card" style="padding:1.5rem">
         <div style="color:var(--red);font-weight:700;margin-bottom:0.5rem">⚠️ Calculation Failed</div>
-        <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">${err.message?.includes('API') ? 'Check your API key in Settings → Platform.' : 'Try rephrasing — be more specific about portions and foods.'}</div>
+        <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">${err.name==='AbortError'?'Request timed out — try again.':'Try rephrasing — be more specific about portions and foods.'}</div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
           <button class="btn btn-gold btn-sm" onclick="aiAnalyzeMeal()">Retry</button>
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('ai-result-panel').innerHTML=''">Clear</button>
@@ -7451,58 +7390,10 @@ async function aiLogMeal(foodStr){
 let ntCurrentImage=null;
 let ntCurrentFood=null;
 
-function ntSetApiKey(){
-  // Show an inline modal for key entry instead of browser prompt
-  const existing = document.getElementById('apiKeyModal');
-  if(existing) existing.remove();
-  const modal = document.createElement('div');
-  modal.id = 'apiKeyModal';
-  modal.className = 'modal-overlay active';
-  modal.innerHTML = `<div class="modal" style="max-width:440px">
-    <div class="modal-title">Set Anthropic API Key</div>
-    <p style="color:var(--muted);font-size:0.85rem;line-height:1.6;margin-bottom:1rem">
-      Required for AI meal analysis. Get a free key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a>
-    </p>
-    <div class="form-group">
-      <label>API Key</label>
-      <input type="password" id="apikeyModalInput" placeholder="sk-ant-api03-..." autocomplete="off" style="font-family:monospace">
-    </div>
-    <div id="apikeyModalErr" style="font-size:0.8rem;color:var(--red);margin-bottom:0.5rem"></div>
-    <div style="display:flex;gap:0.5rem">
-      <button class="btn btn-gold" style="flex:1" onclick="
-        const k=(document.getElementById('apikeyModalInput').value||'').trim();
-        const err=document.getElementById('apikeyModalErr');
-        if(!k||!k.startsWith('sk-')){err.textContent='⚠️ Must start with sk-';return;}
-        try{localStorage.setItem('apex_anthropic_key',k);}catch(e){err.textContent='Could not save: '+e.message;return;}
-        document.getElementById('apiKeyModal').remove();
-        showToast('✅ API key saved — AI features active!','success');
-        renderNutrition(null,null,'ai');
-      ">Save Key</button>
-      <button class="btn btn-outline" onclick="document.getElementById('apiKeyModal').remove()">Cancel</button>
-    </div>
-    <div style="margin-top:0.75rem;font-size:0.75rem;color:var(--muted);line-height:1.5">
-      🔒 Stored only in your browser. Never sent to our servers.
-    </div>
-  </div>`;
-  document.body.appendChild(modal);
-  setTimeout(()=>document.getElementById('apikeyModalInput')?.focus(), 100);
-}
-
-// ── LIVE API KEY DETECTION ──
-// Poll for API key being set and refresh nav badge / AI tab readiness
+// API key is managed server-side — no client key entry needed
+function ntSetApiKey(){ showToast('AI is ready — no API key needed!','success',3000); }
 let _apiKeyPollTimer = null;
-function startApiKeyPoll(){
-  if(_apiKeyPollTimer) return;
-  _apiKeyPollTimer = setInterval(()=>{
-    const key = (() => { try{ return localStorage.getItem('apex_anthropic_key')||''; }catch{ return ''; }})();
-    if(key && key.startsWith('sk-')){
-      clearInterval(_apiKeyPollTimer);
-      _apiKeyPollTimer = null;
-      // Dynamically update ANTHROPIC_KEY reference in scope
-      Object.defineProperty(window, 'ANTHROPIC_KEY', { get: ()=>key, configurable:true });
-    }
-  }, 1000);
-}
+function startApiKeyPoll(){ /* no-op — key is server-side */ }
 startApiKeyPoll();
 function ntHandleDrop(e){
   e.preventDefault();
@@ -7553,12 +7444,6 @@ function ntProcessFile(file){
 
 async function ntAnalyzeFood(){
   if(!ntCurrentImage) return;
-  const apiKey=ANTHROPIC_KEY||(() => {try{return localStorage.getItem('apex_anthropic_key')||'';}catch{return '';}})();
-  if(!apiKey){
-    showToast('Set your Anthropic API key in Settings → Platform','error');
-    ntSetApiKey();
-    return;
-  }
   const btn=document.getElementById('nt-analyze-btn');
   if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;margin-right:6px;vertical-align:middle"></span>Analyzing...';}
 
@@ -7586,8 +7471,6 @@ async function ntAnalyzeFood(){
     }, i*700);
   });
 
-  const SYSTEM_PROMPT=`You are an elite sports nutritionist. Analyze the food image precisely. Return ONLY valid JSON — no markdown, no preamble. Structure: {"name":"string","portion":"string","calories":number,"protein":number,"carbs":number,"fats":number,"fiber":number,"sugar":number,"micros":{"vitaminA":{"amount":number,"unit":"mcg","dv":number},"vitaminC":{"amount":number,"unit":"mg","dv":number},"vitaminD":{"amount":number,"unit":"IU","dv":number},"vitaminE":{"amount":number,"unit":"mg","dv":number},"calcium":{"amount":number,"unit":"mg","dv":number},"iron":{"amount":number,"unit":"mg","dv":number},"magnesium":{"amount":number,"unit":"mg","dv":number},"zinc":{"amount":number,"unit":"mg","dv":number},"potassium":{"amount":number,"unit":"mg","dv":number},"sodium":{"amount":number,"unit":"mg","dv":number},"omega3":{"amount":number,"unit":"g","dv":number},"folate":{"amount":number,"unit":"mcg","dv":number},"b12":{"amount":number,"unit":"mcg","dv":number},"selenium":{"amount":number,"unit":"mcg","dv":number}},"insights":["what makes this meal good for performance or physique goals","what nutrient gap or weakness this meal has","one specific optimization to improve this meal"],"category":"breakfast|lunch|dinner|snack|pre-workout|post-workout"}`;
-
   try{
     const b64=ntCurrentImage.split(',')[1];
     const mt=ntCurrentImage.split(';')[0].split(':')[1];
@@ -7595,27 +7478,22 @@ async function ntAnalyzeFood(){
     const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
     let res;
     try {
-      res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1600,
-        system:SYSTEM_PROMPT,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:mt,data:b64}},
-          {type:'text',text:'Analyze this food precisely. Estimate portion sizes from visual cues. Return only the JSON object.'}
-        ]}]
-      })
-    });
+      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        signal: _ctrl.signal,
+        body: JSON.stringify({
+          type: 'scan',
+          userEmail: currentUser?.email || 'anonymous',
+          image: { base64: b64, mediaType: mt }
+        })
+      });
     } finally { clearTimeout(_timer); }
-    const data=await res.json();
-    if(data.error){throw new Error(data.error.type==='authentication_error'?'Invalid API key — check Settings.':data.error.message||'API error');}
-    const raw=data.content.map(c=>c.text||'').join('');
-    const cleaned=raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-    let food;
-    try { food=JSON.parse(cleaned); } catch(pe){ throw new Error('AI returned invalid data. Try a clearer photo.'); }
-    ntCurrentFood=food;
+
+    const data = await res.json();
+    if(!res.ok || data.error){ throw new Error(data.error || 'Analysis failed'); }
+    const food = data.food;
+    ntCurrentFood = food;
     // Complete last step
     const lastStep=document.getElementById('nt-step-'+steps[steps.length-1].id);
     if(lastStep){lastStep.classList.replace('active','done');}
@@ -7627,11 +7505,10 @@ async function ntAnalyzeFood(){
       <div class="card" style="padding:2rem;text-align:center">
         <div style="font-size:2.5rem;margin-bottom:0.75rem">⚠️</div>
         <div style="font-size:1rem;font-weight:700;color:var(--red);margin-bottom:0.5rem">Analysis Failed</div>
-        <div style="color:var(--muted);font-size:0.82rem;line-height:1.6;margin-bottom:1.25rem">${err.message?.includes('API')?'API key issue — check Settings → Platform.':'Try a clearer, well-lit photo with the full meal visible.'}</div>
+        <div style="color:var(--muted);font-size:0.82rem;line-height:1.6;margin-bottom:1.25rem">${err.name==='AbortError'?'Request timed out — try again.':err.message||'Try a clearer, well-lit photo with the full meal visible.'}</div>
         <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap">
           <button class="btn btn-gold btn-sm" onclick="ntAnalyzeFood()">Try Again</button>
           <button class="btn btn-outline btn-sm" onclick="ntResetScanner()">New Photo</button>
-          ${!ANTHROPIC_KEY?`<button class="btn btn-outline btn-sm" onclick="ntSetApiKey()">Set API Key</button>`:''}
         </div>
       </div>`;
     if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze with AI';}
@@ -9245,37 +9122,25 @@ function _settingsBranding(){const saved=lf.get('coach_branding')||{};return '<d
 function saveBranding(){lf.set('coach_branding',{name:(document.getElementById('brand-name')||{}).value||'APEX',tagline:(document.getElementById('brand-tag')||{}).value||'',welcome:(document.getElementById('brand-welcome')||{}).value||'',coachName:(document.getElementById('brand-coach')||{}).value||'Coach'});const msg=document.getElementById('brandMsg');if(msg){msg.textContent='✅ Branding saved!';msg.style.color='var(--green)';}}
 function _settingsStripe(){return '<div class="card"><div class="card-title">💳 Stripe Payment Links</div><p style="color:var(--muted);font-size:0.86rem;margin-bottom:0.75rem">Update the STRIPE_LINKS object in the source file.</p>'+Object.entries(STRIPE_LINKS).map(function(e){const k=e[0],v=e[1];return '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--dark4);gap:1rem;flex-wrap:wrap"><span style="color:'+(TIERS[k]&&TIERS[k].color||'var(--gold)')+';font-family:var(--font-cond);text-transform:uppercase;letter-spacing:0.1em">'+k.toUpperCase()+' — '+(k==='core'?'$97/mo':k==='elite'?'$297/mo':k==='vip'?'$1,500':k==='diamond'?'$5,000':k)+'</span><span style="color:'+(v.includes('REPLACE')?'var(--red)':'var(--green)')+';">'+(v.includes('REPLACE')?'⚠️ Not set':'✅ Active')+'</span></div>';}).join('')+'<div class="alert alert-info" style="margin-top:0.75rem;font-size:0.8rem;line-height:1.6"><b>Redirect URL after payment:</b><br><code style="background:var(--dark4);padding:0.15rem 0.4rem;font-size:0.76rem;word-break:break-all">'+window.location.origin+window.location.pathname+'?payment=success&plan=PLAN_NAME&session_id=CHECKOUT_SESSION_ID</code></div></div>';}
 function _settingsPlatform(){
-  const savedKey=(function(){try{const k=localStorage.getItem('apex_anthropic_key');return k?k.substring(0,12)+'...':'';}catch{return '';}})();
-  return '<div class="card"><div class="card-title" style="display:flex;align-items:center;gap:0.75rem">🤖 Anthropic API Key <span class="ai-badge">AI Scanner</span></div><p style="color:var(--muted);font-size:0.84rem;margin-bottom:0.875rem;line-height:1.6">Required for the AI Food Photo Analyzer. Get a key at <a href=\"https://console.anthropic.com\" target=\"_blank\" style=\"color:var(--gold)\">console.anthropic.com</a></p><div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap"><div class="form-group" style="flex:1;margin:0;min-width:200px"><label>API Key '+(savedKey?'<span style=\"color:var(--green);font-size:0.72rem\">✓ Set ('+savedKey+')</span>':'')+'</label><input type=\"password\" id=\"apiKeyInput\" placeholder=\"sk-ant-api03-...\" autocomplete=\"off\"></div><button class=\"btn btn-gold\" onclick=\"saveApiKey()\">Save</button>'+(savedKey?'<button class=\"btn btn-outline\" style=\"border-color:var(--red);color:var(--red)\" onclick=\"clearApiKey()\">Clear</button>':'')+'</div><div id=\"apiKeyMsg\" style=\"margin-top:0.4rem;font-size:0.8rem\"></div><div class=\"alert alert-info\" style=\"margin-top:0.75rem;font-size:0.78rem;line-height:1.5\"><b>Privacy:</b> Key stored in your browser only — never sent to our servers. Used only for direct Anthropic API requests when scanning food.</div></div>'
+  return '<div class="card"><div class="card-title" style="display:flex;align-items:center;gap:0.75rem">🤖 AI Food Analyzer <span class="ai-badge">Server-Powered</span></div>'
+  +'<div class="alert alert-success" style="margin-bottom:0.75rem">✅ AI features are active — no setup required for clients. The Anthropic API key is configured server-side.</div>'
+  +'<p style="color:var(--muted);font-size:0.84rem;line-height:1.6;margin-bottom:0.75rem">All AI calls (photo scan + macro logger) are proxied through your Supabase Edge Function. Your key is never exposed to clients.</p>'
+  +'<div style="background:var(--dark3);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-sm);padding:0.875rem 1rem;font-size:0.82rem;line-height:1.9">'
+  +'<b style="color:var(--gold2)">Coach setup (one-time, ~2 min):</b><br>'
+  +'1. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">npm install -g supabase</code><br>'
+  +'2. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase login</code><br>'
+  +'3. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase link --project-ref yiqilesbvthmwdrtlhgm</code><br>'
+  +'4. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase secrets set ANTHROPIC_API_KEY=sk-ant-...</code><br>'
+  +'5. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase functions deploy analyze-food</code><br>'
+  +'Done — all clients can scan food instantly with zero setup on their end.'
+  +'</div></div>'
   +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured?'success':'danger')+'">'+(isConfigured?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
   +'<div class="card"><div class="card-title">📤 Data Export</div><div style="display:flex;gap:0.75rem;flex-wrap:wrap"><button class="btn btn-outline" onclick="exportData()">📥 Client Data</button><button class="btn btn-outline" onclick="exportWorkoutLogs()">🏋️ Workout Logs</button></div></div>'
   +'<div class="card"><div class="card-title">🎮 Active Features</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.84rem">'+['XP Level System','Daily Challenges','21-Day Habit Tracker','Streak Rewards','PR Celebrations','Daily Motivational Quotes','AI Food Scanner 📷','Micronutrient Tracking 🧬'].map(function(f){return '<div style="padding:0.4rem 0.5rem;background:var(--dark3);border-radius:var(--radius-sm)">✅ '+f+'</div>';}).join('')+'</div></div>'
   +'<div class="card"><div class="card-title">🔒 Security</div><p style="color:var(--muted);font-size:0.86rem;line-height:1.6">Coach access protected by secret URL + password with 3-attempt lockout.</p></div>';
 }
-function saveApiKey(){
-  var key=(document.getElementById('apiKeyInput')||{}).value||'';key=key.trim();
-  var msg=document.getElementById('apiKeyMsg');
-  if(!key||key.indexOf('sk-')!==0){
-    if(msg){msg.style.color='var(--red)';msg.textContent='⚠️ Key must start with sk- — copy from console.anthropic.com';}
-    return;
-  }
-  if(key.length < 20){
-    if(msg){msg.style.color='var(--red)';msg.textContent='⚠️ Key seems too short — paste the full key';}
-    return;
-  }
-  try{localStorage.setItem('apex_anthropic_key',key);}catch(e){
-    if(msg){msg.style.color='var(--red)';msg.textContent='Could not save: '+e.message;}
-    return;
-  }
-  if(msg){msg.style.color='var(--green)';msg.textContent='✅ Saved! AI Macro Logger & Photo Scanner are now active.';}
-  showToast('✅ Anthropic API key saved — AI features unlocked!','success',4000);
-  setTimeout(function(){renderCoachSettingsTab('platform');},1200);
-}
-function clearApiKey(){
-  try{localStorage.removeItem('apex_anthropic_key');}catch{}
-  showToast('API key cleared','info');
-  renderCoachSettingsTab('platform');
-}
+function saveApiKey(){ /* no-op — key is now server-side */ showToast('API key is now managed server-side in Netlify environment variables.','info'); }
+function clearApiKey(){ /* no-op */ }
 
 
 // ================================================================
