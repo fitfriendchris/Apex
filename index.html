@@ -7009,9 +7009,9 @@ Restaurant orders, home cooking, recipes — anything works"
             </div>
           </div>
           <!-- Gallery picker — no capture attribute, allows photo library -->
-          <input type="file" id="nt-food-file" accept="image/*" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <input type="file" id="nt-food-file" accept="image/*,.heic,.heif" style="display:none" onchange="ntOnImgSelected(event)"/>
           <!-- Camera picker — capture forces camera on mobile -->
-          <input type="file" id="nt-food-file-camera" accept="image/*" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <input type="file" id="nt-food-file-camera" accept="image/*,.heic,.heif" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
 
           <!-- Action buttons -->
           <button class="btn scanner-analyze-btn" id="nt-analyze-btn" disabled onclick="ntAnalyzeFood()">
@@ -7412,7 +7412,8 @@ function ntHandleDrop(e){
 }
 function ntOnImgSelected(e){const f=e.target.files[0];if(f) ntProcessFile(f);}
 function ntProcessFile(file){
-  if(!file.type.startsWith('image/')){showToast('Please select an image file','error');return;}
+  const validImage = file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+if(!validImage){showToast('Please select an image file','error');return;}
   if(file.size>20*1024*1024){showToast('Image too large — max 20MB','error');return;}
   const r=new FileReader();
   r.onload=ev=>{
@@ -7425,7 +7426,7 @@ function ntProcessFile(file){
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');
       ctx.drawImage(img,0,0,w,h);
-      ntCurrentImage=canvas.toDataURL("image/jpeg",0.7);
+      ntCurrentImage=canvas.toDataURL("image/jpeg",0.7); // always JPEG for API compatibility
       const p=document.getElementById('nt-food-preview');
       if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';p.style.animation='fadeIn 0.3s ease both';}
       const z=document.getElementById('nt-upload-zone');
@@ -7478,7 +7479,7 @@ async function ntAnalyzeFood(){
 
   try{
     const b64=ntCurrentImage.split(',')[1];
-    const mt=ntCurrentImage.split(';')[0].split(':')[1];
+    const mt='image/jpeg'; // force JPEG regardless of source (handles HEIC from iPhone)
     const _ctrl = new AbortController();
     const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
     let res;
