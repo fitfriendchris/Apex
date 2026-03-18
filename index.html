@@ -7505,6 +7505,18 @@ async function ntAnalyzeFood(){
     if(lastStep){lastStep.classList.replace('active','done');}
     setTimeout(()=>ntRenderFoodResult(food), 300);
     if(currentUser) addXP(currentUser.email,'logFood','AI meal scanned! +20 XP');
+    // Add scan another button to result
+    setTimeout(()=>{
+      const rp=document.getElementById('nt-results-panel');
+      if(rp){
+        const btn=document.createElement('button');
+        btn.className='btn btn-outline btn-full';
+        btn.style.marginTop='0.75rem';
+        btn.textContent='📷 Scan Another Meal';
+        btn.onclick=ntResetScanner;
+        rp.appendChild(btn);
+      }
+    },400);
   }catch(err){
     console.error('NT Analyze error:',err);
     document.getElementById('nt-results-panel').innerHTML=`
@@ -7645,7 +7657,12 @@ async function ntLogScannedFood(foodStr){
 }
 
 function ntResetScanner(){
-  ntCurrentImage=null; ntCurrentFood=null;
+  // Clear both file inputs so same photo can be reselected
+  ['nt-food-file','nt-food-file-camera'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  ntCurrentImage=null; ntCurrentFood=null; ntCurrentFile=null;
   const p=document.getElementById('nt-food-preview');
   if(p){p.src='';p.style.display='none';p.classList.remove('scanner-preview');}
   const z=document.getElementById('nt-upload-zone');
