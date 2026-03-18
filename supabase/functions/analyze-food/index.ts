@@ -6,22 +6,21 @@ if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS});
 if(req.method!=='POST')return new Response(JSON.stringify({error:'Method not allowed'}),{status:405,headers:{...CORS,'Content-Type':'application/json'}});
 let body;try{body=await req.json();}catch{return new Response(JSON.stringify({error:'Invalid JSON'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}});}
 if(!rl(body.userEmail||'anon'))return new Response(JSON.stringify({error:'Rate limit reached.'}),{status:429,headers:{...CORS,'Content-Type':'application/json'}});
+const key=Deno.env.get('GROQ_API_KEY');
+if(!key)return new Response(JSON.stringify({error:'Groq key not set.'}),{status:503,headers:{...CORS,'Content-Type':'application/json'}});
 try{
 let text='';
 if(body.type==='scan'){
-const key=Deno.env.get('ANTHROPIC_API_KEY');
-if(!key)return new Response(JSON.stringify({error:'Anthropic key not set.'}),{status:503,headers:{...CORS,'Content-Type':'application/json'}});
 const img=body.image;
 if(!img?.base64)return new Response(JSON.stringify({error:'Missing image'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}});
 console.log('[scan] image:',Math.round(img.base64.length/1024)+'KB');
-const mt=['image/jpeg','image/png','image/webp','image/gif'].includes(img.mediaType)?img.mediaType:'image/jpeg';
-const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1800,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mt,data:img.base64}},{type:'text',text:'Analyze this food photo. Return ONLY valid JSON, no markdown: '+S}]}]})});
-const d=await r.json();console.log('[scan] anthropic:',r.status);
-if(!r.ok)throw new Error(d.error?.message||'Anthropic error '+r.status);
-text=d.content?.[0]?.text||'';
+if(img.base64.length>4000000)return new Response(JSON.stringify({error:'Image too large. Try a smaller photo.'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}});
+const mt=['image/jpeg','image/png','image/webp'].includes(img.mediaType)?img.mediaType:'image/jpeg';
+const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:'+mt+';base64,'+img.base64}},{type:'text',text:'Analyze this food photo. Return ONLY valid JSON no markdown: '+S}]}],temperature:0.1,max_tokens:1800})});
+const d=await r.json();console.log('[scan] groq:',r.status);
+if(d.error)throw new Error(d.error.message||'Groq error');
+text=d.choices?.[0]?.message?.content||'';
 }else if(body.type==='text'){
-const key=Deno.env.get('GROQ_API_KEY');
-if(!key)return new Response(JSON.stringify({error:'Groq key not set.'}),{status:503,headers:{...CORS,'Content-Type':'application/json'}});
 const meal=body.meal?.trim();
 if(!meal)return new Response(JSON.stringify({error:'Missing meal'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}});
 const ctx=body.userContext||{};
