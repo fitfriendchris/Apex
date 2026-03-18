@@ -6998,12 +6998,19 @@ Restaurant orders, home cooking, recipes — anything works"
             ondrop="ntHandleDrop(event)">
             <span class="scanner-icon">📷</span>
             <div style="font-size:1rem;font-weight:700;color:var(--light);margin-bottom:0.35rem">Drop photo or tap to browse</div>
-            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem">Camera, screenshot, or any food image</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">Camera, screenshot, or any food image</div>
+            <div style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.85rem">
+              <button onclick="event.stopPropagation();document.getElementById('nt-food-file-camera').click()" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-family:var(--font-cond);font-size:0.8rem;font-weight:700;letter-spacing:0.06em;padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer">📸 Take Photo</button>
+              <button onclick="event.stopPropagation();document.getElementById('nt-food-file').click()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--light);font-family:var(--font-cond);font-size:0.8rem;font-weight:700;letter-spacing:0.06em;padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer">🖼 Choose Photo</button>
+            </div>
             <div style="display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center">
               ${['🍗 Chicken & Rice','🥗 Salad Bowl','🥤 Shake','🍳 Eggs & Toast'].map(ex=>`<span style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);padding:0.25rem 0.65rem;border-radius:20px;font-size:0.72rem;color:var(--muted);font-family:var(--font-cond)">${ex}</span>`).join('')}
             </div>
           </div>
-          <input type="file" id="nt-food-file" accept="image/*" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <!-- Gallery picker — no capture attribute, allows photo library -->
+          <input type="file" id="nt-food-file" accept="image/*" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <!-- Camera picker — capture forces camera on mobile -->
+          <input type="file" id="nt-food-file-camera" accept="image/*" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
 
           <!-- Action buttons -->
           <button class="btn scanner-analyze-btn" id="nt-analyze-btn" disabled onclick="ntAnalyzeFood()">
@@ -7643,6 +7650,8 @@ function ntResetScanner(){
   if(z){z.style.display='block';z.classList.remove('drag-over');}
   const f=document.getElementById('nt-food-file');
   if(f) f.value='';
+  const fc=document.getElementById('nt-food-file-camera');
+  if(fc) fc.value='';
   const btn=document.getElementById('nt-analyze-btn');
   if(btn){btn.disabled=true;btn.innerHTML='🔍 Analyze with AI';btn.onclick=ntAnalyzeFood;}
   const rp=document.getElementById('nt-results-panel');
