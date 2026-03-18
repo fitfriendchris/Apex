@@ -7418,6 +7418,18 @@ if(!validImage){showToast('Please select an image file','error');return;}
   const r=new FileReader();
   r.onload=ev=>{
     const img=new Image();
+    img.onerror=()=>{
+      // Canvas can't decode this format (e.g. HEIC on desktop) — send raw base64 directly
+      ntCurrentImage=ev.target.result;
+      const p=document.getElementById('nt-food-preview');
+      if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';}
+      const z=document.getElementById('nt-upload-zone');
+      if(z) z.style.display='none';
+      const btn=document.getElementById('nt-analyze-btn');
+      if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze with AI';}
+      const rp=document.getElementById('nt-results-panel');
+      if(rp&&!ntCurrentFood) rp.innerHTML='<div class="card" style="padding:2rem;text-align:center"><div style="font-size:2rem;margin-bottom:0.5rem">✅</div><div style="font-family:var(--font-cond);font-size:0.85rem;font-weight:700;color:var(--light)">PHOTO READY</div><div style="font-size:0.8rem;color:var(--muted);margin-top:0.3rem">Tap Analyze with AI to scan this meal</div></div>';
+    };
     img.onload=()=>{
       const MAX=768;
       let w=img.width,h=img.height;
@@ -7426,7 +7438,7 @@ if(!validImage){showToast('Please select an image file','error');return;}
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');
       ctx.drawImage(img,0,0,w,h);
-      ntCurrentImage=canvas.toDataURL("image/jpeg",0.7); // always JPEG for API compatibility
+      ntCurrentImage=canvas.toDataURL("image/jpeg",0.7);
       const p=document.getElementById('nt-food-preview');
       if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';p.style.animation='fadeIn 0.3s ease both';}
       const z=document.getElementById('nt-upload-zone');
@@ -7478,8 +7490,9 @@ async function ntAnalyzeFood(){
   });
 
   try{
+    const isRaw=ntCurrentImage.startsWith('data:') && !ntCurrentImage.startsWith('data:image/jpeg');
     const b64=ntCurrentImage.split(',')[1];
-    const mt='image/jpeg'; // force JPEG regardless of source (handles HEIC from iPhone)
+    const mt=isRaw?(ntCurrentImage.split(';')[0].split(':')[1]||'image/jpeg'):'image/jpeg';
     const _ctrl = new AbortController();
     const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
     let res;
