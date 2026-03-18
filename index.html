@@ -5441,7 +5441,7 @@ async function previewAsTierClient(tier){
 function buildNav(){
   const isClientView = !isCoach || window._previewMode;
   const tabs=isClientView
-    ?['Today','🤖 AI Log','📷 Scan','Nutrition','Workouts','Progress','Profile']
+    ?['Today','🤖 AI Log','📷 Scan','Nutrition','Workouts','Course','Progress','Profile']
     :['Dashboard','Clients','Schedule','Analytics','My Training','Settings'];
   set('navTabs',tabs.map((t,i)=>{
     const isAI   = t==='🤖 AI Log';
