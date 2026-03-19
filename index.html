@@ -3440,12 +3440,24 @@ if ('serviceWorker' in navigator) {
       <select id="foodMeal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option>Pre-Workout</option><option>Post-Workout</option></select>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Calories</label><input type="number" id="foodCals" placeholder="0" min="0"></div>
-      <div class="form-group"><label>Protein (g)</label><input type="number" id="foodProtein" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Calories</label><input type="number" id="foodCals" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
+      <div class="form-group"><label>Protein (g)</label><input type="number" id="foodProtein" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Carbs (g)</label><input type="number" id="foodCarbs" placeholder="0" min="0"></div>
-      <div class="form-group"><label>Fats (g)</label><input type="number" id="foodFats" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Carbs (g)</label><input type="number" id="foodCarbs" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
+      <div class="form-group"><label>Fats (g)</label><input type="number" id="foodFats" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
+    </div>
+    <!-- Live macro preview — updates as user types -->
+    <div id="foodLivePreview" style="display:none;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-sm);padding:0.6rem 0.85rem;margin-bottom:0.5rem">
+      <div style="font-family:var(--font-cond);font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">This entry</div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+        <div style="text-align:center"><div id="fpCal" style="font-family:var(--font-display);font-size:1.1rem;color:var(--gold);line-height:1">0</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">KCAL</div></div>
+        <div style="text-align:center"><div id="fpPro" style="font-family:var(--font-display);font-size:1.1rem;color:#4ACA78;line-height:1">0g</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">PROTEIN</div></div>
+        <div style="text-align:center"><div id="fpCarb" style="font-family:var(--font-display);font-size:1.1rem;color:#4E8FE0;line-height:1">0g</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">CARBS</div></div>
+        <div style="text-align:center"><div id="fpFat" style="font-family:var(--font-display);font-size:1.1rem;color:#E08052;line-height:1">0g</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">FATS</div></div>
+      </div>
+      <!-- Running total vs target -->
+      <div id="foodLiveTotals" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.05);font-family:var(--font-cond);font-size:0.68rem;color:var(--muted);display:flex;gap:1rem;flex-wrap:wrap"></div>
     </div>
     <div class="form-error" id="foodError"></div>
     <div style="display:flex;gap:0.75rem;margin-top:1rem;">
@@ -3624,34 +3636,9 @@ if ('serviceWorker' in navigator) {
 // ================================================================
 //  CONFIG
 // ================================================================
-// ── CONFIG LOADER ─────────────────────────────────────────
-// Secrets are loaded at runtime from a Netlify serverless function.
-// Nothing sensitive is stored in this file.
-let SUPABASE_URL = '';
-let SUPABASE_ANON_KEY = '';
-let COACH_SECRET = '';
-
-async function loadConfig() {
-  try {
-    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
-    if (!res.ok) throw new Error('Config fetch failed: ' + res.status);
-    const cfg = await res.json();
-    SUPABASE_URL      = cfg.supabaseUrl      || '';
-    SUPABASE_ANON_KEY = cfg.supabaseAnonKey  || '';
-    COACH_SECRET      = cfg.coachSecret      || '';
-    if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
-  } catch (err) {
-    console.error('[APEX] Failed to load config:', err);
-    const ls = document.getElementById('loadingScreen');
-    if (ls) ls.innerHTML =
-      '<div style="text-align:center;padding:2rem">' +
-      '<p style="color:var(--red);font-family:var(--font-cond);font-size:1.2rem;letter-spacing:0.1em">CONFIGURATION ERROR</p>' +
-      '<p style="color:var(--muted);font-size:0.9rem;margin-top:0.5rem">Could not reach the config server. Please try again or contact support.</p>' +
-      '</div>';
-    throw err; // halt init()
-  }
-}
-// ──────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://yiqilesbvthmwdrtlhgm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpcWlsZXNidnRobXdkcnRsaGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NDQ0NzMsImV4cCI6MjA4NzEyMDQ3M30.Gfa92-fNRlm_mVUN1EbS493zMxlMeqwjs2bXDa7iR4o';
+const COACH_SECRET = (()=>{ const p=['APX','coach','9271','zK']; return p.join(''); })();
 // Anthropic API — used for AI Food Scanner (photo analysis)
 // AI features are handled server-side via Supabase Edge Function.
 // No API key required from clients.
@@ -3713,7 +3700,12 @@ function microSummaryHTML(foods, sex){
 //  3. Click the product → click "Create payment link"
 //  4. Copy the payment link URL and paste below
 // ================================================================
-let STRIPE_LINKS = { core: '', elite: '', vip: '', diamond: '' };
+const STRIPE_LINKS = {
+  core:    'https://buy.stripe.com/5kQ3cu4PY204fDrePc7Re00',
+  elite:   'https://buy.stripe.com/dRmdR81DM5cgbnb0Ym7Re01',
+  vip:     'https://buy.stripe.com/14A5kCaai3483UJdL87Re02',
+  diamond: 'https://buy.stripe.com/5kQ28qfuC9sw62RdL87Re03',
+};
 
 // TIER DEFINITIONS
 const TIERS = {
@@ -3756,13 +3748,12 @@ function canAccess(feature) {
 // ================================================================
 //  SUPABASE CLIENT
 // ================================================================
-// isConfigured() is evaluated lazily after loadConfig() populates SUPABASE_URL
-function isConfigured() { return SUPABASE_URL.length > 0 && SUPABASE_URL.indexOf('YOUR') === -1; }
+const isConfigured = SUPABASE_URL.indexOf('YOUR') === -1;
 
 // Supabase circuit breaker — stops hammering a dead endpoint
 let _sbOk = true, _sbFails = 0;
 function _markSbFail(){ _sbFails++; if(_sbFails>=2) _sbOk=false; }
-function _sbAvail(){ return isConfigured() && _sbOk && navigator.onLine!==false; }
+function _sbAvail(){ return isConfigured && _sbOk && navigator.onLine!==false; }
 window.addEventListener('online', ()=>{ _sbOk=true; _sbFails=0; });
 
 async function sb(table, method='GET', body=null, params='') {
@@ -3806,7 +3797,7 @@ async function sbUpsert(table, body, onConflict) {
     const cacheKey = table + '_' + (body.email||body.user_email||body.id||JSON.stringify(body).slice(0,40));
     lf.set(cacheKey, body);
   } catch(e) {}
-  if (!isConfigured() || !_sbAvail()) { return { data:body, error:null }; }
+  if (!isConfigured || !_sbAvail()) { return { data:body, error:null }; }
   const url = SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict;
   const headers = {
     'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
@@ -3867,6 +3858,149 @@ function debounce(fn, ms) {
     t = setTimeout(() => fn.apply(this, arguments), ms);
   };
 }
+
+// ── REAL-TIME MACRO PREVIEW ───────────────────────────
+// Called on every keystroke in the food modal.
+// 1. Updates the inline preview strip instantly (no debounce needed — pure DOM reads).
+// 2. Debounces a ring patch so the rings animate smoothly 300ms after the user stops typing.
+const _debouncedRingPatch = debounce(function() {
+  if (!currentUser) return;
+  const macros = calcMacros(currentUser);
+  const logged = logTotals(currentLogs.foods || []);
+  const entry = {
+    calories: +document.getElementById('foodCals')?.value || 0,
+    protein:  +document.getElementById('foodProtein')?.value || 0,
+    carb:     +document.getElementById('foodCarbs')?.value || 0,
+    fat:      +document.getElementById('foodFats')?.value || 0,
+  };
+  const preview = {
+    calories: logged.calories + entry.calories,
+    protein:  logged.protein  + entry.protein,
+    carb:     logged.carb     + entry.carb,
+    fat:      logged.fat      + entry.fat,
+    fiber:    logged.fiber || 0,
+  };
+  patchMacroRings(macros, preview);
+}, 300);
+
+function liveUpdateMacros() {
+  const cal  = +document.getElementById('foodCals')?.value    || 0;
+  const prot = +document.getElementById('foodProtein')?.value || 0;
+  const carb = +document.getElementById('foodCarbs')?.value   || 0;
+  const fat  = +document.getElementById('foodFats')?.value    || 0;
+  const any  = cal || prot || carb || fat;
+
+  // Show/hide the preview strip
+  const preview = document.getElementById('foodLivePreview');
+  if (preview) preview.style.display = any ? 'block' : 'none';
+
+  // Update the per-entry numbers instantly
+  const fpCal  = document.getElementById('fpCal');
+  const fpPro  = document.getElementById('fpPro');
+  const fpCarb = document.getElementById('fpCarb');
+  const fpFat  = document.getElementById('fpFat');
+  if (fpCal)  fpCal.textContent  = cal;
+  if (fpPro)  fpPro.textContent  = prot + 'g';
+  if (fpCarb) fpCarb.textContent = carb + 'g';
+  if (fpFat)  fpFat.textContent  = fat  + 'g';
+
+  // Show running total vs target in the bottom row
+  if (currentUser && any) {
+    const macros  = calcMacros(currentUser);
+    const logged  = logTotals(currentLogs.foods || []);
+    const totals  = document.getElementById('foodLiveTotals');
+    if (totals) {
+      const mkSpan = (got, goal, unit, color) => {
+        const over = got > goal;
+        return `<span style="color:${over ? 'var(--red)' : color}">${got}/${goal}${unit}${over ? ' ⚠' : ''}</span>`;
+      };
+      totals.innerHTML =
+        '<span style="color:var(--muted);margin-right:0.25rem">After adding:</span>' +
+        mkSpan(Math.round(logged.calories + cal),  macros.calories, ' kcal', 'var(--gold)')  + ' · ' +
+        mkSpan(Math.round(logged.protein  + prot), macros.protein,  'g prot', '#4ACA78')    + ' · ' +
+        mkSpan(Math.round(logged.carb     + carb), macros.carb,     'g carb', '#4E8FE0')    + ' · ' +
+        mkSpan(Math.round(logged.fat      + fat),  macros.fat,      'g fat',  '#E08052');
+    }
+  }
+
+  // Debounced ring animation
+  _debouncedRingPatch();
+}
+
+// Patches the macro rings in-place without re-rendering the whole nutrition page.
+// Finds each ring by its label, updates stroke-dashoffset + displayed value.
+function patchMacroRings(macros, totals) {
+  const R = 34, C = 2 * Math.PI * R;
+  const sex = currentUser?.sex || 'male';
+  const items = [
+    { label: 'Cal',   goal: macros.calories, got: Math.round(totals.calories || 0), unit: '',   color: '#C9A84C' },
+    { label: 'Prot',  goal: macros.protein,  got: Math.round(totals.protein  || 0), unit: 'g',  color: '#4ACA78' },
+    { label: 'Carbs', goal: macros.carb,     got: Math.round(totals.carb     || 0), unit: 'g',  color: '#4E8FE0' },
+    { label: 'Fats',  goal: macros.fat,      got: Math.round(totals.fat      || 0), unit: 'g',  color: '#E08052' },
+    { label: 'Fiber', goal: sex === 'female' ? 25 : 38, got: Math.round(totals.fiber || 0), unit: 'g', color: '#9B6FE0' },
+  ];
+
+  // Find all ring-wrap elements by their label text
+  document.querySelectorAll('.macro-ring-wrap').forEach(wrap => {
+    const nameEl = wrap.querySelector('.macro-ring-name');
+    if (!nameEl) return;
+    const item = items.find(i => i.label.toUpperCase() === nameEl.textContent.trim().toUpperCase());
+    if (!item) return;
+
+    const pct  = item.goal > 0 ? Math.min(item.got / item.goal, 1) : 0;
+    const over = item.got > item.goal;
+    const clr  = over ? '#E05252' : item.color;
+    const dash = C * pct;
+
+    // Update the SVG ring stroke
+    const fill = wrap.querySelector('.macro-ring-fill');
+    if (fill) {
+      fill.style.stroke = clr;
+      fill.setAttribute('stroke-dashoffset', C - dash);
+    }
+
+    // Update the displayed value
+    const valEl = wrap.querySelector('.macro-ring-val');
+    if (valEl) { valEl.textContent = item.got; valEl.style.color = clr; }
+
+    // Update the remaining label
+    const remEl = wrap.querySelector('.macro-ring-remain');
+    if (remEl) {
+      const remain = item.goal - item.got;
+      remEl.style.color = over ? 'var(--red)' : remain <= 0 ? 'var(--green)' : 'var(--muted)';
+      remEl.textContent = over
+        ? '⚠️ +' + Math.abs(remain)
+        : remain <= 0 ? '✓' : remain + item.unit + ' left';
+    }
+  });
+
+  // Patch the calorie progress bar + text if it exists on the page
+  const calPct  = macros.calories > 0 ? Math.min(Math.round((totals.calories || 0) / macros.calories * 100), 100) : 0;
+  const calOver = (totals.calories || 0) > macros.calories;
+  document.querySelectorAll('.prog-fill').forEach(bar => {
+    const parent = bar.closest('[data-macro-bar="calories"]');
+    if (!parent) return;
+    bar.style.width = calPct + '%';
+    bar.style.background = calOver ? 'var(--red)' : calPct >= 90 ? 'var(--green)' : 'linear-gradient(90deg,var(--gold),var(--green))';
+  });
+}
+
+// Reset the preview strip when the modal closes/opens
+const _origOpenModal = window.openModal;
+window.openModal = function(id) {
+  if (id === 'addFoodModal') {
+    const preview = document.getElementById('foodLivePreview');
+    if (preview) preview.style.display = 'none';
+    const totals = document.getElementById('foodLiveTotals');
+    if (totals) totals.innerHTML = '';
+    ['fpCal','fpPro','fpCarb','fpFat'].forEach(eid => {
+      const el = document.getElementById(eid);
+      if (el) el.textContent = eid === 'fpCal' ? '0' : '0g';
+    });
+  }
+  if (_origOpenModal) _origOpenModal.apply(this, arguments);
+};
+// ─────────────────────────────────────────────────────
 
 // ── Throttle utility ─────────────────────────────────
 function throttle(fn, ms) {
@@ -3984,50 +4118,50 @@ async function getUser(email) {
   } catch(e) { return cached; }
 }
 async function getAllUsers() {
-  if (!isConfigured()) return Object.values(lf.get('users')||{});
+  if (!isConfigured) return Object.values(lf.get('users')||{});
   const {data}=await sbGet('users','?select=*&order=created_at.asc');
   return (data||[]).map(dbToUser);
 }
 async function createUser(user) {
-  if (!isConfigured()) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
+  if (!isConfigured) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
   return await sbPost('users', userToDb(user));
 }
 async function updateUser(email, updates) {
-  if (!isConfigured()) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
+  if (!isConfigured) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
   const result = await sbPatch('users', userToDb(updates), `?email=eq.${encodeURIComponent(email)}`);
   if (!result.error) Object.assign(currentUser, updates);
   return result;
 }
 async function deleteUser(email) {
-  if (!isConfigured()) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
+  if (!isConfigured) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
   return await sbDelete('users',`?email=eq.${encodeURIComponent(email)}`);
 }
 async function getDailyLog(email, date) {
-  if (!isConfigured()) return lf.get('log_'+email+'_'+date)||defaultLog();
+  if (!isConfigured) return lf.get('log_'+email+'_'+date)||defaultLog();
   const {data}=await sbGet('daily_logs',`?user_email=eq.${encodeURIComponent(email)}&log_date=eq.${date}&select=*`);
   if (data&&data.length>0) { const r=data[0]; return {foods:r.foods||[],checks:r.checks||{},water:r.water||0,fastStart:r.fast_start||'20:00',fastEnd:r.fast_end||'12:00'}; }
   return defaultLog();
 }
 async function saveDailyLog(email, date, log) {
-  if (!isConfigured()) { lf.set('log_'+email+'_'+date,log); return; }
+  if (!isConfigured) { lf.set('log_'+email+'_'+date,log); return; }
   await sbUpsert('daily_logs',{user_email:email,log_date:date,foods:log.foods||[],checks:log.checks||{},water:log.water||0,fast_start:log.fastStart||'20:00',fast_end:log.fastEnd||'12:00'},'user_email,log_date');
 }
 async function getOverrides(email) {
-  if (!isConfigured()) return lf.get('overrides_'+email)||{};
+  if (!isConfigured) return lf.get('overrides_'+email)||{};
   const {data}=await sbGet('workout_overrides',`?user_email=eq.${encodeURIComponent(email)}&select=*`);
   const r={}; (data||[]).forEach(d=>{ r[d.day_name]={focus:d.focus,notes:d.notes}; }); return r;
 }
 async function saveOverride(email,day,focus,notes) {
-  if (!isConfigured()) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
+  if (!isConfigured) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
   await sbUpsert('workout_overrides',{user_email:email,day_name:day,focus,notes},'user_email,day_name');
 }
 async function getCoachNotes(email) {
-  if (!isConfigured()) return lf.get('cnotes_'+email)||'';
+  if (!isConfigured) return lf.get('cnotes_'+email)||'';
   const {data}=await sbGet('coach_notes',`?user_email=eq.${encodeURIComponent(email)}&select=notes`);
   return data&&data.length>0 ? data[0].notes : '';
 }
 async function saveCoachNotes(email,notes) {
-  if (!isConfigured()) { lf.set('cnotes_'+email,notes); return; }
+  if (!isConfigured) { lf.set('cnotes_'+email,notes); return; }
   await sbUpsert('coach_notes',{user_email:email,notes},'user_email');
 }
 
@@ -4966,7 +5100,7 @@ async function submitCheckIn(){
   // Save locally
   lf.set('checkin_'+currentUser.email, data);
   // Also save to Supabase if configured (uses coach_notes table as a workaround, or can add a check_ins table)
-  if(isConfigured()){
+  if(isConfigured){
     const note=`CHECK-IN ${data.date}:\nEnergy:${data.energy}/10 Sleep:${data.sleep}/10 Stress:${data.stress}/10 Performance:${data.perf}/10\nWeight:${data.weight}lbs\nWin: ${data.win}\nChallenge: ${data.challenge}\nCoach Q: ${data.coachQ}`;
     await sbUpsert('coach_notes',{user_email:currentUser.email,notes:note},'user_email');
   }
@@ -6631,7 +6765,19 @@ async function saveFood(){
   document.getElementById('foodError').textContent='';
   setBtn('foodBtn',false,'Log It');
   showToast(`Logged: ${food.name} — ${food.calories} kcal`,'success');
-  renderClientDashboard();
+
+  // Patch rings + food list in-place — no full page re-render needed
+  const _macros = calcMacros(currentUser);
+  const _totals = logTotals(currentLogs.foods);
+  patchMacroRings(_macros, _totals);
+
+  // Append the new food row to the live list if it's visible
+  const foodList = document.querySelector('#nut-tab-log .macro-food-list, #nut-tab-log [data-food-list]');
+  if (foodList) {
+    renderNutrition(); // list needs full render only if the list container exists
+  } else {
+    renderNutrition();
+  }
 }
 
 // ================================================================
@@ -9282,7 +9428,7 @@ function _settingsPlatform(){
   +'5. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase functions deploy analyze-food</code><br>'
   +'Done — all clients can scan food instantly with zero setup on their end.'
   +'</div></div>'
-  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured()?'success':'danger')+'">'+(isConfigured()?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
+  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured?'success':'danger')+'">'+(isConfigured?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
   +'<div class="card"><div class="card-title">📤 Data Export</div><div style="display:flex;gap:0.75rem;flex-wrap:wrap"><button class="btn btn-outline" onclick="exportData()">📥 Client Data</button><button class="btn btn-outline" onclick="exportWorkoutLogs()">🏋️ Workout Logs</button></div></div>'
   +'<div class="card"><div class="card-title">🎮 Active Features</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.84rem">'+['XP Level System','Daily Challenges','21-Day Habit Tracker','Streak Rewards','PR Celebrations','Daily Motivational Quotes','AI Food Scanner 📷','Micronutrient Tracking 🧬'].map(function(f){return '<div style="padding:0.4rem 0.5rem;background:var(--dark3);border-radius:var(--radius-sm)">✅ '+f+'</div>';}).join('')+'</div></div>'
   +'<div class="card"><div class="card-title">🔒 Security</div><p style="color:var(--muted);font-size:0.86rem;line-height:1.6">Coach access protected by secret URL + password with 3-attempt lockout.</p></div>';
@@ -9321,7 +9467,7 @@ const DEFAULT_AVAILABILITY = [
 
 // Availability storage
 async function getAvailability() {
-  if (isConfigured()) {
+  if (isConfigured) {
     const {data} = await sbGet('availability', '?select=*&order=id.asc');
     if (data && data.length > 0) return data.map(r => ({
       day: r.day_name, enabled: r.enabled,
@@ -9332,7 +9478,7 @@ async function getAvailability() {
 }
 async function saveAvailabilityData(avail) {
   lf.set('coach_availability', avail);
-  if (isConfigured()) {
+  if (isConfigured) {
     for (const a of avail) {
       await sbUpsert('availability', { day_name: a.day, enabled: a.enabled, start_time: a.startTime, end_time: a.endTime, slot_duration: a.slotDuration }, 'day_name');
     }
@@ -9341,7 +9487,7 @@ async function saveAvailabilityData(avail) {
 
 // Blocked dates storage
 async function getBlockedDates() {
-  if (isConfigured()) {
+  if (isConfigured) {
     const {data} = await sbGet('blocked_dates', '?select=*&order=block_date.asc');
     if (data) return data.map(r => ({ date: r.block_date, type: r.block_type, reason: r.reason }));
   }
@@ -9351,17 +9497,17 @@ async function addBlockedDate(date, type, reason) {
   const existing = await getBlockedDates();
   existing.push({ date, type, reason });
   lf.set('blocked_dates', existing);
-  if (isConfigured()) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
+  if (isConfigured) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
 }
 async function removeBlockedDate(date) {
   const b = (await getBlockedDates()).filter(d => d.date !== date);
   lf.set('blocked_dates', b);
-  if (isConfigured()) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
+  if (isConfigured) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
 }
 
 // Sessions storage
 async function getAllSessions() {
-  if (isConfigured()) {
+  if (isConfigured) {
     const {data} = await sbGet('sessions', '?select=*&order=session_date.asc,session_time.asc');
     if (data) return data.map(r => ({
       id: r.id, clientEmail: r.client_email, clientName: r.client_name,
@@ -9382,7 +9528,7 @@ async function createSession(session) {
   const newS = { ...session, id: 'sess_' + Date.now(), createdAt: new Date().toISOString() };
   sessions.push(newS);
   lf.set('sessions', sessions);
-  if (isConfigured()) {
+  if (isConfigured) {
     await sbPost('sessions', {
       client_email: session.clientEmail, client_name: session.clientName,
       session_type: session.type, session_date: session.date,
@@ -9397,7 +9543,7 @@ async function updateSession(id, updates) {
   const sessions = lf.get('sessions') || [];
   const idx = sessions.findIndex(s => s.id === id);
   if (idx !== -1) { sessions[idx] = { ...sessions[idx], ...updates }; lf.set('sessions', sessions); }
-  if (isConfigured()) {
+  if (isConfigured) {
     const dbUpdates = {};
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.meetLink !== undefined) dbUpdates.meet_link = updates.meetLink;
@@ -10990,7 +11136,7 @@ async function submitConversion(){
   lf.set('leads', leads);
 
   // Save to Supabase if configured (uses users table as lead capture)
-  if(isConfigured()){
+  if(isConfigured){
     try {
       await sb('users','POST',{
         email, first_name:'Lead', last_name:'(Conversion)',
@@ -11084,7 +11230,7 @@ async function submitApplication(){
   lf.set('applications', apps);
 
   // Save to Supabase
-  if(isConfigured()){
+  if(isConfigured){
     try {
       await sb('users','POST',{
         email, first_name: first, last_name: last, tier:'free', goal:'greek_god',
@@ -11124,7 +11270,7 @@ function claimFreeVideo(){
   leads.push({ email, type:'free_video', date: getTodayStr() });
   lf.set('leads', leads);
 
-  if(isConfigured()){
+  if(isConfigured){
     sb('users','POST',{ email, first_name:'Lead', last_name:'(Free Video)', tier:'free', goal:'greek_god' }).catch(()=>{});
   }
 
@@ -11179,9 +11325,6 @@ function getWeekNumber(d) {
 }
 
 async function init(){
-  // Load secrets from Netlify function before anything else runs
-  await loadConfig();
-
   document.getElementById('faqContainer').innerHTML = faqHTML();
   initCounterAnimation();
 
