@@ -3624,9 +3624,34 @@ if ('serviceWorker' in navigator) {
 // ================================================================
 //  CONFIG
 // ================================================================
-const SUPABASE_URL = 'https://yiqilesbvthmwdrtlhgm.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpcWlsZXNidnRobXdkcnRsaGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NDQ0NzMsImV4cCI6MjA4NzEyMDQ3M30.Gfa92-fNRlm_mVUN1EbS493zMxlMeqwjs2bXDa7iR4o';
-const COACH_SECRET = (()=>{ const p=['APX','coach','9271','zK']; return p.join(''); })();
+// ── CONFIG LOADER ─────────────────────────────────────────
+// Secrets are loaded at runtime from a Netlify serverless function.
+// Nothing sensitive is stored in this file.
+let SUPABASE_URL = '';
+let SUPABASE_ANON_KEY = '';
+let COACH_SECRET = '';
+
+async function loadConfig() {
+  try {
+    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
+    if (!res.ok) throw new Error('Config fetch failed: ' + res.status);
+    const cfg = await res.json();
+    SUPABASE_URL      = cfg.supabaseUrl      || '';
+    SUPABASE_ANON_KEY = cfg.supabaseAnonKey  || '';
+    COACH_SECRET      = cfg.coachSecret      || '';
+    if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
+  } catch (err) {
+    console.error('[APEX] Failed to load config:', err);
+    const ls = document.getElementById('loadingScreen');
+    if (ls) ls.innerHTML =
+      '<div style="text-align:center;padding:2rem">' +
+      '<p style="color:var(--red);font-family:var(--font-cond);font-size:1.2rem;letter-spacing:0.1em">CONFIGURATION ERROR</p>' +
+      '<p style="color:var(--muted);font-size:0.9rem;margin-top:0.5rem">Could not reach the config server. Please try again or contact support.</p>' +
+      '</div>';
+    throw err; // halt init()
+  }
+}
+// ──────────────────────────────────────────────────────────
 // Anthropic API — used for AI Food Scanner (photo analysis)
 // AI features are handled server-side via Supabase Edge Function.
 // No API key required from clients.
@@ -3688,12 +3713,7 @@ function microSummaryHTML(foods, sex){
 //  3. Click the product → click "Create payment link"
 //  4. Copy the payment link URL and paste below
 // ================================================================
-const STRIPE_LINKS = {
-  core:    'https://buy.stripe.com/5kQ3cu4PY204fDrePc7Re00',
-  elite:   'https://buy.stripe.com/dRmdR81DM5cgbnb0Ym7Re01',
-  vip:     'https://buy.stripe.com/14A5kCaai3483UJdL87Re02',
-  diamond: 'https://buy.stripe.com/5kQ28qfuC9sw62RdL87Re03',
-};
+let STRIPE_LINKS = { core: '', elite: '', vip: '', diamond: '' };
 
 // TIER DEFINITIONS
 const TIERS = {
@@ -3736,12 +3756,13 @@ function canAccess(feature) {
 // ================================================================
 //  SUPABASE CLIENT
 // ================================================================
-const isConfigured = SUPABASE_URL.indexOf('YOUR') === -1;
+// isConfigured() is evaluated lazily after loadConfig() populates SUPABASE_URL
+function isConfigured() { return SUPABASE_URL.length > 0 && SUPABASE_URL.indexOf('YOUR') === -1; }
 
 // Supabase circuit breaker — stops hammering a dead endpoint
 let _sbOk = true, _sbFails = 0;
 function _markSbFail(){ _sbFails++; if(_sbFails>=2) _sbOk=false; }
-function _sbAvail(){ return isConfigured && _sbOk && navigator.onLine!==false; }
+function _sbAvail(){ return isConfigured() && _sbOk && navigator.onLine!==false; }
 window.addEventListener('online', ()=>{ _sbOk=true; _sbFails=0; });
 
 async function sb(table, method='GET', body=null, params='') {
@@ -3785,7 +3806,7 @@ async function sbUpsert(table, body, onConflict) {
     const cacheKey = table + '_' + (body.email||body.user_email||body.id||JSON.stringify(body).slice(0,40));
     lf.set(cacheKey, body);
   } catch(e) {}
-  if (!isConfigured || !_sbAvail()) { return { data:body, error:null }; }
+  if (!isConfigured() || !_sbAvail()) { return { data:body, error:null }; }
   const url = SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict;
   const headers = {
     'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
@@ -3963,50 +3984,50 @@ async function getUser(email) {
   } catch(e) { return cached; }
 }
 async function getAllUsers() {
-  if (!isConfigured) return Object.values(lf.get('users')||{});
+  if (!isConfigured()) return Object.values(lf.get('users')||{});
   const {data}=await sbGet('users','?select=*&order=created_at.asc');
   return (data||[]).map(dbToUser);
 }
 async function createUser(user) {
-  if (!isConfigured) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
+  if (!isConfigured()) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
   return await sbPost('users', userToDb(user));
 }
 async function updateUser(email, updates) {
-  if (!isConfigured) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
+  if (!isConfigured()) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
   const result = await sbPatch('users', userToDb(updates), `?email=eq.${encodeURIComponent(email)}`);
   if (!result.error) Object.assign(currentUser, updates);
   return result;
 }
 async function deleteUser(email) {
-  if (!isConfigured) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
+  if (!isConfigured()) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
   return await sbDelete('users',`?email=eq.${encodeURIComponent(email)}`);
 }
 async function getDailyLog(email, date) {
-  if (!isConfigured) return lf.get('log_'+email+'_'+date)||defaultLog();
+  if (!isConfigured()) return lf.get('log_'+email+'_'+date)||defaultLog();
   const {data}=await sbGet('daily_logs',`?user_email=eq.${encodeURIComponent(email)}&log_date=eq.${date}&select=*`);
   if (data&&data.length>0) { const r=data[0]; return {foods:r.foods||[],checks:r.checks||{},water:r.water||0,fastStart:r.fast_start||'20:00',fastEnd:r.fast_end||'12:00'}; }
   return defaultLog();
 }
 async function saveDailyLog(email, date, log) {
-  if (!isConfigured) { lf.set('log_'+email+'_'+date,log); return; }
+  if (!isConfigured()) { lf.set('log_'+email+'_'+date,log); return; }
   await sbUpsert('daily_logs',{user_email:email,log_date:date,foods:log.foods||[],checks:log.checks||{},water:log.water||0,fast_start:log.fastStart||'20:00',fast_end:log.fastEnd||'12:00'},'user_email,log_date');
 }
 async function getOverrides(email) {
-  if (!isConfigured) return lf.get('overrides_'+email)||{};
+  if (!isConfigured()) return lf.get('overrides_'+email)||{};
   const {data}=await sbGet('workout_overrides',`?user_email=eq.${encodeURIComponent(email)}&select=*`);
   const r={}; (data||[]).forEach(d=>{ r[d.day_name]={focus:d.focus,notes:d.notes}; }); return r;
 }
 async function saveOverride(email,day,focus,notes) {
-  if (!isConfigured) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
+  if (!isConfigured()) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
   await sbUpsert('workout_overrides',{user_email:email,day_name:day,focus,notes},'user_email,day_name');
 }
 async function getCoachNotes(email) {
-  if (!isConfigured) return lf.get('cnotes_'+email)||'';
+  if (!isConfigured()) return lf.get('cnotes_'+email)||'';
   const {data}=await sbGet('coach_notes',`?user_email=eq.${encodeURIComponent(email)}&select=notes`);
   return data&&data.length>0 ? data[0].notes : '';
 }
 async function saveCoachNotes(email,notes) {
-  if (!isConfigured) { lf.set('cnotes_'+email,notes); return; }
+  if (!isConfigured()) { lf.set('cnotes_'+email,notes); return; }
   await sbUpsert('coach_notes',{user_email:email,notes},'user_email');
 }
 
@@ -4945,7 +4966,7 @@ async function submitCheckIn(){
   // Save locally
   lf.set('checkin_'+currentUser.email, data);
   // Also save to Supabase if configured (uses coach_notes table as a workaround, or can add a check_ins table)
-  if(isConfigured){
+  if(isConfigured()){
     const note=`CHECK-IN ${data.date}:\nEnergy:${data.energy}/10 Sleep:${data.sleep}/10 Stress:${data.stress}/10 Performance:${data.perf}/10\nWeight:${data.weight}lbs\nWin: ${data.win}\nChallenge: ${data.challenge}\nCoach Q: ${data.coachQ}`;
     await sbUpsert('coach_notes',{user_email:currentUser.email,notes:note},'user_email');
   }
@@ -5010,7 +5031,6 @@ function buildMobileNav(){
     {name:'🤖 AI Log',icon:'🤖', label:'AI Log',  special:true},
     {name:'📷 Scan',  icon:'📷', label:'Scan',    special:true},
     {name:'Workouts', icon:'💪', label:'Workouts'},
-    {name:'Course',   icon:'📚', label:'Course'},
     {name:'Progress', icon:'📈', label:'Progress'},
   ];
   const coachTabs=[
@@ -5442,7 +5462,7 @@ async function previewAsTierClient(tier){
 function buildNav(){
   const isClientView = !isCoach || window._previewMode;
   const tabs=isClientView
-    ?['Today','🤖 AI Log','📷 Scan','Nutrition','Workouts','Course','Progress','Profile']
+    ?['Today','🤖 AI Log','📷 Scan','Nutrition','Workouts','Progress','Profile']
     :['Dashboard','Clients','Schedule','Analytics','My Training','Settings'];
   set('navTabs',tabs.map((t,i)=>{
     const isAI   = t==='🤖 AI Log';
@@ -7009,9 +7029,9 @@ Restaurant orders, home cooking, recipes — anything works"
             </div>
           </div>
           <!-- Gallery picker — no capture attribute, allows photo library -->
-          <input type="file" id="nt-food-file" accept="image/*,.heic,.heif" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <input type="file" id="nt-food-file" accept="image/*" style="display:none" onchange="ntOnImgSelected(event)"/>
           <!-- Camera picker — capture forces camera on mobile -->
-          <input type="file" id="nt-food-file-camera" accept="image/*,.heic,.heif" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <input type="file" id="nt-food-file-camera" accept="image/*" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
 
           <!-- Action buttons -->
           <button class="btn scanner-analyze-btn" id="nt-analyze-btn" disabled onclick="ntAnalyzeFood()">
@@ -7383,7 +7403,8 @@ async function aiLogMeal(foodStr){
   await saveDailyLog(currentUser.email, getTodayStr(), currentLogs);
   addXP(currentUser.email, 'logFood', food.name + ' logged via AI +15 XP');
   vibrateDevice([20, 10, 30]);
-  showToast(`✅ ${food.name} logged! ${food.calories} kcal · ${food.protein}g protein`, 'success', 3500);
+  showRemainingMacros(entry);
+  showToast(`✅ ${food.name} logged! ${food.calories} kcal · ${food.protein}g protein`, 'success', 3000);
   // Clear input + result
   const inp = document.getElementById('ai-food-input');
   const rp = document.getElementById('ai-result-panel');
@@ -7412,24 +7433,11 @@ function ntHandleDrop(e){
 }
 function ntOnImgSelected(e){const f=e.target.files[0];if(f) ntProcessFile(f);}
 function ntProcessFile(file){
-  const validImage = file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
-if(!validImage){showToast('Please select an image file','error');return;}
+  if(!file.type.startsWith('image/')){showToast('Please select an image file','error');return;}
   if(file.size>20*1024*1024){showToast('Image too large — max 20MB','error');return;}
   const r=new FileReader();
   r.onload=ev=>{
     const img=new Image();
-    img.onerror=()=>{
-      // Canvas can't decode this format (e.g. HEIC on desktop) — send raw base64 directly
-      ntCurrentImage=ev.target.result;
-      const p=document.getElementById('nt-food-preview');
-      if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';}
-      const z=document.getElementById('nt-upload-zone');
-      if(z) z.style.display='none';
-      const btn=document.getElementById('nt-analyze-btn');
-      if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze with AI';}
-      const rp=document.getElementById('nt-results-panel');
-      if(rp&&!ntCurrentFood) rp.innerHTML='<div class="card" style="padding:2rem;text-align:center"><div style="font-size:2rem;margin-bottom:0.5rem">✅</div><div style="font-family:var(--font-cond);font-size:0.85rem;font-weight:700;color:var(--light)">PHOTO READY</div><div style="font-size:0.8rem;color:var(--muted);margin-top:0.3rem">Tap Analyze with AI to scan this meal</div></div>';
-    };
     img.onload=()=>{
       const MAX=512;
       let w=img.width,h=img.height;
@@ -7490,9 +7498,8 @@ async function ntAnalyzeFood(){
   });
 
   try{
-    const isRaw=ntCurrentImage.startsWith('data:') && !ntCurrentImage.startsWith('data:image/jpeg');
     const b64=ntCurrentImage.split(',')[1];
-    const mt=isRaw?(ntCurrentImage.split(';')[0].split(':')[1]||'image/jpeg'):'image/jpeg';
+    const mt=ntCurrentImage.split(';')[0].split(':')[1];
     const _ctrl = new AbortController();
     const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
     let res;
@@ -7518,18 +7525,6 @@ async function ntAnalyzeFood(){
     if(lastStep){lastStep.classList.replace('active','done');}
     setTimeout(()=>ntRenderFoodResult(food), 300);
     if(currentUser) addXP(currentUser.email,'logFood','AI meal scanned! +20 XP');
-    // Add scan another button to result
-    setTimeout(()=>{
-      const rp=document.getElementById('nt-results-panel');
-      if(rp){
-        const btn=document.createElement('button');
-        btn.className='btn btn-outline btn-full';
-        btn.style.marginTop='0.75rem';
-        btn.textContent='📷 Scan Another Meal';
-        btn.onclick=ntResetScanner;
-        rp.appendChild(btn);
-      }
-    },400);
   }catch(err){
     console.error('NT Analyze error:',err);
     document.getElementById('nt-results-panel').innerHTML=`
@@ -7664,18 +7659,14 @@ async function ntLogScannedFood(foodStr){
   currentLogs.foods.push(entry);
   await saveDailyLog(currentUser.email,getTodayStr(),currentLogs);
   addXP(currentUser.email,'logFood','AI meal logged +20 XP');
+  showRemainingMacros(entry);
   showToast(`✅ ${food.name} added to your log!`,'success');
   ntResetScanner();
   switchNutTab('log',document.getElementById('nut-tab-btn-log'));
 }
 
 function ntResetScanner(){
-  // Clear both file inputs so same photo can be reselected
-  ['nt-food-file','nt-food-file-camera'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.value='';
-  });
-  ntCurrentImage=null; ntCurrentFood=null; ntCurrentFile=null;
+  ntCurrentImage=null; ntCurrentFood=null;
   const p=document.getElementById('nt-food-preview');
   if(p){p.src='';p.style.display='none';p.classList.remove('scanner-preview');}
   const z=document.getElementById('nt-upload-zone');
@@ -7706,6 +7697,121 @@ async function deleteFood(i){
 // ================================================================
 //  CLIENT: WORKOUTS  (with per-exercise lift logging)
 // ================================================================
+
+// ── REMAINING MACROS AFTER FOOD LOG ─────────────────────────────
+function showRemainingMacros(entry) {
+  const macros = calcMacros(currentUser);
+  const foods = currentLogs.foods || [];
+  const totCal  = foods.reduce((s,f)=>s+(f.calories||0), 0);
+  const totProt  = foods.reduce((s,f)=>s+(f.protein||0), 0);
+  const totCarb  = foods.reduce((s,f)=>s+(f.carb||0), 0);
+  const totFat   = foods.reduce((s,f)=>s+(f.fat||0), 0);
+  const remCal   = Math.max(0, macros.calories - totCal);
+  const remProt  = Math.max(0, macros.protein  - totProt);
+  const remCarb  = Math.max(0, macros.carb     - totCarb);
+  const remFat   = Math.max(0, macros.fat      - totFat);
+  const overCal  = totCal > macros.calories;
+
+  // Remove any existing banner
+  const existing = document.getElementById('macro-remaining-banner');
+  if(existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'macro-remaining-banner';
+  banner.style.cssText = 'position:fixed;bottom:calc(5rem + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:9000;width:min(420px,94vw);background:var(--dark2);border:1px solid rgba(201,168,76,0.35);border-radius:12px;padding:0.9rem 1.1rem;box-shadow:0 8px 32px rgba(0,0,0,0.5);animation:modal-in 0.28s cubic-bezier(0.34,1.56,0.64,1)';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.55rem">
+      <div style="font-family:var(--font-cond);font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold)">✅ ${entry.name} logged</div>
+      <span onclick="document.getElementById('macro-remaining-banner').remove()" style="cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;padding:0 4px">✕</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem;margin-bottom:0.5rem">
+      ${[
+        ['Cal', remCal, overCal?'var(--red)':'var(--gold)'],
+        ['Prot', remProt+'g', 'var(--green)'],
+        ['Carbs', remCarb+'g', 'var(--blue)'],
+        ['Fat', remFat+'g', '#E08052'],
+      ].map(([l,v,col])=>`
+        <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:0.4rem 0.3rem;text-align:center">
+          <div style="font-family:var(--font-cond);font-weight:700;font-size:0.95rem;color:${col}">${v}</div>
+          <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">${l} left</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);text-align:center">${overCal?'⚠️ '+Math.abs(totCal-macros.calories)+' kcal over target today':'🎯 '+Math.round(totCal/macros.calories*100)+'% of daily calories used'}</div>`;
+  document.body.appendChild(banner);
+  setTimeout(()=>{
+    if(banner.parentNode){ banner.style.transition='opacity 0.4s,transform 0.4s'; banner.style.opacity='0'; banner.style.transform='translateX(-50%) translateY(12px)'; setTimeout(()=>banner.remove(),420); }
+  }, 5000);
+}
+
+
+// ── WORKOUT CALENDAR STRIP ───────────────────────────────────────
+function buildWorkoutCalStrip(user) {
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const prog = getProgram(user);
+  const now = new Date(today);
+  // Build 14-day window (7 past + today + 6 future)
+  const days = [];
+  for(let i = -6; i <= 6; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const ds = d.toISOString().split('T')[0];
+    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+    const schDay = prog.schedule.find(s => s.day === dayName);
+    const isRest = !schDay || schDay.exercises.length === 0;
+    const log = getWorkoutLog(user.email, ds) || {};
+    const done = !!log.completed;
+    const isToday = ds === getTodayStr();
+    const isFuture = d > now && !isToday;
+    days.push({ds, dayName, shortDay: dayNames[d.getDay()], dateNum: d.getDate(), isRest, done, isToday, isFuture, schDay});
+  }
+
+  return `<div style="overflow-x:auto;margin-bottom:1rem;padding-bottom:0.25rem">
+    <div style="display:flex;gap:0.35rem;min-width:max-content;padding:0.1rem 0">
+      ${days.map(d => {
+        const bg = d.isToday
+          ? 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--dark)'
+          : d.done
+          ? 'background:rgba(74,202,120,0.18);border-color:rgba(74,202,120,0.4);color:var(--green)'
+          : d.isRest && !d.isFuture
+          ? 'background:rgba(255,255,255,0.04);color:var(--muted)'
+          : d.isFuture
+          ? 'background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.25);border-color:rgba(255,255,255,0.06)'
+          : 'background:rgba(255,255,255,0.06);color:var(--light)';
+        const icon = d.done ? '✓' : d.isRest ? '—' : d.isFuture ? '' : '●';
+        const focus = d.schDay ? d.schDay.focus.split(' ')[0] : 'Rest';
+        return `<div onclick="goToWorkoutDate('${d.ds}')"
+          style="width:46px;flex-shrink:0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);padding:0.4rem 0.2rem;text-align:center;cursor:pointer;transition:all 0.15s;${bg}">
+          <div style="font-family:var(--font-cond);font-size:0.62rem;font-weight:700;letter-spacing:0.06em;margin-bottom:1px">${d.shortDay}</div>
+          <div style="font-size:1rem;font-weight:700;margin-bottom:2px">${d.dateNum}</div>
+          <div style="font-size:0.7rem;opacity:0.8">${icon}</div>
+          <div style="font-size:0.52rem;opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px">${focus}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// Navigate to a specific date's workout
+function goToWorkoutDate(dateStr) {
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const d = new Date(dateStr + 'T12:00:00');
+  const dayName = dayNames[d.getDay()];
+  // Scroll to that day's card and open it
+  const el = document.getElementById('wday-' + dayName);
+  if(el) {
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    // Open it
+    const body = el.querySelector('.workout-day-body');
+    const chevron = el.querySelector('.workout-day-chevron');
+    if(body) body.style.display = 'block';
+    if(chevron) chevron.style.transform = 'rotate(180deg)';
+    el.classList.add('open');
+    // Highlight briefly
+    el.style.borderColor = 'rgba(201,168,76,0.6)';
+    setTimeout(()=>{ el.style.borderColor = ''; }, 1500);
+  }
+}
+
 function renderWorkouts(){
   const user = currentUser;
   const prog = getProgram(user);
@@ -7748,9 +7854,13 @@ function renderWorkouts(){
     </div>`;
   }).join('');
 
+  // Build 7-day calendar strip
+  const calStrip = buildWorkoutCalStrip(user);
+
   set('mainContent',`
     <div class="section-title">${prog.name}</div>
     <div class="section-sub">Tap any day to log your sets. Track weight, reps, and RPE — every session builds the next.</div>
+    ${calStrip}
 
     ${(user.tier||'free')==='free'?`
     <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
@@ -9172,7 +9282,7 @@ function _settingsPlatform(){
   +'5. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase functions deploy analyze-food</code><br>'
   +'Done — all clients can scan food instantly with zero setup on their end.'
   +'</div></div>'
-  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured?'success':'danger')+'">'+(isConfigured?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
+  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured()?'success':'danger')+'">'+(isConfigured()?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
   +'<div class="card"><div class="card-title">📤 Data Export</div><div style="display:flex;gap:0.75rem;flex-wrap:wrap"><button class="btn btn-outline" onclick="exportData()">📥 Client Data</button><button class="btn btn-outline" onclick="exportWorkoutLogs()">🏋️ Workout Logs</button></div></div>'
   +'<div class="card"><div class="card-title">🎮 Active Features</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.84rem">'+['XP Level System','Daily Challenges','21-Day Habit Tracker','Streak Rewards','PR Celebrations','Daily Motivational Quotes','AI Food Scanner 📷','Micronutrient Tracking 🧬'].map(function(f){return '<div style="padding:0.4rem 0.5rem;background:var(--dark3);border-radius:var(--radius-sm)">✅ '+f+'</div>';}).join('')+'</div></div>'
   +'<div class="card"><div class="card-title">🔒 Security</div><p style="color:var(--muted);font-size:0.86rem;line-height:1.6">Coach access protected by secret URL + password with 3-attempt lockout.</p></div>';
@@ -9211,7 +9321,7 @@ const DEFAULT_AVAILABILITY = [
 
 // Availability storage
 async function getAvailability() {
-  if (isConfigured) {
+  if (isConfigured()) {
     const {data} = await sbGet('availability', '?select=*&order=id.asc');
     if (data && data.length > 0) return data.map(r => ({
       day: r.day_name, enabled: r.enabled,
@@ -9222,7 +9332,7 @@ async function getAvailability() {
 }
 async function saveAvailabilityData(avail) {
   lf.set('coach_availability', avail);
-  if (isConfigured) {
+  if (isConfigured()) {
     for (const a of avail) {
       await sbUpsert('availability', { day_name: a.day, enabled: a.enabled, start_time: a.startTime, end_time: a.endTime, slot_duration: a.slotDuration }, 'day_name');
     }
@@ -9231,7 +9341,7 @@ async function saveAvailabilityData(avail) {
 
 // Blocked dates storage
 async function getBlockedDates() {
-  if (isConfigured) {
+  if (isConfigured()) {
     const {data} = await sbGet('blocked_dates', '?select=*&order=block_date.asc');
     if (data) return data.map(r => ({ date: r.block_date, type: r.block_type, reason: r.reason }));
   }
@@ -9241,17 +9351,17 @@ async function addBlockedDate(date, type, reason) {
   const existing = await getBlockedDates();
   existing.push({ date, type, reason });
   lf.set('blocked_dates', existing);
-  if (isConfigured) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
+  if (isConfigured()) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
 }
 async function removeBlockedDate(date) {
   const b = (await getBlockedDates()).filter(d => d.date !== date);
   lf.set('blocked_dates', b);
-  if (isConfigured) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
+  if (isConfigured()) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
 }
 
 // Sessions storage
 async function getAllSessions() {
-  if (isConfigured) {
+  if (isConfigured()) {
     const {data} = await sbGet('sessions', '?select=*&order=session_date.asc,session_time.asc');
     if (data) return data.map(r => ({
       id: r.id, clientEmail: r.client_email, clientName: r.client_name,
@@ -9272,7 +9382,7 @@ async function createSession(session) {
   const newS = { ...session, id: 'sess_' + Date.now(), createdAt: new Date().toISOString() };
   sessions.push(newS);
   lf.set('sessions', sessions);
-  if (isConfigured) {
+  if (isConfigured()) {
     await sbPost('sessions', {
       client_email: session.clientEmail, client_name: session.clientName,
       session_type: session.type, session_date: session.date,
@@ -9287,7 +9397,7 @@ async function updateSession(id, updates) {
   const sessions = lf.get('sessions') || [];
   const idx = sessions.findIndex(s => s.id === id);
   if (idx !== -1) { sessions[idx] = { ...sessions[idx], ...updates }; lf.set('sessions', sessions); }
-  if (isConfigured) {
+  if (isConfigured()) {
     const dbUpdates = {};
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.meetLink !== undefined) dbUpdates.meet_link = updates.meetLink;
@@ -10880,7 +10990,7 @@ async function submitConversion(){
   lf.set('leads', leads);
 
   // Save to Supabase if configured (uses users table as lead capture)
-  if(isConfigured){
+  if(isConfigured()){
     try {
       await sb('users','POST',{
         email, first_name:'Lead', last_name:'(Conversion)',
@@ -10974,7 +11084,7 @@ async function submitApplication(){
   lf.set('applications', apps);
 
   // Save to Supabase
-  if(isConfigured){
+  if(isConfigured()){
     try {
       await sb('users','POST',{
         email, first_name: first, last_name: last, tier:'free', goal:'greek_god',
@@ -11014,7 +11124,7 @@ function claimFreeVideo(){
   leads.push({ email, type:'free_video', date: getTodayStr() });
   lf.set('leads', leads);
 
-  if(isConfigured){
+  if(isConfigured()){
     sb('users','POST',{ email, first_name:'Lead', last_name:'(Free Video)', tier:'free', goal:'greek_god' }).catch(()=>{});
   }
 
@@ -11069,6 +11179,9 @@ function getWeekNumber(d) {
 }
 
 async function init(){
+  // Load secrets from Netlify function before anything else runs
+  await loadConfig();
+
   document.getElementById('faqContainer').innerHTML = faqHTML();
   initCounterAnimation();
 
