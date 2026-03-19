@@ -3440,24 +3440,12 @@ if ('serviceWorker' in navigator) {
       <select id="foodMeal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option>Pre-Workout</option><option>Post-Workout</option></select>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Calories</label><input type="number" id="foodCals" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
-      <div class="form-group"><label>Protein (g)</label><input type="number" id="foodProtein" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
+      <div class="form-group"><label>Calories</label><input type="number" id="foodCals" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Protein (g)</label><input type="number" id="foodProtein" placeholder="0" min="0"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Carbs (g)</label><input type="number" id="foodCarbs" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
-      <div class="form-group"><label>Fats (g)</label><input type="number" id="foodFats" placeholder="0" min="0" oninput="liveUpdateMacros()"></div>
-    </div>
-    <!-- Live macro preview — updates as user types -->
-    <div id="foodLivePreview" style="display:none;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-sm);padding:0.6rem 0.85rem;margin-bottom:0.5rem">
-      <div style="font-family:var(--font-cond);font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">This entry</div>
-      <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
-        <div style="text-align:center"><div id="fpCal" style="font-family:var(--font-display);font-size:1.1rem;color:var(--gold);line-height:1">0</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">KCAL</div></div>
-        <div style="text-align:center"><div id="fpPro" style="font-family:var(--font-display);font-size:1.1rem;color:#4ACA78;line-height:1">0g</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">PROTEIN</div></div>
-        <div style="text-align:center"><div id="fpCarb" style="font-family:var(--font-display);font-size:1.1rem;color:#4E8FE0;line-height:1">0g</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">CARBS</div></div>
-        <div style="text-align:center"><div id="fpFat" style="font-family:var(--font-display);font-size:1.1rem;color:#E08052;line-height:1">0g</div><div style="font-size:0.58rem;color:var(--muted);font-family:var(--font-cond);margin-top:1px">FATS</div></div>
-      </div>
-      <!-- Running total vs target -->
-      <div id="foodLiveTotals" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.05);font-family:var(--font-cond);font-size:0.68rem;color:var(--muted);display:flex;gap:1rem;flex-wrap:wrap"></div>
+      <div class="form-group"><label>Carbs (g)</label><input type="number" id="foodCarbs" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Fats (g)</label><input type="number" id="foodFats" placeholder="0" min="0"></div>
     </div>
     <div class="form-error" id="foodError"></div>
     <div style="display:flex;gap:0.75rem;margin-top:1rem;">
@@ -3858,149 +3846,6 @@ function debounce(fn, ms) {
     t = setTimeout(() => fn.apply(this, arguments), ms);
   };
 }
-
-// ── REAL-TIME MACRO PREVIEW ───────────────────────────
-// Called on every keystroke in the food modal.
-// 1. Updates the inline preview strip instantly (no debounce needed — pure DOM reads).
-// 2. Debounces a ring patch so the rings animate smoothly 300ms after the user stops typing.
-const _debouncedRingPatch = debounce(function() {
-  if (!currentUser) return;
-  const macros = calcMacros(currentUser);
-  const logged = logTotals(currentLogs.foods || []);
-  const entry = {
-    calories: +document.getElementById('foodCals')?.value || 0,
-    protein:  +document.getElementById('foodProtein')?.value || 0,
-    carb:     +document.getElementById('foodCarbs')?.value || 0,
-    fat:      +document.getElementById('foodFats')?.value || 0,
-  };
-  const preview = {
-    calories: logged.calories + entry.calories,
-    protein:  logged.protein  + entry.protein,
-    carb:     logged.carb     + entry.carb,
-    fat:      logged.fat      + entry.fat,
-    fiber:    logged.fiber || 0,
-  };
-  patchMacroRings(macros, preview);
-}, 300);
-
-function liveUpdateMacros() {
-  const cal  = +document.getElementById('foodCals')?.value    || 0;
-  const prot = +document.getElementById('foodProtein')?.value || 0;
-  const carb = +document.getElementById('foodCarbs')?.value   || 0;
-  const fat  = +document.getElementById('foodFats')?.value    || 0;
-  const any  = cal || prot || carb || fat;
-
-  // Show/hide the preview strip
-  const preview = document.getElementById('foodLivePreview');
-  if (preview) preview.style.display = any ? 'block' : 'none';
-
-  // Update the per-entry numbers instantly
-  const fpCal  = document.getElementById('fpCal');
-  const fpPro  = document.getElementById('fpPro');
-  const fpCarb = document.getElementById('fpCarb');
-  const fpFat  = document.getElementById('fpFat');
-  if (fpCal)  fpCal.textContent  = cal;
-  if (fpPro)  fpPro.textContent  = prot + 'g';
-  if (fpCarb) fpCarb.textContent = carb + 'g';
-  if (fpFat)  fpFat.textContent  = fat  + 'g';
-
-  // Show running total vs target in the bottom row
-  if (currentUser && any) {
-    const macros  = calcMacros(currentUser);
-    const logged  = logTotals(currentLogs.foods || []);
-    const totals  = document.getElementById('foodLiveTotals');
-    if (totals) {
-      const mkSpan = (got, goal, unit, color) => {
-        const over = got > goal;
-        return `<span style="color:${over ? 'var(--red)' : color}">${got}/${goal}${unit}${over ? ' ⚠' : ''}</span>`;
-      };
-      totals.innerHTML =
-        '<span style="color:var(--muted);margin-right:0.25rem">After adding:</span>' +
-        mkSpan(Math.round(logged.calories + cal),  macros.calories, ' kcal', 'var(--gold)')  + ' · ' +
-        mkSpan(Math.round(logged.protein  + prot), macros.protein,  'g prot', '#4ACA78')    + ' · ' +
-        mkSpan(Math.round(logged.carb     + carb), macros.carb,     'g carb', '#4E8FE0')    + ' · ' +
-        mkSpan(Math.round(logged.fat      + fat),  macros.fat,      'g fat',  '#E08052');
-    }
-  }
-
-  // Debounced ring animation
-  _debouncedRingPatch();
-}
-
-// Patches the macro rings in-place without re-rendering the whole nutrition page.
-// Finds each ring by its label, updates stroke-dashoffset + displayed value.
-function patchMacroRings(macros, totals) {
-  const R = 34, C = 2 * Math.PI * R;
-  const sex = currentUser?.sex || 'male';
-  const items = [
-    { label: 'Cal',   goal: macros.calories, got: Math.round(totals.calories || 0), unit: '',   color: '#C9A84C' },
-    { label: 'Prot',  goal: macros.protein,  got: Math.round(totals.protein  || 0), unit: 'g',  color: '#4ACA78' },
-    { label: 'Carbs', goal: macros.carb,     got: Math.round(totals.carb     || 0), unit: 'g',  color: '#4E8FE0' },
-    { label: 'Fats',  goal: macros.fat,      got: Math.round(totals.fat      || 0), unit: 'g',  color: '#E08052' },
-    { label: 'Fiber', goal: sex === 'female' ? 25 : 38, got: Math.round(totals.fiber || 0), unit: 'g', color: '#9B6FE0' },
-  ];
-
-  // Find all ring-wrap elements by their label text
-  document.querySelectorAll('.macro-ring-wrap').forEach(wrap => {
-    const nameEl = wrap.querySelector('.macro-ring-name');
-    if (!nameEl) return;
-    const item = items.find(i => i.label.toUpperCase() === nameEl.textContent.trim().toUpperCase());
-    if (!item) return;
-
-    const pct  = item.goal > 0 ? Math.min(item.got / item.goal, 1) : 0;
-    const over = item.got > item.goal;
-    const clr  = over ? '#E05252' : item.color;
-    const dash = C * pct;
-
-    // Update the SVG ring stroke
-    const fill = wrap.querySelector('.macro-ring-fill');
-    if (fill) {
-      fill.style.stroke = clr;
-      fill.setAttribute('stroke-dashoffset', C - dash);
-    }
-
-    // Update the displayed value
-    const valEl = wrap.querySelector('.macro-ring-val');
-    if (valEl) { valEl.textContent = item.got; valEl.style.color = clr; }
-
-    // Update the remaining label
-    const remEl = wrap.querySelector('.macro-ring-remain');
-    if (remEl) {
-      const remain = item.goal - item.got;
-      remEl.style.color = over ? 'var(--red)' : remain <= 0 ? 'var(--green)' : 'var(--muted)';
-      remEl.textContent = over
-        ? '⚠️ +' + Math.abs(remain)
-        : remain <= 0 ? '✓' : remain + item.unit + ' left';
-    }
-  });
-
-  // Patch the calorie progress bar + text if it exists on the page
-  const calPct  = macros.calories > 0 ? Math.min(Math.round((totals.calories || 0) / macros.calories * 100), 100) : 0;
-  const calOver = (totals.calories || 0) > macros.calories;
-  document.querySelectorAll('.prog-fill').forEach(bar => {
-    const parent = bar.closest('[data-macro-bar="calories"]');
-    if (!parent) return;
-    bar.style.width = calPct + '%';
-    bar.style.background = calOver ? 'var(--red)' : calPct >= 90 ? 'var(--green)' : 'linear-gradient(90deg,var(--gold),var(--green))';
-  });
-}
-
-// Reset the preview strip when the modal closes/opens
-const _origOpenModal = window.openModal;
-window.openModal = function(id) {
-  if (id === 'addFoodModal') {
-    const preview = document.getElementById('foodLivePreview');
-    if (preview) preview.style.display = 'none';
-    const totals = document.getElementById('foodLiveTotals');
-    if (totals) totals.innerHTML = '';
-    ['fpCal','fpPro','fpCarb','fpFat'].forEach(eid => {
-      const el = document.getElementById(eid);
-      if (el) el.textContent = eid === 'fpCal' ? '0' : '0g';
-    });
-  }
-  if (_origOpenModal) _origOpenModal.apply(this, arguments);
-};
-// ─────────────────────────────────────────────────────
 
 // ── Throttle utility ─────────────────────────────────
 function throttle(fn, ms) {
@@ -6326,7 +6171,7 @@ function dayDetailHTML(date, lg, macros, showDelete=false, clientName=''){
       </tbody></table></div>`:`<p style="color:var(--muted);font-size:0.84rem">No food logged — checklist only day.</p>`}
     ${hasMicros?`<div style="margin-top:0.875rem;padding-top:0.875rem;border-top:1px solid rgba(255,255,255,0.06)">
       <div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">🧬 Micronutrients</div>
-      ${_microSummaryHTML1}
+      ${microSummaryHTML(foods, sex)}
     </div>`:''}
   </div>`;
 }
@@ -6765,19 +6610,7 @@ async function saveFood(){
   document.getElementById('foodError').textContent='';
   setBtn('foodBtn',false,'Log It');
   showToast(`Logged: ${food.name} — ${food.calories} kcal`,'success');
-
-  // Patch rings + food list in-place — no full page re-render needed
-  const _macros = calcMacros(currentUser);
-  const _totals = logTotals(currentLogs.foods);
-  patchMacroRings(_macros, _totals);
-
-  // Append the new food row to the live list if it's visible
-  const foodList = document.querySelector('#nut-tab-log .macro-food-list, #nut-tab-log [data-food-list]');
-  if (foodList) {
-    renderNutrition(); // list needs full render only if the list container exists
-  } else {
-    renderNutrition();
-  }
+  renderClientDashboard();
 }
 
 // ================================================================
@@ -6995,7 +6828,7 @@ async function renderNutrition(action, arg, tab){
 
       ${hasMicros?`<div class="card">
         <div class="card-title">🧬 Micronutrients Today</div>
-        ${_microSummaryHTML1}
+        ${microSummaryHTML(foods, sex)}
       </div>`:''}
 
       <!-- Quick add chips at bottom of log -->
