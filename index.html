@@ -4937,11 +4937,15 @@ function renderWeeklyCheckIn(){
         <textarea id="ciCoach" placeholder="Anything you want your coach to know or address?"></textarea>
       </div>
       <div class="checkin-q">
-        <label>Photo check-in ready?</label>
-        <div style="display:flex;gap:0.5rem;margin-top:0.4rem">
-          <button class="rating-btn" id="photo-yes" onclick="selectRating('photo','yes')" style="width:auto;padding:0 1rem">Yes ✅</button>
-          <button class="rating-btn" id="photo-no" onclick="selectRating('photo','no')" style="width:auto;padding:0 1rem">Not yet</button>
+        <label>Progress Photos</label>
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.5rem">Front, side, or back — only your coach can see these. Add up to 3.</div>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem" id="ciPhotoPreviewRow"></div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button onclick="document.getElementById('ciPhotoInput').click()" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);color:var(--gold2);font-family:var(--font-cond);font-size:0.78rem;padding:0.4rem 0.85rem;border-radius:6px;cursor:pointer">📷 Add Photo</button>
+          <button onclick="ciPastePhoto()" style="background:rgba(155,111,224,0.08);border:1px solid rgba(155,111,224,0.25);color:var(--purple);font-family:var(--font-cond);font-size:0.78rem;padding:0.4rem 0.85rem;border-radius:6px;cursor:pointer">📋 Paste</button>
         </div>
+        <input type="file" id="ciPhotoInput" accept="image/*" multiple style="display:none" onchange="ciHandlePhotoFiles(event)">
+        <div id="ciPhotoStatus" style="font-size:0.72rem;color:var(--muted);margin-top:0.35rem"></div>
       </div>
       <button class="btn btn-gold" id="submitCheckInBtn" onclick="submitCheckIn()">Submit Check-In →</button>
     </div>
@@ -4966,29 +4970,75 @@ function selectRating(cat, val){
     });
   }
 }
+// ── PROGRESS PHOTO UPLOAD ────────────────────────────────────
+window._ciPhotos = [];
+
+function ciHandlePhotoFiles(e) {
+  Array.from(e.target.files||[]).slice(0, 3 - window._ciPhotos.length).forEach(f => {
+    if (!f.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = ev => { window._ciPhotos.push({dataUrl:ev.target.result,file:f}); ciRenderPhotoPreviews(); };
+    r.readAsDataURL(f);
+  });
+  e.target.value = '';
+}
+async function ciPastePhoto() {
+  try {
+    if (!navigator.clipboard?.read) { showToast('Use Ctrl+V to paste','info'); return; }
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const t = item.types.find(t=>t.startsWith('image/'));
+      if (t) { const blob=await item.getType(t); const f=new File([blob],'paste.jpg',{type:t}); const r=new FileReader(); r.onload=ev=>{if(window._ciPhotos.length<3){window._ciPhotos.push({dataUrl:ev.target.result,file:f});ciRenderPhotoPreviews();}}; r.readAsDataURL(f); return; }
+    }
+    showToast('No image in clipboard','error');
+  } catch(e) { showToast('Copy an image then try again','info'); }
+}
+function ciRenderPhotoPreviews() {
+  const row = document.getElementById('ciPhotoPreviewRow');
+  const status = document.getElementById('ciPhotoStatus');
+  if (row) row.innerHTML = window._ciPhotos.map((p,i)=>`
+    <div style="position:relative;display:inline-block">
+      <img src="${p.dataUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.12)">
+      <button onclick="window._ciPhotos.splice(${i},1);ciRenderPhotoPreviews()" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:0.6rem;cursor:pointer;line-height:1">✕</button>
+    </div>`).join('');
+  if (status) status.textContent = window._ciPhotos.length ? `${window._ciPhotos.length}/3 photo${window._ciPhotos.length>1?'s':''} ready` : '';
+}
+async function uploadProgressPhoto(email, dataUrl, filename) {
+  const base64=dataUrl.split(',')[1]; const mime=dataUrl.split(';')[0].split(':')[1];
+  const path=`${email}/${getTodayStr()}_${filename}`;
+  const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+  const res=await _nativeFetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':mime,'x-upsert':'true'},body:bytes});
+  if(!res.ok) throw new Error('Upload failed: '+res.status);
+  return path;
+}
+async function getProgressPhotoUrl(path) {
+  const res=await _nativeFetch(`${SUPABASE_URL}/storage/v1/object/sign/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
+  const data=await res.json();
+  return data.signedURL ? `${SUPABASE_URL}/storage/v1${data.signedURL}` : null;
+}
+// ─────────────────────────────────────────────────────────────
+
 async function submitCheckIn(){
   const r=window._ciRatings||{};
   const ciWeight=parseFloat(document.getElementById('ciWeight').value)||currentUser.weight;
-  const data={
-    date:getTodayStr(), week:getWeekNumber(),
-    energy:r.energy, sleep:r.sleep, stress:r.stress, perf:r.perf, photo:r.photo,
-    weight:ciWeight,
-    win:document.getElementById('ciWin').value,
-    challenge:document.getElementById('ciChallenge').value,
-    coachQ:document.getElementById('ciCoach').value,
-    email:currentUser.email, name:currentUser.firstName+' '+currentUser.lastName
-  };
   setBtn('submitCheckInBtn',true);
-  // Save locally
-  lf.set('checkin_'+currentUser.email, data);
-  // Also save to Supabase if configured (uses coach_notes table as a workaround, or can add a check_ins table)
-  if(isConfigured){
-    const note=`CHECK-IN ${data.date}:\nEnergy:${data.energy}/10 Sleep:${data.sleep}/10 Stress:${data.stress}/10 Performance:${data.perf}/10\nWeight:${data.weight}lbs\nWin: ${data.win}\nChallenge: ${data.challenge}\nCoach Q: ${data.coachQ}`;
-    await sbUpsert('coach_notes',{user_email:currentUser.email,notes:note},'user_email');
+  const photoUrls=[];
+  if(window._ciPhotos&&window._ciPhotos.length){
+    const statusEl=document.getElementById('ciPhotoStatus');
+    if(statusEl) statusEl.textContent='Uploading photos...';
+    for(let i=0;i<window._ciPhotos.length;i++){
+      try{ const path=await uploadProgressPhoto(currentUser.email,window._ciPhotos[i].dataUrl,'photo'+(i+1)+'.jpg'); photoUrls.push(path); }
+      catch(e){ console.error('Photo upload failed:',e); showToast('Photo upload failed — saving check-in without it','error',3000); }
+    }
   }
-  // Update weight if changed
+  const data={date:getTodayStr(),week:getWeekNumber(),energy:r.energy,sleep:r.sleep,stress:r.stress,perf:r.perf,weight:ciWeight,win:document.getElementById('ciWin').value,challenge:document.getElementById('ciChallenge').value,coachQ:document.getElementById('ciCoach').value,photo_urls:photoUrls,email:currentUser.email,name:currentUser.firstName+' '+currentUser.lastName};
+  lf.set('checkin_'+currentUser.email,data);
+  if(isConfigured()){
+    await sbUpsert('check_ins',{user_email:currentUser.email,date:data.date,week:data.week,energy:data.energy,sleep:data.sleep,stress:data.stress,perf:data.perf,weight:data.weight,win:data.win,challenge:data.challenge,coach_q:data.coachQ,photo_urls:JSON.stringify(photoUrls)},'user_email,date');
+  }
   if(ciWeight!==currentUser.weight) await updateUser(currentUser.email,{weight:ciWeight});
-  showToast('Check-in submitted! Your coach will review it soon.','gold',4000);
+  window._ciPhotos=[];
+  showToast('Check-in submitted'+(photoUrls.length?' + '+photoUrls.length+' photo'+(photoUrls.length>1?'s':'')+' uploaded':'')+'! Your coach will review it soon.','gold',4000);
   setBtn('submitCheckInBtn',false,'Submit Check-In →');
   switchToTab('Today');
 }
@@ -8938,6 +8988,28 @@ async function applyTier(email, tier){
 }
 
 async function deleteClientUser(email){ await deleteUser(email); renderClientList(); }
+async function loadProgressPhotos(email) {
+  const gallery=document.getElementById('photoGallery-'+email);
+  if(!gallery) return;
+  gallery.innerHTML='<div style="color:var(--muted);font-size:0.82rem">Loading photos...</div>';
+  try {
+    const {data}=await sbGet('check_ins',`?user_email=eq.${encodeURIComponent(email)}&order=date.desc&limit=12&select=date,photo_urls`);
+    const rows=(data||[]).filter(r=>{const urls=r.photo_urls?(typeof r.photo_urls==='string'?JSON.parse(r.photo_urls):r.photo_urls):[];return urls.length>0;});
+    if(!rows.length){gallery.innerHTML='<div style="color:var(--muted);font-size:0.82rem">No photos submitted yet.</div>';return;}
+    let html='';
+    for(const row of rows){
+      const paths=typeof row.photo_urls==='string'?JSON.parse(row.photo_urls):(row.photo_urls||[]);
+      html+=`<div style="margin-bottom:0.75rem"><div style="font-size:0.7rem;color:var(--muted);font-family:var(--font-cond);margin-bottom:0.35rem">${row.date}</div><div style="display:flex;gap:0.4rem;flex-wrap:wrap">`;
+      for(const path of paths){
+        try{const signed=await getProgressPhotoUrl(path);if(signed)html+=`<img src="${signed}" onclick="window.open('${signed}','_blank')" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1);cursor:pointer" onerror="this.style.display='none'">`;
+        }catch(e){}
+      }
+      html+='</div></div>';
+    }
+    gallery.innerHTML=html||'<div style="color:var(--muted);font-size:0.82rem">Could not load photos.</div>';
+  }catch(e){gallery.innerHTML='<div style="color:var(--red);font-size:0.82rem">Error: '+e.message+'</div>';}
+}
+
 async function viewClientByEmail(email){
   const all=await getAllUsers();
   viewingClient=all.find(u=>u.email===email);
@@ -9039,6 +9111,27 @@ async function renderClientProfile(user){
         <div class="card" style="margin-bottom:1.25rem">
           <div class="card-title">📋 Accountability Report</div>
           ${_accountabilityReport}
+        </div>
+
+        <div class="card" style="margin-bottom:1.25rem">
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            📸 Progress Photos
+            <span style="font-size:0.72rem;color:var(--muted);font-weight:400">Weekly check-ins</span>
+          </div>
+          <div id="photoGallery-${user.email}">
+            <button onclick="loadProgressPhotos('${user.email}')" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);color:var(--gold2);font-family:var(--font-cond);font-size:0.78rem;padding:0.4rem 0.85rem;border-radius:6px;cursor:pointer">📷 Load Photos</button>
+          </div>
+          ${(()=>{const ci=lf.get('checkin_'+user.email);if(!ci) return '<div style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">No check-ins yet.</div>';
+            return `<div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.06)">
+              <div style="font-size:0.7rem;color:var(--muted);font-family:var(--font-cond);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem">Latest Check-In — ${ci.date||''}</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem">
+                ${[['Energy',ci.energy,'var(--green)'],['Sleep',ci.sleep,'var(--blue)'],['Stress',ci.stress,'#f5a623'],['Perf',ci.perf,'var(--purple)']].map(([l,v,col])=>`<div style="background:var(--dark3);border-radius:4px;padding:0.4rem;text-align:center"><div style="font-family:var(--font-display);font-size:1.1rem;color:${col};line-height:1">${v||'—'}</div><div style="font-size:0.6rem;color:var(--muted);font-family:var(--font-cond)">${l}</div></div>`).join('')}
+              </div>
+              ${ci.win?`<div style="margin-top:0.5rem;font-size:0.78rem"><span style="color:var(--green)">Win:</span> ${ci.win}</div>`:''}
+              ${ci.challenge?`<div style="font-size:0.78rem"><span style="color:var(--gold)">Challenge:</span> ${ci.challenge}</div>`:''}
+              ${ci.coachQ?`<div style="font-size:0.78rem"><span style="color:var(--blue)">Question:</span> ${ci.coachQ}</div>`:''}
+            </div>`;
+          })()}
         </div>
 
         <div class="card" style="margin-bottom:1.25rem">
