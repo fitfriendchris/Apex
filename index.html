@@ -7203,7 +7203,7 @@ async function aiAnalyzeMeal(){
   const sex = user.sex || 'male';
 
   try{
-    const _aiTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 25000));
+    const _aiTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out — Groq is slow, please retry')), 45000));
     const _aiFetch = _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
@@ -7232,9 +7232,9 @@ async function aiAnalyzeMeal(){
     if(resultPanel) resultPanel.innerHTML = `
       <div class="card" style="padding:1.5rem">
         <div style="color:var(--red);font-weight:700;margin-bottom:0.5rem">⚠️ Calculation Failed</div>
-        <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">${err.name==='AbortError'?'Request timed out — try again.':'Try rephrasing — be more specific about portions and foods.'}</div>
+        <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">${err.message.includes('timed out')?'AI is taking longer than usual — tap Retry.':err.message.includes('Failed to fetch')?'Network error — check your connection.':'Try rephrasing — be more specific about portions and foods.'}</div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-          <button class="btn btn-gold btn-sm" onclick="aiAnalyzeMeal()">Retry</button>
+          <button class="btn btn-gold btn-sm" onclick="aiAnalyzeMeal()">↺ Retry</button>
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('ai-result-panel').innerHTML=''">Clear</button>
         </div>
       </div>`;
@@ -7397,8 +7397,28 @@ async function aiLogMeal(foodStr){
   await saveDailyLog(currentUser.email, getTodayStr(), currentLogs);
   addXP(currentUser.email, 'logFood', food.name + ' logged via AI +15 XP');
   vibrateDevice([20, 10, 30]);
+
+  // Patch macro rings in-place immediately
+  const _logMacros = calcMacros(currentUser);
+  const _logTotals = logTotals(currentLogs.foods);
+  if(typeof patchMacroRings === 'function') patchMacroRings(_logMacros, _logTotals);
+
+  // Show remaining macros banner with over-target alerts
   showRemainingMacros(entry);
-  showToast(`✅ ${food.name} logged! ${food.calories} kcal · ${food.protein}g protein`, 'success', 3000);
+
+  // Smart toast — warn if over on any macro
+  const _tm = _logTotals;
+  const _ovr = [];
+  if(_tm.calories  > _logMacros.calories * 1.05) _ovr.push('calories');
+  if(_tm.protein   > _logMacros.protein  * 1.15) _ovr.push('protein');
+  if(_tm.carb      > _logMacros.carb     * 1.10) _ovr.push('carbs');
+  if(_tm.fat       > _logMacros.fat      * 1.10) _ovr.push('fats');
+  if(_ovr.length) {
+    showToast('⚠️ Over on ' + _ovr.join(', ') + ' today', 'error', 4000);
+  } else {
+    showToast(`✅ ${food.name} logged! ${food.calories} kcal · ${food.protein}g protein`, 'success', 3000);
+  }
+
   // Clear input + result
   const inp = document.getElementById('ai-food-input');
   const rp = document.getElementById('ai-result-panel');
@@ -7726,7 +7746,17 @@ function showRemainingMacros(entry) {
           <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">${l} left</div>
         </div>`).join('')}
     </div>
-    <div style="font-size:0.72rem;color:var(--muted);text-align:center">${overCal?'⚠️ '+Math.abs(totCal-macros.calories)+' kcal over target today':'🎯 '+Math.round(totCal/macros.calories*100)+'% of daily calories used'}</div>`;
+    ${(()=>{
+      const alerts=[];
+      if(totCal  > macros.calories * 1.05) alerts.push('⚠️ '+(totCal-macros.calories)+' kcal over');
+      if(totProt > macros.protein  * 1.15) alerts.push('⚠️ protein over');
+      if(totCarb > macros.carb     * 1.10) alerts.push('⚠️ carbs over');
+      if(totFat  > macros.fat      * 1.10) alerts.push('⚠️ fats over');
+      if(alerts.length) return '<div style="font-size:0.72rem;color:var(--red);text-align:center;font-weight:700">'+alerts.join(' · ')+'</div>';
+      const pct=Math.round(totCal/macros.calories*100);
+      const col=pct>=90?'var(--green)':pct>=70?'var(--gold)':'var(--muted)';
+      return '<div style="font-size:0.72rem;color:'+col+';text-align:center">🎯 '+pct+'% of daily calories · '+Math.round(remProt)+'g protein left</div>';
+    })()}`;
   document.body.appendChild(banner);
   setTimeout(()=>{
     if(banner.parentNode){ banner.style.transition='opacity 0.4s,transform 0.4s'; banner.style.opacity='0'; banner.style.transform='translateX(-50%) translateY(12px)'; setTimeout(()=>banner.remove(),420); }
