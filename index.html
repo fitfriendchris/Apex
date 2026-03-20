@@ -3620,8 +3620,7 @@ if ('serviceWorker' in navigator) {
   <div class="mob-nav-bar" id="mobileNav"></div>
 </div>
 
-<script>const _nativeFetch = window.fetch.bind(window);
-
+<script>
 // ================================================================
 //  CONFIG
 // ================================================================
@@ -4285,56 +4284,9 @@ function getTodayWorkout(user, overrides) {
   return base;
 }
 
-// ── CUSTOM SPLIT SYSTEM ──────────────────────────────────────
-// Lets users remap which workout falls on which day,
-// or mark any day's workout as "do today instead"
-
-function getCustomSplit(email) {
-  return lf.get('custom_split_' + email) || null;
-}
-function saveCustomSplit(email, split) {
-  lf.set('custom_split_' + email, split);
-}
-function clearCustomSplit(email) {
-  lf.del('custom_split_' + email);
-}
-
-// Returns the effective program schedule, applying any custom day assignments
-function getEffectiveSchedule(user) {
-  const prog = getProgram(user);
-  const custom = getCustomSplit(user.email);
-  if (!custom) return prog.schedule;
-  // custom is {Monday:'Wednesday', Tuesday:'Friday', ...}
-  // meaning "on Monday, do Wednesday's workout"
-  return prog.schedule.map(day => {
-    const remapped = custom[day.day];
-    if (!remapped) return day;
-    const source = prog.schedule.find(d => d.day === remapped);
-    if (!source) return day;
-    return { ...source, day: day.day, _remappedFrom: remapped };
-  });
-}
-
-// Swap today's workout — logs today's sets against today's date
-// but uses a different day's exercise list
-function doTodayInstead(sourceDayName) {
-  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const todayName = dayNames[new Date().getDay()];
-  const custom = getCustomSplit(currentUser.email) || {};
-  if (sourceDayName === todayName) {
-    // Reset — use default
-    delete custom[todayName];
-  } else {
-    custom[todayName] = sourceDayName;
-  }
-  saveCustomSplit(currentUser.email, Object.keys(custom).length ? custom : null);
-  showToast(sourceDayName === todayName
-    ? 'Reset to default workout'
-    : `Today's workout changed to ${sourceDayName} — ${getProgram(currentUser).schedule.find(d=>d.day===sourceDayName)?.focus}`,
-    'gold', 3500);
-  renderWorkouts();
-}
-// ─────────────────────────────────────────────────────────────
+// ================================================================
+//  MODAL / UI HELPERS
+// ================================================================
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 function _setRaw(id,html){ const el=document.getElementById(id); if(el) el.innerHTML=html; }
@@ -7902,35 +7854,19 @@ function goToWorkoutDate(dateStr) {
 function renderWorkouts(){
   const user = currentUser;
   const prog = getProgram(user);
-  const schedule = getEffectiveSchedule(user);
-  const custom = getCustomSplit(user.email);
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const todayDay = dayNames[today.getDay()];
 
-  const daysHtml = schedule.map(day => {
+  // Build day cards HTML — today opens by default
+  const daysHtml = prog.schedule.map(day => {
     const isToday = day.day === todayDay;
-    const dateForDay = getDateForDayName(day.day);
+    const dateForDay = getDateForDayName(day.day); // closest past/today date for this weekday
     const log = getWorkoutLog(user.email, dateForDay) || {};
     const isDone = log.completed;
     const isRest = day.exercises.length === 0;
-    const isRemapped = !!day._remappedFrom;
-    const vol = calcDayVolume(log);
-    const otherDays = prog.schedule.filter(d => d.exercises.length > 0 && d.day !== day.day);
 
-    const swapBtn = isToday ? `
-      <div style="padding:0.75rem 1rem;border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
-        <span style="font-size:0.7rem;color:var(--muted);font-family:var(--font-cond);letter-spacing:0.06em">SWAP TODAY TO:</span>
-        <select onchange="if(this.value)doTodayInstead(this.value);this.value=''" style="background:var(--dark3);border:1px solid rgba(255,255,255,0.12);color:var(--light);font-family:var(--font-cond);font-size:0.78rem;padding:0.3rem 0.5rem;border-radius:4px;cursor:pointer;flex:1;min-width:160px">
-          <option value="">— pick a workout —</option>
-          ${otherDays.map(d=>`<option value="${d.day}">${d.day}: ${d.focus}</option>`).join('')}
-        </select>
-        ${isRemapped?`<button onclick="doTodayInstead('${day.day}')" style="background:none;border:1px solid rgba(224,82,82,0.3);color:var(--red);font-size:0.7rem;font-family:var(--font-cond);padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer">✕ Reset</button>`:''}
-      </div>` : `
-      <div style="padding:0.6rem 1rem;border-top:1px solid rgba(255,255,255,0.04)">
-        <button onclick="doTodayInstead('${day.day}')" style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);color:var(--gold2);font-family:var(--font-cond);font-size:0.72rem;letter-spacing:0.06em;padding:0.35rem 0.75rem;border-radius:4px;cursor:pointer;width:100%">
-          ↩ Do this workout today instead
-        </button>
-      </div>`;
+    // Calculate today's logged volume for this day
+    const vol = calcDayVolume(log);
 
     return `<div class="workout-day ${isToday?'is-today':''} ${isDone?'is-done':''} ${isToday?'open':''}" id="wday-${day.day}">
       <div class="workout-day-header" onclick="toggleWorkoutDay('${day.day}')">
@@ -7941,39 +7877,42 @@ function renderWorkouts(){
               ${day.day} — ${day.focus}
               ${isToday?'<span style="color:var(--gold);font-size:0.65rem;margin-left:0.4rem">◄ TODAY</span>':''}
               ${isDone?'<span style="color:var(--green);font-size:0.65rem;margin-left:0.4rem">✓ DONE</span>':''}
-              ${isRemapped?`<span style="color:var(--blue);font-size:0.62rem;margin-left:0.4rem">↩ from ${day._remappedFrom}</span>`:''}
             </div>
             <div class="workout-day-meta">${day.type}${vol>0?' · '+Math.round(vol).toLocaleString()+' lbs volume':''}</div>
           </div>
         </div>
         <span class="badge ${day.type==='Rest'?'badge-rest':day.type==='Cardio'?'badge-cardio':''}">${day.type}</span>
       </div>
+
       <div class="workout-day-body">
         ${isRest
           ? `<div style="padding:1.25rem 1rem;color:var(--muted);font-size:0.88rem;line-height:1.6">🛌 Rest & recover. Growth happens outside the gym.<br><span style="font-size:0.78rem">Walk 8,000+ steps, sleep 8+ hours, eat your macros.</span></div>`
           : buildExerciseLogHtml(day, user.email, dateForDay, log)
         }
-        ${!isRest ? swapBtn : ''}
       </div>
     </div>`;
   }).join('');
 
-  const splitNotice = custom ? `
-    <div style="background:rgba(78,143,224,0.06);border:1px solid rgba(78,143,224,0.2);border-radius:var(--radius-sm);padding:0.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
-      <span style="font-size:0.78rem;color:var(--blue);font-family:var(--font-cond)">↩ Custom workout active today</span>
-      <button onclick="clearCustomSplit('${user.email}');renderWorkouts()" style="background:none;border:1px solid rgba(78,143,224,0.3);color:var(--blue);font-size:0.7rem;font-family:var(--font-cond);padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer">Reset to default</button>
-    </div>` : '';
-
+  // Build 7-day calendar strip
   const calStrip = buildWorkoutCalStrip(user);
+
   set('mainContent',`
     <div class="section-title">${prog.name}</div>
-    <div class="section-sub">Tap any day to log sets. Missed a day? Hit "Do this workout today instead" on any card.</div>
+    <div class="section-sub">Tap any day to log your sets. Track weight, reps, and RPE — every session builds the next.</div>
     ${calStrip}
-    ${splitNotice}
-    ${(user.tier||'free')==='free'?`<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap"><div style="font-size:0.82rem;color:var(--muted)"><span style="color:var(--green)">✓ Full program unlocked.</span> &nbsp;Add a coach for custom overrides, weekly reviews &amp; direct messaging.</div><button class="btn btn-outline btn-sm" onclick="openModal('upgradeModal')" style="flex-shrink:0">Get Coaching →</button></div>`:''}
+
+    ${(user.tier||'free')==='free'?`
+    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
+      <div style="font-size:0.82rem;color:var(--muted)">
+        <span style="color:var(--green)">✓ Full program unlocked.</span> &nbsp;Add a coach for custom overrides, weekly reviews &amp; direct messaging.
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="openModal('upgradeModal')" style="flex-shrink:0">Get Coaching →</button>
+    </div>`:''}
+
     ${daysHtml}
   `);
 }
+
 // Get the date string for the most recent occurrence of a weekday name (or today)
 function getDateForDayName(dayName){
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -7990,15 +7929,153 @@ function toggleWorkoutDay(dayName){
   if(el) el.classList.toggle('open');
 }
 
+// ── EXERCISE SWAP LIBRARY ─────────────────────────────────────
+// Organized by muscle group — used in the exercise picker
+const EXERCISE_LIBRARY = {
+  'Chest': [
+    'Barbell Bench Press','Incline Barbell Press','Decline Barbell Press',
+    'Flat DB Press','Incline DB Press','Decline DB Press',
+    'Cable Crossover High to Low','Cable Crossover Low to High','Cable Fly',
+    'Weighted Dips','Machine Chest Press','Pec Deck Fly','Push-Ups',
+    'Landmine Press','DB Pullover'
+  ],
+  'Back': [
+    'Barbell Bent-Over Row','T-Bar Row','Pendlay Row',
+    'Weighted Pull-Ups','Lat Pulldown Wide Grip','Lat Pulldown Close Grip',
+    'Single-Arm DB Row','Seated Cable Row','Face Pulls',
+    'Straight-Arm Pulldown','Deadlift','Rack Pull','Chest Supported Row',
+    'Rear Delt Fly Cable','Rear Delt Fly DB','Machine Row'
+  ],
+  'Shoulders': [
+    'Overhead Press Barbell','DB Shoulder Press Seated','Arnold Press DB',
+    'Lateral Raises','Cable Lateral Raises','Lateral Raises Drop Set',
+    'Front Plate Raises','Front DB Raises','Upright Row',
+    'Machine Shoulder Press','Cable Front Raise','Band Pull-Apart'
+  ],
+  'Legs': [
+    'Barbell Back Squat','Front Squat','Goblet Squat','Hack Squat',
+    'Romanian Deadlift','Stiff-Leg Deadlift','Sumo Deadlift',
+    'Leg Press','Walking Lunges DB','Reverse Lunges','Bulgarian Split Squat',
+    'Leg Extension','Leg Curl Seated','Leg Curl Lying','Nordic Curl',
+    'Standing Calf Raises','Seated Calf Raises','Donkey Calf Raises',
+    'Step-Ups','Hip Thrust Barbell'
+  ],
+  'Glutes': [
+    'Barbell Hip Thrust','Hip Thrust Machine','Cable Kickbacks',
+    'Glute Bridge Pulse','Abductor Machine','Hip Abduction Machine',
+    'Sumo Squat DB','Romanian Deadlift','Cable Pull-Through',
+    'Single-Leg Hip Thrust','Donkey Kickbacks','Frog Pumps'
+  ],
+  'Arms - Biceps': [
+    'Barbell Curl','EZ Bar Curl','Incline DB Curl','Hammer Curls',
+    'Concentration Curl','Cable Curl','Preacher Curl','Spider Curl',
+    'Reverse Curl','Zottman Curl','Machine Curl','Cross-Body Hammer Curl'
+  ],
+  'Arms - Triceps': [
+    'Skull Crushers','V-Bar Tricep Pushdown','Rope Tricep Pushdown',
+    'Overhead Tricep Extension','Close-Grip Bench Press','Tricep Dips',
+    'Single-Arm Overhead Extension','JM Press','Kickbacks','Machine Tricep Press'
+  ],
+  'Core': [
+    'Ab Wheel Rollout','Cable Crunches','Hanging Leg Raises',
+    'Plank','Side Plank','Russian Twists Weighted','L-Sit Hold',
+    'Decline Sit-Ups','Reverse Crunch','Dragon Flag',
+    'Cable Woodchops','Pallof Press','Dead Bug','Hollow Hold'
+  ],
+  'Cardio / Full Body': [
+    'Sprint Intervals','Assault Bike Intervals','Rowing Machine',
+    'Battle Ropes','Sled Push','Sled Pull','Box Jumps',
+    'Burpees','Kettlebell Swings','Thrusters','Clean and Press',
+    'Stairmaster','Incline Treadmill Walk','Jump Rope'
+  ]
+};
+
+// Get/save exercise swaps per day per user
+function getExSwaps(email, dateStr, dayName) {
+  return lf.get(`exswap_${email}_${dateStr}_${dayName}`) || {};
+}
+function saveExSwap(email, dateStr, dayName, origName, newName) {
+  const swaps = getExSwaps(email, dateStr, dayName);
+  if (newName) swaps[origName] = newName;
+  else delete swaps[origName];
+  lf.set(`exswap_${email}_${dateStr}_${dayName}`, swaps);
+}
+
+// Build the exercise picker dropdown HTML
+function exPickerHTML(dateStr, idx, origName, dayName, email, currentName) {
+  const id = `expicker-${dateStr}-${idx}`;
+  const isSwapped = currentName !== origName;
+  let opts = `<option value="">— swap exercise —</option>`;
+  Object.entries(EXERCISE_LIBRARY).forEach(([group, exercises]) => {
+    opts += `<optgroup label="${group}">`;
+    exercises.forEach(ex => {
+      opts += `<option value="${escQ(ex)}" ${currentName===ex?'selected':''}>${ex}</option>`;
+    });
+    opts += '</optgroup>';
+  });
+  return `<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
+    <select id="${id}" onchange="swapExercise('${dateStr}','${idx}','${escQ(origName)}','${dayName}','${email}',this.value)"
+      style="background:var(--dark3);border:1px solid ${isSwapped?'rgba(78,143,224,0.4)':'rgba(255,255,255,0.1)'};color:${isSwapped?'var(--blue)':'var(--muted)'};font-family:var(--font-cond);font-size:0.72rem;padding:0.25rem 0.4rem;border-radius:4px;cursor:pointer;flex:1;min-width:180px">
+      ${opts}
+    </select>
+    ${isSwapped?`<button onclick="swapExercise('${dateStr}','${idx}','${escQ(origName)}','${dayName}','${email}','')" style="background:none;border:1px solid rgba(224,82,82,0.3);color:var(--red);font-size:0.65rem;font-family:var(--font-cond);padding:0.2rem 0.5rem;border-radius:4px;cursor:pointer;white-space:nowrap">✕ Reset</button>`:''}
+  </div>`;
+}
+
+function swapExercise(dateStr, idxStr, origName, dayName, email, newName) {
+  const idx = parseInt(idxStr);
+  saveExSwap(email, dateStr, dayName, origName, newName || null);
+  // Re-render just this exercise block
+  const prog = getProgram(currentUser);
+  const effSchedule = getEffectiveSchedule(currentUser);
+  const day = effSchedule.find(d => d.day === dayName) || prog.schedule.find(d => d.day === dayName);
+  if (!day) return;
+  const log = getWorkoutLog(email, dateStr) || {};
+  const swaps = getExSwaps(email, dateStr, dayName);
+  const ex = day.exercises[idx];
+  if (!ex) return;
+  const effectiveName = swaps[ex.name] || ex.name;
+  const exLog = log.exercises?.[effectiveName] || { sets: [] };
+  const sets = exLog.sets || [];
+  const prev = getPrevLiftData(email, dayName, effectiveName);
+  const prevText = prev ? prev.sets.map(s=>`${s.weight||'—'}×${s.reps||'—'}`).join(', ') : null;
+  const isSwapped = effectiveName !== ex.name;
+  const block = document.getElementById(`exblock-${dateStr}-${idx}`);
+  if (block) {
+    block.querySelector('.exercise-name').textContent = effectiveName;
+    block.querySelector('.exercise-tip').textContent = '💡 ' + (isSwapped ? 'Custom exercise' : ex.tip);
+    if (isSwapped) block.querySelector('.exercise-name').style.color = 'var(--blue)';
+    else block.querySelector('.exercise-name').style.color = '';
+    // Update picker
+    const pickerWrap = block.querySelector('.ex-picker-wrap');
+    if (pickerWrap) pickerWrap.innerHTML = exPickerHTML(dateStr, idx, ex.name, dayName, email, effectiveName);
+    // Update sets tbody
+    const tbody = block.querySelector(`#sets-${dateStr}-${idx}`);
+    if (tbody) tbody.innerHTML = sets.map((s,si) => buildSetRow(dateStr, idx, si, s, email, dayName, effectiveName)).join('');
+    // Update add set button
+    const addBtn = block.querySelector('.set-add-row button');
+    if (addBtn) addBtn.setAttribute('onclick', `addSet('${dateStr}','${idx}','${escQ(effectiveName)}','${dayName}','${email}')`);
+    // Update prev text
+    const prevEl = block.querySelector('.exercise-prev');
+    if (prevEl) prevEl.innerHTML = prevText ? `Last time: <span>${prevText}</span>` : '';
+    showToast(newName ? `Swapped to ${newName}` : `Reset to ${ex.name}`, 'gold', 2000);
+  }
+}
+// ─────────────────────────────────────────────────────────────
+
 function buildExerciseLogHtml(day, email, dateStr, log){
   const exLogs = log.exercises || {};
   const isDone = log.completed;
+  const swaps = getExSwaps(email, dateStr, day.day);
 
   let html = '';
   day.exercises.forEach((ex, idx) => {
-    const exLog = exLogs[ex.name] || { sets: [] };
+    // Apply any saved swap for this slot
+    const effectiveName = swaps[ex.name] || ex.name;
+    const isSwapped = effectiveName !== ex.name;
+    const exLog = exLogs[effectiveName] || { sets: [] };
     const sets = exLog.sets.length > 0 ? exLog.sets : [];
-    const prev = getPrevLiftData(email, day.day, ex.name);
+    const prev = getPrevLiftData(email, day.day, effectiveName);
     const prevText = prev
       ? prev.sets.map(s=>`${s.weight||'—'}×${s.reps||'—'}`).join(', ')
       : null;
@@ -8007,10 +8084,13 @@ function buildExerciseLogHtml(day, email, dateStr, log){
       <div class="exercise-header">
         <span class="exercise-num">${idx+1}</span>
         <div class="exercise-info">
-          <div class="exercise-name">${ex.name}</div>
-          <div class="exercise-tip">💡 ${ex.tip}</div>
+          <div class="exercise-name" style="${isSwapped?'color:var(--blue)':''}">${effectiveName}</div>
+          <div class="exercise-tip">💡 ${isSwapped?'Custom exercise':ex.tip}</div>
         </div>
         <span class="exercise-prescribed">${ex.sets}</span>
+      </div>
+      <div class="ex-picker-wrap" style="padding:0 1rem 0.25rem">
+        ${exPickerHTML(dateStr, idx, ex.name, day.day, email, effectiveName)}
       </div>
       ${prevText ? `<div class="exercise-prev">Last time: <span>${prevText}</span></div>` : ''}
       <table class="set-table">
@@ -8019,10 +8099,10 @@ function buildExerciseLogHtml(day, email, dateStr, log){
           <th>Set</th><th>Weight (lbs)</th><th>Reps</th><th>RPE</th><th class="th-pr"></th><th></th>
         </tr></thead>
         <tbody id="sets-${dateStr}-${idx}">
-          ${sets.map((s,si) => buildSetRow(dateStr, idx, si, s, email, day.day, ex.name)).join('')}
+          ${sets.map((s,si) => buildSetRow(dateStr, idx, si, s, email, day.day, effectiveName)).join('')}
         </tbody>
         <tfoot><tr class="set-add-row"><td colspan="6">
-          <button class="btn btn-outline btn-sm" style="font-size:0.75rem" onclick="addSet('${dateStr}','${idx}','${escQ(ex.name)}','${day.day}','${email}')">+ Add Set</button>
+          <button class="btn btn-outline btn-sm" style="font-size:0.75rem" onclick="addSet('${dateStr}','${idx}','${escQ(effectiveName)}','${day.day}','${email}')">+ Add Set</button>
         </td></tr></tfoot>
       </table>
     </div>`;
@@ -8096,9 +8176,11 @@ function escQ(s){ return (s||'').replace(/'/g,"\\'"); }
 
 function getOrInitWorkoutLog(email, dateStr, dayName, exercises){
   let log = getWorkoutLog(email, dateStr) || { dayName, completed:false, exercises:{} };
-  // Ensure all exercises exist
+  const swaps = getExSwaps(email, dateStr, dayName);
+  // Ensure all exercises exist (using effective names)
   exercises.forEach(ex => {
-    if(!log.exercises[ex.name]) log.exercises[ex.name] = { sets:[] };
+    const effectiveName = swaps[ex.name] || ex.name;
+    if(!log.exercises[effectiveName]) log.exercises[effectiveName] = { sets:[] };
   });
   return log;
 }
