@@ -3624,9 +3624,9 @@ if ('serviceWorker' in navigator) {
 // ================================================================
 //  CONFIG
 // ================================================================
-const SUPABASE_URL = 'https://yiqilesbvthmwdrtlhgm.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpcWlsZXNidnRobXdkcnRsaGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NDQ0NzMsImV4cCI6MjA4NzEyMDQ3M30.Gfa92-fNRlm_mVUN1EbS493zMxlMeqwjs2bXDa7iR4o';
-const COACH_SECRET = (()=>{ const p=['APX','coach','9271','zK']; return p.join(''); })();
+let SUPABASE_URL = '';
+let SUPABASE_ANON_KEY = '';
+let COACH_SECRET = '';
 // Anthropic API — used for AI Food Scanner (photo analysis)
 // AI features are handled server-side via Supabase Edge Function.
 // No API key required from clients.
@@ -3688,12 +3688,29 @@ function microSummaryHTML(foods, sex){
 //  3. Click the product → click "Create payment link"
 //  4. Copy the payment link URL and paste below
 // ================================================================
-const STRIPE_LINKS = {
-  core:    'https://buy.stripe.com/5kQ3cu4PY204fDrePc7Re00',
-  elite:   'https://buy.stripe.com/dRmdR81DM5cgbnb0Ym7Re01',
-  vip:     'https://buy.stripe.com/14A5kCaai3483UJdL87Re02',
-  diamond: 'https://buy.stripe.com/5kQ28qfuC9sw62RdL87Re03',
-};
+let STRIPE_LINKS = { core: '', elite: '', vip: '', diamond: '' };
+
+async function loadConfig() {
+  try {
+    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
+    if (!res.ok) throw new Error('Config fetch failed: ' + res.status);
+    const cfg = await res.json();
+    SUPABASE_URL      = cfg.supabaseUrl      || '';
+    SUPABASE_ANON_KEY = cfg.supabaseAnonKey  || '';
+    COACH_SECRET      = cfg.coachSecret      || '';
+    if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
+  } catch (err) {
+    console.error('[APEX] Failed to load config:', err);
+    const ls = document.getElementById('loadingScreen');
+    if (ls) ls.innerHTML =
+      '<div style="text-align:center;padding:2rem">' +
+      '<p style="color:var(--red);font-family:var(--font-cond);font-size:1.2rem;letter-spacing:0.1em">CONFIGURATION ERROR</p>' +
+      '<p style="color:var(--muted);font-size:0.9rem;margin-top:0.5rem">Could not reach config server. Please refresh.</p>' +
+      '</div>';
+    throw err;
+  }
+}
+
 
 // TIER DEFINITIONS
 const TIERS = {
@@ -3736,12 +3753,12 @@ function canAccess(feature) {
 // ================================================================
 //  SUPABASE CLIENT
 // ================================================================
-const isConfigured = SUPABASE_URL.indexOf('YOUR') === -1;
+function isConfigured(){ return SUPABASE_URL.length > 0 && SUPABASE_URL.indexOf('YOUR') === -1; }
 
 // Supabase circuit breaker — stops hammering a dead endpoint
 let _sbOk = true, _sbFails = 0;
 function _markSbFail(){ _sbFails++; if(_sbFails>=2) _sbOk=false; }
-function _sbAvail(){ return isConfigured && _sbOk && navigator.onLine!==false; }
+function _sbAvail(){ return isConfigured() && _sbOk && navigator.onLine!==false; }
 window.addEventListener('online', ()=>{ _sbOk=true; _sbFails=0; });
 
 async function sb(table, method='GET', body=null, params='') {
@@ -3785,7 +3802,7 @@ async function sbUpsert(table, body, onConflict) {
     const cacheKey = table + '_' + (body.email||body.user_email||body.id||JSON.stringify(body).slice(0,40));
     lf.set(cacheKey, body);
   } catch(e) {}
-  if (!isConfigured || !_sbAvail()) { return { data:body, error:null }; }
+  if (!isConfigured() || !_sbAvail()) { return { data:body, error:null }; }
   const url = SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict;
   const headers = {
     'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
@@ -3963,50 +3980,50 @@ async function getUser(email) {
   } catch(e) { return cached; }
 }
 async function getAllUsers() {
-  if (!isConfigured) return Object.values(lf.get('users')||{});
+  if (!isConfigured()) return Object.values(lf.get('users')||{});
   const {data}=await sbGet('users','?select=*&order=created_at.asc');
   return (data||[]).map(dbToUser);
 }
 async function createUser(user) {
-  if (!isConfigured) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
+  if (!isConfigured()) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
   return await sbPost('users', userToDb(user));
 }
 async function updateUser(email, updates) {
-  if (!isConfigured) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
+  if (!isConfigured()) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
   const result = await sbPatch('users', userToDb(updates), `?email=eq.${encodeURIComponent(email)}`);
   if (!result.error) Object.assign(currentUser, updates);
   return result;
 }
 async function deleteUser(email) {
-  if (!isConfigured) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
+  if (!isConfigured()) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
   return await sbDelete('users',`?email=eq.${encodeURIComponent(email)}`);
 }
 async function getDailyLog(email, date) {
-  if (!isConfigured) return lf.get('log_'+email+'_'+date)||defaultLog();
+  if (!isConfigured()) return lf.get('log_'+email+'_'+date)||defaultLog();
   const {data}=await sbGet('daily_logs',`?user_email=eq.${encodeURIComponent(email)}&log_date=eq.${date}&select=*`);
   if (data&&data.length>0) { const r=data[0]; return {foods:r.foods||[],checks:r.checks||{},water:r.water||0,fastStart:r.fast_start||'20:00',fastEnd:r.fast_end||'12:00'}; }
   return defaultLog();
 }
 async function saveDailyLog(email, date, log) {
-  if (!isConfigured) { lf.set('log_'+email+'_'+date,log); return; }
+  if (!isConfigured()) { lf.set('log_'+email+'_'+date,log); return; }
   await sbUpsert('daily_logs',{user_email:email,log_date:date,foods:log.foods||[],checks:log.checks||{},water:log.water||0,fast_start:log.fastStart||'20:00',fast_end:log.fastEnd||'12:00'},'user_email,log_date');
 }
 async function getOverrides(email) {
-  if (!isConfigured) return lf.get('overrides_'+email)||{};
+  if (!isConfigured()) return lf.get('overrides_'+email)||{};
   const {data}=await sbGet('workout_overrides',`?user_email=eq.${encodeURIComponent(email)}&select=*`);
   const r={}; (data||[]).forEach(d=>{ r[d.day_name]={focus:d.focus,notes:d.notes}; }); return r;
 }
 async function saveOverride(email,day,focus,notes) {
-  if (!isConfigured) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
+  if (!isConfigured()) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
   await sbUpsert('workout_overrides',{user_email:email,day_name:day,focus,notes},'user_email,day_name');
 }
 async function getCoachNotes(email) {
-  if (!isConfigured) return lf.get('cnotes_'+email)||'';
+  if (!isConfigured()) return lf.get('cnotes_'+email)||'';
   const {data}=await sbGet('coach_notes',`?user_email=eq.${encodeURIComponent(email)}&select=notes`);
   return data&&data.length>0 ? data[0].notes : '';
 }
 async function saveCoachNotes(email,notes) {
-  if (!isConfigured) { lf.set('cnotes_'+email,notes); return; }
+  if (!isConfigured()) { lf.set('cnotes_'+email,notes); return; }
   await sbUpsert('coach_notes',{user_email:email,notes},'user_email');
 }
 
@@ -4945,7 +4962,7 @@ async function submitCheckIn(){
   // Save locally
   lf.set('checkin_'+currentUser.email, data);
   // Also save to Supabase if configured (uses coach_notes table as a workaround, or can add a check_ins table)
-  if(isConfigured){
+  if(isConfigured()){
     const note=`CHECK-IN ${data.date}:\nEnergy:${data.energy}/10 Sleep:${data.sleep}/10 Stress:${data.stress}/10 Performance:${data.perf}/10\nWeight:${data.weight}lbs\nWin: ${data.win}\nChallenge: ${data.challenge}\nCoach Q: ${data.coachQ}`;
     await sbUpsert('coach_notes',{user_email:currentUser.email,notes:note},'user_email');
   }
@@ -9261,7 +9278,7 @@ function _settingsPlatform(){
   +'5. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase functions deploy analyze-food</code><br>'
   +'Done — all clients can scan food instantly with zero setup on their end.'
   +'</div></div>'
-  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured?'success':'danger')+'">'+(isConfigured?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
+  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured()?'success':'danger')+'">'+(isConfigured()?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
   +'<div class="card"><div class="card-title">📤 Data Export</div><div style="display:flex;gap:0.75rem;flex-wrap:wrap"><button class="btn btn-outline" onclick="exportData()">📥 Client Data</button><button class="btn btn-outline" onclick="exportWorkoutLogs()">🏋️ Workout Logs</button></div></div>'
   +'<div class="card"><div class="card-title">🎮 Active Features</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.84rem">'+['XP Level System','Daily Challenges','21-Day Habit Tracker','Streak Rewards','PR Celebrations','Daily Motivational Quotes','AI Food Scanner 📷','Micronutrient Tracking 🧬'].map(function(f){return '<div style="padding:0.4rem 0.5rem;background:var(--dark3);border-radius:var(--radius-sm)">✅ '+f+'</div>';}).join('')+'</div></div>'
   +'<div class="card"><div class="card-title">🔒 Security</div><p style="color:var(--muted);font-size:0.86rem;line-height:1.6">Coach access protected by secret URL + password with 3-attempt lockout.</p></div>';
@@ -9300,7 +9317,7 @@ const DEFAULT_AVAILABILITY = [
 
 // Availability storage
 async function getAvailability() {
-  if (isConfigured) {
+  if (isConfigured()) {
     const {data} = await sbGet('availability', '?select=*&order=id.asc');
     if (data && data.length > 0) return data.map(r => ({
       day: r.day_name, enabled: r.enabled,
@@ -9311,7 +9328,7 @@ async function getAvailability() {
 }
 async function saveAvailabilityData(avail) {
   lf.set('coach_availability', avail);
-  if (isConfigured) {
+  if (isConfigured()) {
     for (const a of avail) {
       await sbUpsert('availability', { day_name: a.day, enabled: a.enabled, start_time: a.startTime, end_time: a.endTime, slot_duration: a.slotDuration }, 'day_name');
     }
@@ -9320,7 +9337,7 @@ async function saveAvailabilityData(avail) {
 
 // Blocked dates storage
 async function getBlockedDates() {
-  if (isConfigured) {
+  if (isConfigured()) {
     const {data} = await sbGet('blocked_dates', '?select=*&order=block_date.asc');
     if (data) return data.map(r => ({ date: r.block_date, type: r.block_type, reason: r.reason }));
   }
@@ -9330,17 +9347,17 @@ async function addBlockedDate(date, type, reason) {
   const existing = await getBlockedDates();
   existing.push({ date, type, reason });
   lf.set('blocked_dates', existing);
-  if (isConfigured) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
+  if (isConfigured()) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
 }
 async function removeBlockedDate(date) {
   const b = (await getBlockedDates()).filter(d => d.date !== date);
   lf.set('blocked_dates', b);
-  if (isConfigured) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
+  if (isConfigured()) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
 }
 
 // Sessions storage
 async function getAllSessions() {
-  if (isConfigured) {
+  if (isConfigured()) {
     const {data} = await sbGet('sessions', '?select=*&order=session_date.asc,session_time.asc');
     if (data) return data.map(r => ({
       id: r.id, clientEmail: r.client_email, clientName: r.client_name,
@@ -9361,7 +9378,7 @@ async function createSession(session) {
   const newS = { ...session, id: 'sess_' + Date.now(), createdAt: new Date().toISOString() };
   sessions.push(newS);
   lf.set('sessions', sessions);
-  if (isConfigured) {
+  if (isConfigured()) {
     await sbPost('sessions', {
       client_email: session.clientEmail, client_name: session.clientName,
       session_type: session.type, session_date: session.date,
@@ -9376,7 +9393,7 @@ async function updateSession(id, updates) {
   const sessions = lf.get('sessions') || [];
   const idx = sessions.findIndex(s => s.id === id);
   if (idx !== -1) { sessions[idx] = { ...sessions[idx], ...updates }; lf.set('sessions', sessions); }
-  if (isConfigured) {
+  if (isConfigured()) {
     const dbUpdates = {};
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.meetLink !== undefined) dbUpdates.meet_link = updates.meetLink;
@@ -10969,7 +10986,7 @@ async function submitConversion(){
   lf.set('leads', leads);
 
   // Save to Supabase if configured (uses users table as lead capture)
-  if(isConfigured){
+  if(isConfigured()){
     try {
       await sb('users','POST',{
         email, first_name:'Lead', last_name:'(Conversion)',
@@ -11063,7 +11080,7 @@ async function submitApplication(){
   lf.set('applications', apps);
 
   // Save to Supabase
-  if(isConfigured){
+  if(isConfigured()){
     try {
       await sb('users','POST',{
         email, first_name: first, last_name: last, tier:'free', goal:'greek_god',
@@ -11103,7 +11120,7 @@ function claimFreeVideo(){
   leads.push({ email, type:'free_video', date: getTodayStr() });
   lf.set('leads', leads);
 
-  if(isConfigured){
+  if(isConfigured()){
     sb('users','POST',{ email, first_name:'Lead', last_name:'(Free Video)', tier:'free', goal:'greek_god' }).catch(()=>{});
   }
 
@@ -11158,6 +11175,7 @@ function getWeekNumber(d) {
 }
 
 async function init(){
+  await loadConfig();
   document.getElementById('faqContainer').innerHTML = faqHTML();
   initCounterAnimation();
 
