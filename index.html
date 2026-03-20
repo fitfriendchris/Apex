@@ -7201,28 +7201,24 @@ async function aiAnalyzeMeal(){
   const sex = user.sex || 'male';
 
   try{
-    const _aiCtrl = new AbortController();
-    const _aiTimer = setTimeout(() => _aiCtrl.abort(), 25000);
-    let res;
-    try {
-      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-        signal: _aiCtrl.signal,
-        body: JSON.stringify({
-          type: 'text',
-          userEmail: currentUser?.email || 'anonymous',
-          meal: text,
-          userContext: {
-            weight: user.weight,
-            goal: user.goal,
-            phase: macros.phase,
-            calories: macros.calories,
-            protein: macros.protein
-          }
-        })
-      });
-    } finally { clearTimeout(_aiTimer); }
+    const _aiTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 25000));
+    const _aiFetch = fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        type: 'text',
+        userEmail: currentUser?.email || 'anonymous',
+        meal: text,
+        userContext: {
+          weight: user.weight,
+          goal: user.goal,
+          phase: macros.phase,
+          calories: macros.calories,
+          protein: macros.protein
+        }
+      })
+    });
+    const res = await Promise.race([_aiFetch, _aiTimeout]);
 
     const data = await res.json();
     if(!res.ok || data.error) throw new Error(data.error || 'Calculation failed');
@@ -7496,21 +7492,17 @@ async function ntAnalyzeFood(){
   try{
     const b64=ntCurrentImage.split(',')[1];
     const mt=ntCurrentImage.split(';')[0].split(':')[1];
-    const _ctrl = new AbortController();
-    const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
-    let res;
-    try {
-      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-        signal: _ctrl.signal,
-        body: JSON.stringify({
-          type: 'scan',
-          userEmail: currentUser?.email || 'anonymous',
-          image: { base64: b64, mediaType: mt }
-        })
-      });
-    } finally { clearTimeout(_timer); }
+    const _scanTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 30000));
+    const _scanFetch = fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        type: 'scan',
+        userEmail: currentUser?.email || 'anonymous',
+        image: { base64: b64, mediaType: mt }
+      })
+    });
+    const res = await Promise.race([_scanFetch, _scanTimeout]);
 
     const data = await res.json();
     if(!res.ok || data.error){ throw new Error(data.error || 'Analysis failed'); }
