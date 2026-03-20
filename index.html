@@ -3641,6 +3641,25 @@ if ('serviceWorker' in navigator) {
 // ================================================================
 //  CONFIG
 // ================================================================
+const _nativeFetch = window.fetch.bind(window);
+
+async function loadConfig() {
+  try {
+    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
+    if (!res.ok) throw new Error('Config fetch failed: ' + res.status);
+    const cfg = await res.json();
+    SUPABASE_URL      = cfg.supabaseUrl      || '';
+    SUPABASE_ANON_KEY = cfg.supabaseAnonKey  || '';
+    COACH_SECRET      = cfg.coachSecret      || '';
+    if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
+  } catch (err) {
+    console.error('[APEX] Failed to load config:', err);
+    const ls = document.getElementById('loadingScreen');
+    if (ls) ls.innerHTML = '<div style="text-align:center;padding:2rem"><p style="color:var(--red);font-family:var(--font-cond);font-size:1.2rem">CONFIGURATION ERROR</p><p style="color:var(--muted);font-size:0.9rem;margin-top:0.5rem">Could not reach config server. Please refresh.</p></div>';
+    throw err;
+  }
+}
+
 let SUPABASE_URL = '';
 let SUPABASE_ANON_KEY = '';
 let COACH_SECRET = '';
