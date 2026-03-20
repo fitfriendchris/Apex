@@ -6333,7 +6333,7 @@ function dayDetailHTML(date, lg, macros, showDelete=false, clientName=''){
           <td>
             <span>${f.name}</span>
             ${f.aiScanned||f.micros?`<span style="font-size:0.58rem;background:rgba(201,168,76,0.12);color:var(--gold2);padding:1px 4px;border-radius:2px;font-family:var(--font-cond);margin-left:4px">AI</span>`:''}
-            ${f.loggedAt?`<span style="font-size:0.62rem;color:var(--muted);font-family:var(--font-cond);margin-left:4px;opacity:0.7">${f.loggedAt}</span>`:''}
+            ${(f.time||f.loggedAt)?`<span style="font-size:0.62rem;color:var(--muted);font-family:var(--font-cond);margin-left:4px;opacity:0.7">${f.time||f.loggedAt}</span>`:''}
             ${f.portion?`<div style="font-size:0.68rem;color:var(--muted)">${f.portion}</div>`:''}
           </td>
           <td style="color:var(--muted);font-size:0.75rem">${f.meal||'—'}</td>
@@ -7580,7 +7580,7 @@ async function aiLogMeal(foodStr){
     protein: food.protein || 0,
     carb: food.carbs || 0,
     fat: food.fats || 0,
-    loggedAt: new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}),
+    time: new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}),
     fiber: food.fiber || 0,
     sugar: food.sugar || 0,
     micros: food.micros || null,
