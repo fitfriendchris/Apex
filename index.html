@@ -6880,17 +6880,17 @@ let macroCalYear=null, macroCalMonth=null, macroCalSelected=null;
 function calInit(){
   const t=getToday();
   const todayStr=getTodayStr();
-  // Always sync year/month if null
   if(macroCalYear===null){ macroCalYear=t.getFullYear(); macroCalMonth=t.getMonth(); }
-  // Always reset selected to today if it was null OR if the date has rolled over
-  if(macroCalSelected===null || macroCalSelected!==todayStr){
-    // Only reset if selected was today's old date (not user navigating to a past day)
-    if(!window._calLastDate || window._calLastDate!==todayStr){
-      macroCalSelected=todayStr;
-      macroCalYear=t.getFullYear();
-      macroCalMonth=t.getMonth();
-    }
+  // If the stored date differs from today (new day), reset everything
+  const storedDate = localStorage.getItem('_apexCalDate');
+  if(storedDate !== todayStr){
+    macroCalSelected = todayStr;
+    macroCalYear = t.getFullYear();
+    macroCalMonth = t.getMonth();
+    currentLogs = null; // force fresh load
+    localStorage.setItem('_apexCalDate', todayStr);
   }
+  if(macroCalSelected===null) macroCalSelected=todayStr;
   window._calLastDate=todayStr;
 }
 
