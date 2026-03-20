@@ -7420,7 +7420,7 @@ function ntHandleDrop(e){
   if(zone){zone.style.borderColor='rgba(255,255,255,0.1)';zone.style.background='rgba(255,255,255,0.02)';}
   zone?.classList.remove('drag-over');
   const f=e.dataTransfer.files[0];
-  if(f&&f.type.startsWith('image/')) ntProcessFile(f);
+  if(f) ntProcessFile(f);
   // Also handle drag of image URLs (e.g. dragging from browser)
   else {
     const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
@@ -7475,10 +7475,28 @@ function ntProcessFile(file){
     showToast('Please select an image file','error');return;
   }
   if(file.size>25*1024*1024){showToast('Image too large — max 25MB','error');return;}
-  // Show processing indicator
+  function _ntShowReady(){
+    const z=document.getElementById('nt-upload-zone');
+    if(z) z.style.display='none';
+    const btn=document.getElementById('nt-analyze-btn');
+    if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze with AI';}
+    const rp=document.getElementById('nt-results-panel');
+    if(rp&&!ntCurrentFood) rp.innerHTML=`<div class="card" style="padding:2rem;text-align:center"><div style="font-size:2rem;margin-bottom:0.5rem">✅</div><div style="font-family:var(--font-cond);font-size:0.85rem;font-weight:700;letter-spacing:0.1em;color:var(--light);margin-bottom:0.3rem">PHOTO READY</div><div style="font-size:0.8rem;color:var(--muted);line-height:1.6">Tap "Analyze with AI" to scan this meal</div></div>`;
+    vibrateDevice([10]);
+  }
   const r=new FileReader();
+  r.onerror=()=>{ showToast('Could not read this file — try a different photo','error'); };
   r.onload=ev=>{
+    const dataUrl=ev.target.result;
     const img=new Image();
+    img.onerror=()=>{
+      // Image failed to decode (e.g. HEIC on Chrome) — send raw data URL directly to Gemini
+      // Gemini can handle HEIC/HEIF natively
+      ntCurrentImage=dataUrl;
+      const p=document.getElementById('nt-food-preview');
+      if(p){p.src='';p.style.display='none';}
+      _ntShowReady();
+    };
     img.onload=()=>{
       const MAX=1024;
       let w=img.width,h=img.height;
@@ -7487,24 +7505,12 @@ function ntProcessFile(file){
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');
       ctx.drawImage(img,0,0,w,h);
-      ntCurrentImage=canvas.toDataURL("image/jpeg",0.85);
+      ntCurrentImage=canvas.toDataURL('image/jpeg',0.85);
       const p=document.getElementById('nt-food-preview');
-      if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';p.style.animation='fadeIn 0.3s ease both';}
-      const z=document.getElementById('nt-upload-zone');
-      if(z) z.style.display='none';
-      const btn=document.getElementById('nt-analyze-btn');
-      if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze with AI';btn.style.animation='none';setTimeout(()=>{btn.style.animation='scan-glow 1.5s ease-in-out 2';},100);}
-      const rp=document.getElementById('nt-results-panel');
-      if(rp && !ntCurrentFood) rp.innerHTML=`
-        <div class="card" style="padding:2rem;text-align:center">
-          <div style="font-size:2rem;margin-bottom:0.5rem">✅</div>
-          <div style="font-family:var(--font-cond);font-size:0.85rem;font-weight:700;letter-spacing:0.1em;color:var(--light);margin-bottom:0.3rem">PHOTO READY</div>
-          <div style="font-size:0.8rem;color:var(--muted);line-height:1.6">Tap "Analyze with AI" to scan this meal</div>
-          <div style="margin-top:1rem;font-size:0.75rem;color:var(--gold2);font-family:var(--font-cond)">+20 XP when you log this meal</div>
-        </div>`;
-      vibrateDevice([10]);
+      if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';}
+      _ntShowReady();
     };
-    img.src=ev.target.result;
+    img.src=dataUrl;
   };
   r.readAsDataURL(file);
 }
