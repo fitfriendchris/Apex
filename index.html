@@ -6349,10 +6349,14 @@ function dayDetailHTML(date, lg, macros, showDelete=false, clientName=''){
           ${showDelete&&date===getTodayStr()?'<td></td>':''}
         </tr>
       </tbody></table></div>`:`<p style="color:var(--muted);font-size:0.84rem">No food logged — checklist only day.</p>`}
-    ${hasMicros?`<div style="margin-top:0.875rem;padding-top:0.875rem;border-top:1px solid rgba(255,255,255,0.06)">
-      <div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">🧬 Micronutrients</div>
-      ${_microSummaryHTML1}
-    </div>`:''}
+    ${(()=>{
+      if(!hasMicros) return '';
+      const microTotals={};
+      foods.forEach(f=>{if(f.micros)Object.entries(f.micros).forEach(([k,v])=>{microTotals[k]=(microTotals[k]||0)+parseFloat(v||0);});});
+      const microLabels={vitaminC:'Vit C',vitaminD:'Vit D',calcium:'Calcium',iron:'Iron',potassium:'Potassium',sodium:'Sodium',magnesium:'Magnesium',zinc:'Zinc',vitaminA:'Vit A',vitaminB12:'B12',folate:'Folate',fiber:'Fiber',sugar:'Sugar',cholesterol:'Cholesterol'};
+      const rows=Object.entries(microTotals).filter(([k,v])=>v>0).map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:0.2rem 0;font-size:0.78rem;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="color:var(--muted)">${microLabels[k]||k}</span><span>${Math.round(v*10)/10}${k==='sodium'||k==='potassium'||k==='calcium'||k==='magnesium'?'mg':'g'}</span></div>`).join('');
+      return rows?`<div style="margin-top:0.875rem;padding-top:0.875rem;border-top:1px solid rgba(255,255,255,0.06)"><div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">🧬 Micronutrients</div>${rows}</div>`:'';
+    })()}
   </div>`;
 }
 
@@ -6872,8 +6876,16 @@ let macroCalYear=null, macroCalMonth=null, macroCalSelected=null;
 
 function calInit(){
   const t=getToday();
+  const todayStr=getTodayStr();
   if(macroCalYear===null){ macroCalYear=t.getFullYear(); macroCalMonth=t.getMonth(); }
-  if(macroCalSelected===null) macroCalSelected=getTodayStr();
+  if(macroCalSelected===null) macroCalSelected=todayStr;
+  // If date has changed since last load (midnight rollover), reset to today
+  if(window._calLastDate && window._calLastDate !== todayStr){
+    macroCalSelected=todayStr;
+    macroCalYear=t.getFullYear();
+    macroCalMonth=t.getMonth();
+  }
+  window._calLastDate=todayStr;
 }
 
 async function buildCalendarData(email, year, month){
