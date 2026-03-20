@@ -7469,7 +7469,9 @@ document.addEventListener('paste', function(e) {
 });
 function ntOnImgSelected(e){const f=e.target.files[0];if(f) ntProcessFile(f);}
 function ntProcessFile(file){
-  if(!file.type.startsWith('image/') && !file.name?.toLowerCase().match(/\.(heic|heif)$/)){
+  // Accept any file that could be an image — iOS often sends empty type
+  const isImage = file.type.startsWith('image/') || file.type === '' || file.name?.toLowerCase().match(/\.(heic|heif|jpg|jpeg|png|webp|gif)$/);
+  if(!isImage){
     showToast('Please select an image file','error');return;
   }
   if(file.size>25*1024*1024){showToast('Image too large — max 25MB','error');return;}
