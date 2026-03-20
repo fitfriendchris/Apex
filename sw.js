@@ -1,4 +1,4 @@
-const CACHE = 'apex-v5';
+const CACHE = 'apex-v6';
 const OFFLINE_ASSETS = ['/Apex/', '/Apex/index.html'];
 
 self.addEventListener('install', e => {
