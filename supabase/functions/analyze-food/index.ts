@@ -46,7 +46,12 @@ If portions aren't mentioned, estimate realistic ones. Be specific.`;
 async function usdaLookup(foodName: string, portionStr: string, apiKey: string) {
   const url = `${USDA_BASE}/foods/search?query=${encodeURIComponent(foodName)}&dataType=SR%20Legacy,Foundation,Survey%20(FNDDS)&pageSize=5&api_key=${apiKey}`;
   const res = await fetch(url);
-  const data = await res.json();
+  const rawText = await res.text();
+  if (!res.ok || rawText.startsWith('<')) {
+    console.error('[USDA] Error response:', rawText.substring(0, 200));
+    throw new Error('USDA API error: ' + res.status + ' — ' + rawText.substring(0, 100));
+  }
+  const data = JSON.parse(rawText);
   const foods = data.foods || [];
   if (!foods.length) return null;
 
