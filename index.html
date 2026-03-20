@@ -7474,8 +7474,6 @@ function ntProcessFile(file){
   }
   if(file.size>25*1024*1024){showToast('Image too large — max 25MB','error');return;}
   // Show processing indicator
-  const zone=document.getElementById('nt-upload-zone');
-  if(zone) zone.innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted);font-family:var(--font-cond);font-size:0.8rem">Processing image...</div>';
   const r=new FileReader();
   r.onload=ev=>{
     const img=new Image();
@@ -7541,21 +7539,19 @@ async function ntAnalyzeFood(){
   try{
     const b64=ntCurrentImage.split(',')[1];
     const mt=ntCurrentImage.split(';')[0].split(':')[1];
-    const _ctrl = new AbortController();
-    const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
-    let res;
-    try {
-      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+    const _scanTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 45000));
+    const res = await Promise.race([
+      _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-        signal: _ctrl.signal,
         body: JSON.stringify({
           type: 'scan',
           userEmail: currentUser?.email || 'anonymous',
           image: { base64: b64, mediaType: mt }
         })
-      });
-    } finally { clearTimeout(_timer); }
+      }),
+      _scanTimeout
+    ]);
 
     const data = await res.json();
     if(!res.ok || data.error){ throw new Error(data.error || 'Analysis failed'); }
