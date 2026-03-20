@@ -6,68 +6,77 @@ const CORS = {
 };
 
 const USDA_BASE = "https://api.nal.usda.gov/fdc/v1";
+const GEMINI_MODEL = "models/gemini-2.5-flash";
 
-// ── STEP 1: AI identifies foods + portions from text or image ──────────────
-async function aiIdentifyFoods(meal: string, image: any, geminiKey: string): Promise<any[]> {
+// ── STEP 1: Gemini identifies foods + portions ─────────────────────────────
+async function identifyFoods(meal: string, image: any, geminiKey: string) {
   const prompt = image
-    ? `Look at this food photo. List every food item you can see with estimated portions.
-Return ONLY a JSON array, no markdown:
-[{"food":"chicken breast","portion":"6 oz"},{"food":"white rice","portion":"1 cup cooked"}]
-Be specific with portions. Use oz, grams, cups, or count (e.g. "2 large eggs").`
-    : `Break this meal description into individual food items with specific portions:
+    ? `You are a food portion estimator. List every food visible in this photo with realistic portion sizes.
+Return ONLY a raw JSON array (no markdown, no explanation):
+[{"food":"chicken breast","portion":"6 oz","grams":170},{"food":"white rice cooked","portion":"1 cup","grams":186}]
+Be specific: use "cooked oatmeal" not "oats", "scrambled eggs" not "eggs".`
+    : `You are a food portion estimator. Break this meal into individual foods with realistic portions:
 "${meal}"
-Return ONLY a JSON array, no markdown:
-[{"food":"chicken breast","portion":"6 oz"},{"food":"white rice","portion":"1 cup cooked"}]
-If portions aren't mentioned, estimate realistic ones. Be specific.`;
+Return ONLY a raw JSON array (no markdown, no explanation):
+[{"food":"scrambled eggs","portion":"2 large","grams":100},{"food":"cooked oatmeal","portion":"1 cup","grams":234},{"food":"raw blueberries","portion":"0.5 cup","grams":74}]
+Be very specific with food names to help database matching.`;
 
   const parts = image
     ? [{ inline_data: { mime_type: image.mediaType || "image/jpeg", data: image.base64 } }, { text: prompt }]
     : [{ text: prompt }];
 
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+        generationConfig: { temperature: 0, maxOutputTokens: 512 },
       }),
     }
   );
+
   const d = await r.json();
   if (d.error) throw new Error("Gemini error: " + d.error.message);
   const text = (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-  // Extract JSON array from response robustly
-  const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-  // Find the JSON array — look for [ ... ]
-  const start = clean.indexOf("[");
-  const end = clean.lastIndexOf("]");
-  if (start === -1 || end === -1) throw new Error("Gemini did not return a JSON array. Response: " + clean.substring(0, 100));
-  return JSON.parse(clean.substring(start, end + 1));
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start === -1 || end === -1) throw new Error("Gemini returned no JSON array. Got: " + text.substring(0, 150));
+  return JSON.parse(text.substring(start, end + 1));
 }
 
-// ── STEP 2: USDA lookup for each identified item ───────────────────────────
-async function usdaLookup(foodName: string, portionStr: string, apiKey: string) {
-  const params = new URLSearchParams({query: foodName, pageSize: "5", api_key: apiKey});
+// ── STEP 2: USDA lookup with smart result selection ────────────────────────
+async function usdaLookup(foodName: string, portionStr: string, grams: number, apiKey: string) {
+  const params = new URLSearchParams({ query: foodName, pageSize: "10", api_key: apiKey });
   params.append("dataType", "Foundation");
   params.append("dataType", "SR Legacy");
   const url = `${USDA_BASE}/foods/search?${params.toString()}`;
+
   const res = await fetch(url);
-  const rawText = await res.text();
-  if (!res.ok || rawText.startsWith('<')) {
-    console.error('[USDA] Error response:', rawText.substring(0, 200));
-    throw new Error('USDA API error: ' + res.status + ' — ' + rawText.substring(0, 100));
+  const raw = await res.text();
+  if (!res.ok || raw.trimStart().startsWith("<")) {
+    throw new Error("USDA API error " + res.status);
   }
-  const data = JSON.parse(rawText);
+  const data = JSON.parse(raw);
   const foods = data.foods || [];
   if (!foods.length) return null;
 
-  // Prefer Foundation > SR Legacy > Survey
-  const priority = ["Foundation", "SR Legacy", "Survey (FNDDS)", "Branded"];
-  const best = foods.sort((a: any, b: any) =>
-    priority.indexOf(a.dataType) - priority.indexOf(b.dataType)
-  )[0];
+  // Score each result — penalise mismatches like "oil" when searching "oats"
+  const queryWords = foodName.toLowerCase().split(/\s+/);
+  const scored = foods.map((f: any) => {
+    const desc = (f.description || "").toLowerCase();
+    // Count how many query words appear in the description
+    const matches = queryWords.filter((w: string) => desc.includes(w)).length;
+    // Penalise results where key words are completely absent
+    const penalty = queryWords.some((w: string) => desc.includes(w)) ? 0 : -10;
+    // Prefer Foundation > SR Legacy
+    const typePriority = f.dataType === "Foundation" ? 2 : f.dataType === "SR Legacy" ? 1 : 0;
+    return { food: f, score: matches + typePriority + penalty };
+  });
+
+  scored.sort((a: any, b: any) => b.score - a.score);
+  const best = scored[0].food;
 
   // Extract per-100g nutrients
   const get = (id: number) => {
@@ -76,6 +85,7 @@ async function usdaLookup(foodName: string, portionStr: string, apiKey: string) 
     );
     return n?.value || n?.amount || 0;
   };
+
   const per100 = {
     calories: get(1008) || get(2047),
     protein: get(1003),
@@ -85,15 +95,15 @@ async function usdaLookup(foodName: string, portionStr: string, apiKey: string) 
     sugar: get(2000),
   };
 
-  // Parse portion string to grams
-  const grams = portionToGrams(portionStr, foodName, best);
-  const ratio = grams / 100;
+  // Use provided grams, fall back to portion parsing
+  const portionGrams = grams || parsePortion(portionStr, foodName, best);
+  const ratio = portionGrams / 100;
 
   return {
     name: best.description,
     originalName: foodName,
     portion: portionStr,
-    grams: Math.round(grams),
+    grams: Math.round(portionGrams),
     calories: Math.round(per100.calories * ratio),
     protein: Math.round(per100.protein * ratio * 10) / 10,
     carbs: Math.round(per100.carbs * ratio * 10) / 10,
@@ -101,52 +111,37 @@ async function usdaLookup(foodName: string, portionStr: string, apiKey: string) 
     fiber: Math.round(per100.fiber * ratio * 10) / 10,
     sugar: Math.round(per100.sugar * ratio * 10) / 10,
     dataType: best.dataType,
-    fdcId: best.fdcId,
   };
 }
 
-function portionToGrams(portion: string, foodName: string, usdaItem: any): number {
-  const p = portion.toLowerCase().trim();
+function parsePortion(portion: string, foodName: string, usdaItem: any): number {
+  const p = portion.toLowerCase();
   const food = foodName.toLowerCase();
+  const num = parseFloat(p.match(/[\d.]+/)?.[0] || "1");
 
-  // Extract leading number (handles "1.5", "1/2", "2")
-  const numMatch = p.match(/^(\d+\.?\d*|\d+\/\d+)/);
-  const qty = numMatch
-    ? numMatch[1].includes("/")
-      ? eval(numMatch[1])  // safe: only fractions like 1/2
-      : parseFloat(numMatch[1])
-    : 1;
+  if (p.match(/\d+\s*g\b/))     return num;
+  if (p.includes("oz"))          return num * 28.35;
+  if (p.includes("lb"))          return num * 453.6;
+  if (p.includes("cup"))         return num * 240;
+  if (p.includes("tbsp"))        return num * 15;
+  if (p.includes("tsp"))         return num * 5;
+  if (p.includes("scoop"))       return num * 35;
+  if (p.includes("slice"))       return food.includes("bread") ? num * 28 : food.includes("pizza") ? num * 107 : num * 30;
+  if (p.includes("large") && food.includes("egg")) return num * 56;
+  if (p.includes("medium") && food.includes("egg")) return num * 44;
+  if (p.includes("small") && food.includes("egg")) return num * 38;
 
-  if (p.includes("gram") || p.match(/\dg\b/)) return qty;
-  if (p.includes("oz"))   return qty * 28.35;
-  if (p.includes("lb"))   return qty * 453.6;
-  if (p.includes("cup"))  return qty * 240;
-  if (p.includes("tbsp")) return qty * 15;
-  if (p.includes("tsp"))  return qty * 5;
-  if (p.includes("ml"))   return qty; // approximate 1ml ≈ 1g for most foods
-  if (p.includes("liter") || p.includes("litre")) return qty * 1000;
-  if (p.includes("slice") || p.includes("piece")) {
-    if (food.includes("bread"))  return qty * 28;
-    if (food.includes("pizza"))  return qty * 107;
-    if (food.includes("cheese")) return qty * 28;
-    return qty * 30;
-  }
-  if (p.includes("scoop"))  return qty * 35;
-  if (p.includes("medium") || p.includes("large") || p.includes("small")) {
-    if (food.includes("egg"))    return qty * (p.includes("large") ? 56 : p.includes("small") ? 38 : 44);
-    if (food.includes("apple"))  return qty * (p.includes("large") ? 223 : 182);
-    if (food.includes("banana")) return qty * (p.includes("large") ? 136 : 118);
-    if (food.includes("potato")) return qty * (p.includes("large") ? 299 : 173);
-    return qty * 100;
-  }
-  // Count-based — use USDA serving size if available
-  if (usdaItem?.servingSize) return qty * usdaItem.servingSize;
-  // Common defaults by food type
-  if (food.includes("egg"))    return qty * 50;
-  if (food.includes("chicken") || food.includes("beef") || food.includes("salmon") || food.includes("tuna")) return qty * 85;
-  if (food.includes("rice") || food.includes("pasta") || food.includes("oat")) return qty * 195;
-  if (food.includes("milk"))   return qty * 240;
-  return qty * 100; // fallback
+  // Use USDA serving size if available
+  if (usdaItem?.servingSize) return num * usdaItem.servingSize;
+
+  // Common defaults
+  if (food.includes("egg"))     return num * 50;
+  if (food.includes("chicken") || food.includes("beef") || food.includes("fish") || food.includes("salmon")) return num * 85;
+  if (food.includes("rice") || food.includes("pasta") || food.includes("oat")) return num * 180;
+  if (food.includes("banana"))  return num * 118;
+  if (food.includes("apple"))   return num * 182;
+  if (food.includes("milk"))    return num * 240;
+  return num * 100;
 }
 
 // ── MAIN HANDLER ───────────────────────────────────────────────────────────
@@ -155,82 +150,74 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const usdaKey   = Deno.env.get("USDA_API_KEY")   || "";
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")  || "";
+    const usdaKey   = Deno.env.get("USDA_API_KEY")  || "";
+    const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
 
-    const isText = body.type === "text";
-    const isScan = body.type === "scan";
-
-    if (!isText && !isScan) {
+    if (!["text", "scan"].includes(body.type)) {
       return new Response(JSON.stringify({ error: "type must be scan or text" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
     }
+    if (!geminiKey) return new Response(JSON.stringify({ error: "Gemini key not configured" }), { status: 503, headers: { ...CORS, "Content-Type": "application/json" } });
+    if (!usdaKey)   return new Response(JSON.stringify({ error: "USDA key not configured" }), { status: 503, headers: { ...CORS, "Content-Type": "application/json" } });
 
-    if (!geminiKey) {
-      return new Response(JSON.stringify({ error: "Gemini key not configured" }), { status: 503, headers: { ...CORS, "Content-Type": "application/json" } });
-    }
-    if (!usdaKey) {
-      return new Response(JSON.stringify({ error: "USDA API key not configured" }), { status: 503, headers: { ...CORS, "Content-Type": "application/json" } });
-    }
-
-    // ── STEP 1: AI identifies what foods are present ──────────────────────
     const meal  = body.meal  || "";
-    const image = isScan ? body.image : null;
-
-    if (isScan && !image?.base64) {
+    const image = body.type === "scan" ? body.image : null;
+    if (body.type === "scan" && !image?.base64) {
       return new Response(JSON.stringify({ error: "Missing image data" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
     }
 
-    console.log(`[${body.type}] Step 1: AI identifying foods...`);
-    const identified = await aiIdentifyFoods(meal, image, geminiKey);
-    console.log(`[${body.type}] Identified ${identified.length} items:`, identified.map((i: any) => i.food).join(", "));
+    // Step 1: Identify foods
+    console.log(`[${body.type}] Identifying foods...`);
+    const identified = await identifyFoods(meal, image, geminiKey);
+    console.log(`[${body.type}] Found:`, identified.map((i: any) => i.food).join(", "));
 
-    // ── STEP 2: USDA lookup for each item in parallel ─────────────────────
-    console.log(`[${body.type}] Step 2: USDA lookup...`);
+    // Step 2: USDA lookup in parallel
+    console.log(`[${body.type}] Looking up in USDA...`);
     const lookups = await Promise.all(
-      identified.map((item: any) => usdaLookup(item.food, item.portion, usdaKey))
+      identified.map((item: any) => usdaLookup(item.food, item.portion, item.grams || 0, usdaKey))
     );
     const valid = lookups.filter(Boolean) as any[];
 
     if (!valid.length) {
       return new Response(
-        JSON.stringify({ error: "Could not find any of the identified foods in the USDA database. Try describing the food differently." }),
+        JSON.stringify({ error: "Could not find foods in USDA database. Try being more specific." }),
         { status: 404, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
 
-    // ── STEP 3: Sum all items ─────────────────────────────────────────────
+    // Step 3: Sum totals
     const total = valid.reduce(
       (acc, item) => ({
         calories: acc.calories + item.calories,
-        protein:  Math.round((acc.protein + item.protein)  * 10) / 10,
-        carbs:    Math.round((acc.carbs   + item.carbs)    * 10) / 10,
-        fats:     Math.round((acc.fats    + item.fats)     * 10) / 10,
-        fiber:    Math.round((acc.fiber   + item.fiber)    * 10) / 10,
-        sugar:    Math.round((acc.sugar   + item.sugar)    * 10) / 10,
+        protein:  Math.round((acc.protein + item.protein) * 10) / 10,
+        carbs:    Math.round((acc.carbs   + item.carbs)   * 10) / 10,
+        fats:     Math.round((acc.fats    + item.fats)    * 10) / 10,
+        fiber:    Math.round((acc.fiber   + item.fiber)   * 10) / 10,
+        sugar:    Math.round((acc.sugar   + item.sugar)   * 10) / 10,
       }),
       { calories: 0, protein: 0, carbs: 0, fats: 0, fiber: 0, sugar: 0 }
     );
 
-    const mealName = isScan
-      ? valid.map((v) => v.originalName).join(", ")
-      : (meal.length > 60 ? meal.substring(0, 60) : meal);
-
     const food = {
-      name: mealName,
+      name: meal.length > 60 ? meal.substring(0, 60) : (meal || valid.map((v) => v.originalName).join(", ")),
       portion: valid.map((v) => `${v.portion} ${v.originalName}`).join(" + "),
       ...total,
       rating: 4,
       source: "USDA FoodData Central",
-      items: valid.length > 1
-        ? valid.map((v) => ({ name: v.name, portion: v.portion, calories: v.calories, protein: v.protein, carbs: v.carbs, fats: v.fats }))
-        : undefined,
+      items: valid.length > 1 ? valid.map((v) => ({
+        name: v.name,
+        portion: `${v.grams}g`,
+        calories: v.calories,
+        protein: v.protein,
+        carbs: v.carbs,
+        fats: v.fats,
+      })) : undefined,
       insights: [
-        `Verified via USDA FoodData Central (${[...new Set(valid.map((v) => v.dataType))].join(", ")})`,
-        `P: ${total.protein}g (${Math.round(total.protein * 4)} kcal) · C: ${total.carbs}g (${Math.round(total.carbs * 4)} kcal) · F: ${total.fats}g (${Math.round(total.fats * 9)} kcal)`,
+        `USDA verified (${[...new Set(valid.map((v) => v.dataType))].join(", ")})`,
+        `P: ${total.protein}g · C: ${total.carbs}g · F: ${total.fats}g`,
       ],
     };
 
-    console.log(`[${body.type}] Done: ${food.name} — ${food.calories} kcal`);
+    console.log(`[${body.type}] Result: ${food.name} — ${food.calories} kcal`);
     return new Response(JSON.stringify({ ok: true, food }), {
       status: 200,
       headers: { ...CORS, "Content-Type": "application/json" },
@@ -238,7 +225,7 @@ serve(async (req) => {
 
   } catch (err) {
     const m = err instanceof Error ? err.message : "Unknown error";
-    console.error("[analyze-food error]", m);
+    console.error("[analyze-food]", m);
     return new Response(JSON.stringify({ error: m }), {
       status: 502,
       headers: { ...CORS, "Content-Type": "application/json" },
