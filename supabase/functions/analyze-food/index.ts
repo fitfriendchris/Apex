@@ -77,12 +77,14 @@ Return ONLY a valid JSON array, no markdown, no explanation:
   const text = (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 
   // Robust JSON array extraction
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
+  // Strip markdown fences Gemini sometimes adds despite instructions
+  const clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const start = clean.indexOf("[");
+  const end = clean.lastIndexOf("]");
   if (start === -1 || end === -1 || end <= start) {
     throw new Error("Gemini returned no valid JSON array. Response: " + text.substring(0, 200));
   }
-  const jsonStr = text.substring(start, end + 1);
+  const jsonStr = clean.substring(start, end + 1);
   const items = JSON.parse(jsonStr);
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("Gemini returned empty food list");
