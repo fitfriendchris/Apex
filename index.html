@@ -3621,6 +3621,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <script>
+// Capture native fetch before SES lockdown intercepts it
+const _nativeFetch = window.fetch.bind(window);
 // ================================================================
 //  CONFIG
 // ================================================================
@@ -3692,7 +3694,7 @@ let STRIPE_LINKS = { core: '', elite: '', vip: '', diamond: '' };
 
 async function loadConfig() {
   try {
-    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
+    const res = await _nativeFetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
     if (!res.ok) throw new Error('Config fetch failed: ' + res.status);
     const cfg = await res.json();
     SUPABASE_URL      = cfg.supabaseUrl      || '';
@@ -7202,7 +7204,7 @@ async function aiAnalyzeMeal(){
 
   try{
     const _aiTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 25000));
-    const _aiFetch = fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+    const _aiFetch = _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
       body: JSON.stringify({
@@ -7493,7 +7495,7 @@ async function ntAnalyzeFood(){
     const b64=ntCurrentImage.split(',')[1];
     const mt=ntCurrentImage.split(';')[0].split(':')[1];
     const _scanTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 30000));
-    const _scanFetch = fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+    const _scanFetch = _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
       body: JSON.stringify({
