@@ -6940,15 +6940,6 @@ Restaurant orders, home cooking, recipes — anything works"
         </div>
 
         <div style="margin-top:0.5rem;font-size:0.7rem;color:var(--green);font-family:var(--font-cond)">✓ AI ready — type your meal above and hit Calculate</div>
-
-        <!-- Accuracy disclaimer -->
-        <div style="margin-top:0.75rem;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:var(--radius-sm);padding:0.65rem 0.85rem;display:flex;gap:0.6rem;align-items:flex-start">
-          <span style="font-size:0.9rem;flex-shrink:0;margin-top:1px">⚠️</span>
-          <div>
-            <div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:#f5a623;margin-bottom:0.3rem">AI estimates vs. real nutrition facts</div>
-            <div style="font-size:0.72rem;color:var(--muted);line-height:1.55">AI uses USDA database averages — <strong style="color:rgba(240,237,232,0.75)">not the actual product you cooked.</strong> Home-cooked meals vary by cut of meat, cooking method, oil used, and portion size. A beef patty can range from 15–28g protein depending on fat content and brand. For the most accurate tracking, always check the <strong style="color:rgba(240,237,232,0.75)">nutrition label</strong> on your specific ingredients and use Manual Entry. Use AI logging for restaurant meals, mixed dishes, or when labels aren't available.</div>
-          </div>
-        </div>
       </div>
 
       <!-- AI Results panel -->
@@ -7001,25 +6992,36 @@ Restaurant orders, home cooking, recipes — anything works"
 
           <!-- Drop zone (hidden after image chosen) -->
           <div id="nt-upload-zone" class="scanner-drop-zone"
-            onclick="document.getElementById('nt-food-file').click()"
             ondragover="event.preventDefault();this.classList.add('drag-over')"
             ondragleave="this.classList.remove('drag-over')"
             ondrop="ntHandleDrop(event)">
             <span class="scanner-icon">📷</span>
-            <div style="font-size:1rem;font-weight:700;color:var(--light);margin-bottom:0.35rem">Drop photo or tap to browse</div>
-            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">Camera, screenshot, or any food image</div>
-            <div style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.85rem">
-              <button onclick="event.stopPropagation();document.getElementById('nt-food-file-camera').click()" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-family:var(--font-cond);font-size:0.8rem;font-weight:700;letter-spacing:0.06em;padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer">📸 Take Photo</button>
-              <button onclick="event.stopPropagation();document.getElementById('nt-food-file').click()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--light);font-family:var(--font-cond);font-size:0.8rem;font-weight:700;letter-spacing:0.06em;padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer">🖼 Choose Photo</button>
+            <div style="font-size:1rem;font-weight:700;color:var(--light);margin-bottom:0.25rem">Scan your meal</div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem">Photo · Screenshot · Drag & drop · Paste</div>
+
+            <!-- Three clear options stacked -->
+            <div style="display:flex;flex-direction:column;gap:0.5rem;width:100%;max-width:280px;margin:0 auto 0.85rem">
+              <!-- Camera — opens camera directly -->
+              <button onclick="event.stopPropagation();document.getElementById('nt-food-file-camera').click()" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.35);color:var(--gold);font-family:var(--font-cond);font-size:0.88rem;font-weight:700;letter-spacing:0.06em;padding:0.6rem 1rem;border-radius:8px;cursor:pointer;width:100%">
+                📸 Take Photo
+              </button>
+              <!-- Library — opens full photo library including iMessage saves -->
+              <button onclick="event.stopPropagation();document.getElementById('nt-food-file').click()" style="background:rgba(78,143,224,0.1);border:1px solid rgba(78,143,224,0.3);color:var(--blue);font-family:var(--font-cond);font-size:0.88rem;font-weight:700;letter-spacing:0.06em;padding:0.6rem 1rem;border-radius:8px;cursor:pointer;width:100%">
+                🖼️ Choose from Library
+              </button>
+              <!-- Paste — for screenshots and clipboard images -->
+              <button onclick="event.stopPropagation();ntPasteFromClipboard()" style="background:rgba(155,111,224,0.1);border:1px solid rgba(155,111,224,0.3);color:var(--purple);font-family:var(--font-cond);font-size:0.88rem;font-weight:700;letter-spacing:0.06em;padding:0.6rem 1rem;border-radius:8px;cursor:pointer;width:100%">
+                📋 Paste Screenshot
+              </button>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center">
-              ${['🍗 Chicken & Rice','🥗 Salad Bowl','🥤 Shake','🍳 Eggs & Toast'].map(ex=>`<span style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);padding:0.25rem 0.65rem;border-radius:20px;font-size:0.72rem;color:var(--muted);font-family:var(--font-cond)">${ex}</span>`).join('')}
-            </div>
+
+            <div style="font-size:0.68rem;color:var(--muted);font-family:var(--font-cond)">or drag &amp; drop anywhere above</div>
           </div>
-          <!-- Gallery picker — no capture attribute, allows photo library -->
-          <input type="file" id="nt-food-file" accept="image/*" style="display:none" onchange="ntOnImgSelected(event)"/>
-          <!-- Camera picker — capture forces camera on mobile -->
-          <input type="file" id="nt-food-file-camera" accept="image/*" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
+
+          <!-- Gallery picker — no capture, shows full library including saved from texts -->
+          <input type="file" id="nt-food-file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style="display:none" onchange="ntOnImgSelected(event)"/>
+          <!-- Camera picker — capture=environment opens rear camera directly -->
+          <input type="file" id="nt-food-file-camera" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none" onchange="ntOnImgSelected(event)"/>
 
           <!-- Action buttons -->
           <button class="btn scanner-analyze-btn" id="nt-analyze-btn" disabled onclick="ntAnalyzeFood()">
@@ -7059,10 +7061,6 @@ Restaurant orders, home cooking, recipes — anything works"
               <div style="display:flex;flex-wrap:wrap;gap:0.35rem;justify-content:center">
                 ${['Calories','Protein','Carbs','Fat','Fiber','14 Micros','AI Insights','Auto-Log'].map(f=>`<span style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18);color:var(--gold2);font-family:var(--font-cond);font-size:0.65rem;letter-spacing:0.08em;padding:0.2rem 0.55rem;border-radius:3px">${f}</span>`).join('')}
               </div>
-            </div>
-            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.05);background:rgba(245,166,35,0.05);border-radius:var(--radius-sm);padding:0.65rem 0.75rem;text-align:left;display:flex;gap:0.5rem;align-items:flex-start">
-              <span style="font-size:0.85rem;flex-shrink:0">⚠️</span>
-              <div style="font-size:0.68rem;color:var(--muted);line-height:1.5">Photo scanning estimates portions visually — results can vary ±20% from actual values. <strong style="color:rgba(240,237,232,0.6)">Home-cooked meals are especially variable</strong> based on oil, fat content, and portion size. For precision, use the nutrition label and Manual Entry.</div>
             </div>
           </div>
         </div>
@@ -7420,26 +7418,76 @@ function ntHandleDrop(e){
   e.preventDefault();
   const zone=document.getElementById('nt-upload-zone');
   if(zone){zone.style.borderColor='rgba(255,255,255,0.1)';zone.style.background='rgba(255,255,255,0.02)';}
+  zone?.classList.remove('drag-over');
   const f=e.dataTransfer.files[0];
   if(f&&f.type.startsWith('image/')) ntProcessFile(f);
+  // Also handle drag of image URLs (e.g. dragging from browser)
+  else {
+    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if(url && url.match(/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i)) {
+      showToast('Fetching image from URL...', 'info', 2000);
+      fetch(url).then(r=>r.blob()).then(blob=>ntProcessFile(new File([blob],'food.jpg',{type:'image/jpeg'}))).catch(()=>showToast('Could not load that image URL','error'));
+    }
+  }
 }
+
+// Paste from clipboard — works with Cmd+V screenshots and copied images
+async function ntPasteFromClipboard() {
+  try {
+    if (!navigator.clipboard?.read) {
+      showToast('Paste not supported in this browser — use Choose from Library instead', 'error', 3500);
+      return;
+    }
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imageType = item.types.find(t => t.startsWith('image/'));
+      if (imageType) {
+        const blob = await item.getType(imageType);
+        ntProcessFile(new File([blob], 'pasted.jpg', { type: imageType }));
+        return;
+      }
+    }
+    showToast('No image found in clipboard — copy an image first', 'error', 3000);
+  } catch (err) {
+    // Fallback: prompt user to use Cmd+V in the drop zone
+    showToast('Tap the drop zone and press Cmd+V to paste', 'info', 3500);
+  }
+}
+
+// Global paste listener — Cmd+V anywhere on the scan tab pastes an image
+document.addEventListener('paste', function(e) {
+  // Only handle if scan tab is visible
+  const scanTab = document.getElementById('nt-upload-zone');
+  if (!scanTab || scanTab.style.display === 'none') return;
+  const items = e.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) { ntProcessFile(file); e.preventDefault(); return; }
+    }
+  }
+});
 function ntOnImgSelected(e){const f=e.target.files[0];if(f) ntProcessFile(f);}
 function ntProcessFile(file){
-  if(!file.type.startsWith('image/')){showToast('Please select an image file','error');return;}
-  if(file.size>20*1024*1024){showToast('Image too large — max 20MB','error');return;}
+  if(!file.type.startsWith('image/') && !file.name?.toLowerCase().match(/\.(heic|heif)$/)){
+    showToast('Please select an image file','error');return;
+  }
+  if(file.size>25*1024*1024){showToast('Image too large — max 25MB','error');return;}
+  // Show processing indicator
+  const zone=document.getElementById('nt-upload-zone');
+  if(zone) zone.innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted);font-family:var(--font-cond);font-size:0.8rem">Processing image...</div>';
   const r=new FileReader();
   r.onload=ev=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX=1024;
+      const MAX=512;
       let w=img.width,h=img.height;
       if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
       const canvas=document.createElement('canvas');
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');
       ctx.drawImage(img,0,0,w,h);
-      // Use 0.85 quality JPEG — 0.4 produces artifacts Gemini rejects
-      ntCurrentImage=canvas.toDataURL("image/jpeg",0.85);
+      ntCurrentImage=canvas.toDataURL("image/jpeg",0.4);
       const p=document.getElementById('nt-food-preview');
       if(p){p.src=ntCurrentImage;p.style.display='block';p.className='scanner-preview';p.style.animation='fadeIn 0.3s ease both';}
       const z=document.getElementById('nt-upload-zone');
