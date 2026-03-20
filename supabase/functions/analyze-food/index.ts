@@ -31,15 +31,20 @@ If portions aren't mentioned, estimate realistic ones. Be specific.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature: 0, maxOutputTokens: 400 },
+        generationConfig: { temperature: 0, maxOutputTokens: 1024 },
       }),
     }
   );
   const d = await r.json();
   if (d.error) throw new Error("Gemini error: " + d.error.message);
   const text = (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+  // Extract JSON array from response robustly
   const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-  return JSON.parse(clean);
+  // Find the JSON array — look for [ ... ]
+  const start = clean.indexOf("[");
+  const end = clean.lastIndexOf("]");
+  if (start === -1 || end === -1) throw new Error("Gemini did not return a JSON array. Response: " + clean.substring(0, 100));
+  return JSON.parse(clean.substring(start, end + 1));
 }
 
 // ── STEP 2: USDA lookup for each identified item ───────────────────────────
