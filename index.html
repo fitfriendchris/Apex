@@ -3457,25 +3457,42 @@ if ('serviceWorker' in navigator) {
 
 <!-- CUSTOMIZE WORKOUT (Coach) -->
 <div class="modal-overlay" id="customWorkoutModal">
-  <div class="modal">
-    <div class="modal-title">Override Workout</div>
-    <div class="form-group"><label>Client</label><input id="cwClient" readonly style="color:var(--gold)"></div>
-    <div class="form-group"><label>Day</label>
-      <select id="cwDay"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select>
+  <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto">
+    <div class="modal-title">Customize Workout — <span id="cwClientName" style="color:var(--gold)"></span></div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Day</label>
+        <select id="cwDay" onchange="cwLoadDay()" style="width:100%">
+          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+          <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Focus Label</label>
+        <input id="cwFocus" placeholder="e.g. Chest & Triceps" style="width:100%">
+      </div>
     </div>
-    <div class="form-group"><label>Override Focus</label>
-      <select id="cwFocus">
-        <option value="">Use Program Default</option>
-        <option>Chest & Triceps</option><option>Back & Biceps</option><option>Legs & Glutes</option>
-        <option>Shoulders & Arms</option><option>Full Body</option><option>Cardio</option><option>Rest</option><option>Active Recovery</option>
-      </select>
+
+    <!-- Coach note -->
+    <div class="form-group">
+      <label>Coach Note to Client</label>
+      <textarea id="cwNotes" placeholder="Instructions, modifications, or motivation..." style="min-height:60px"></textarea>
     </div>
-    <div class="form-group"><label>Coach Note to Client</label>
-      <textarea id="cwNotes" placeholder="Instructions, modifications, or motivation for this client..."></textarea>
+
+    <!-- Exercise list editor -->
+    <div style="margin-bottom:0.75rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <label style="margin:0;font-family:var(--font-cond);font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)">Exercises</label>
+        <button onclick="cwAddExercise()" style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-family:var(--font-cond);font-size:0.72rem;padding:0.25rem 0.65rem;border-radius:4px;cursor:pointer">+ Add Exercise</button>
+      </div>
+      <div id="cwExerciseList" style="display:flex;flex-direction:column;gap:0.5rem"></div>
     </div>
+
     <div class="form-error" id="cwError"></div>
-    <div style="display:flex;gap:0.75rem;margin-top:1rem;">
-      <button class="btn btn-gold" id="cwBtn" onclick="saveCustomWorkout()">Save Override</button>
+    <div style="display:flex;gap:0.75rem;margin-top:1rem">
+      <button class="btn btn-gold" id="cwBtn" onclick="saveCustomWorkout()">Save</button>
+      <button class="btn btn-outline" onclick="cwResetToDefault()" style="font-size:0.82rem">Reset to Default</button>
       <button class="btn btn-outline" onclick="closeModal('customWorkoutModal')">Cancel</button>
     </div>
   </div>
@@ -3992,9 +4009,20 @@ async function saveDailyLog(email, date, log) {
   await sbUpsert('daily_logs',{user_email:email,log_date:date,foods:log.foods||[],checks:log.checks||{},water:log.water||0,fast_start:log.fastStart||'20:00',fast_end:log.fastEnd||'12:00'},'user_email,log_date');
 }
 async function getOverrides(email) {
-  if (!isConfigured) return lf.get('overrides_'+email)||{};
+  if (!isConfigured()) return lf.get('overrides_'+email)||{};
   const {data}=await sbGet('workout_overrides',`?user_email=eq.${encodeURIComponent(email)}&select=*`);
-  const r={}; (data||[]).forEach(d=>{ r[d.day_name]={focus:d.focus,notes:d.notes}; }); return r;
+  const r={};
+  (data||[]).forEach(d=>{
+    // Try to parse notes as JSON (new format with exercises array)
+    let parsed = null;
+    try { if(d.notes && d.notes.startsWith('{')) parsed = JSON.parse(d.notes); } catch(e){}
+    if (parsed && parsed.exercises) {
+      r[d.day_name] = { focus: d.focus || parsed.focus, notes: parsed.notes || '', exercises: parsed.exercises };
+    } else {
+      r[d.day_name] = { focus: d.focus, notes: d.notes };
+    }
+  });
+  return r;
 }
 async function saveOverride(email,day,focus,notes) {
   if (!isConfigured) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
@@ -4280,7 +4308,16 @@ function getTodayWorkout(user, overrides) {
   const names=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const name=names[today.getDay()];
   const base=prog.schedule.find(d=>d.day===name)||prog.schedule[0];
-  if(overrides&&overrides[name]){ const ov=overrides[name]; return {...base,focus:ov.focus||base.focus,coachNote:ov.notes}; }
+  if(overrides&&overrides[name]){
+    const ov=overrides[name];
+    return {
+      ...base,
+      focus: ov.focus||base.focus,
+      coachNote: ov.notes,
+      // Use custom exercises if coach provided them
+      exercises: (ov.exercises&&ov.exercises.length) ? ov.exercises : base.exercises
+    };
+  }
   return base;
 }
 
@@ -7854,19 +7891,35 @@ function goToWorkoutDate(dateStr) {
 function renderWorkouts(){
   const user = currentUser;
   const prog = getProgram(user);
+  const schedule = getEffectiveSchedule(user);
+  const custom = getCustomSplit(user.email);
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const todayDay = dayNames[today.getDay()];
 
-  // Build day cards HTML — today opens by default
-  const daysHtml = prog.schedule.map(day => {
+  const daysHtml = schedule.map(day => {
     const isToday = day.day === todayDay;
-    const dateForDay = getDateForDayName(day.day); // closest past/today date for this weekday
+    const dateForDay = getDateForDayName(day.day);
     const log = getWorkoutLog(user.email, dateForDay) || {};
     const isDone = log.completed;
     const isRest = day.exercises.length === 0;
-
-    // Calculate today's logged volume for this day
+    const isRemapped = !!day._remappedFrom;
     const vol = calcDayVolume(log);
+    const otherDays = prog.schedule.filter(d => d.exercises.length > 0 && d.day !== day.day);
+
+    const swapBtn = isToday ? `
+      <div style="padding:0.75rem 1rem;border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+        <span style="font-size:0.7rem;color:var(--muted);font-family:var(--font-cond);letter-spacing:0.06em">SWAP TODAY TO:</span>
+        <select onchange="if(this.value)doTodayInstead(this.value);this.value=''" style="background:var(--dark3);border:1px solid rgba(255,255,255,0.12);color:var(--light);font-family:var(--font-cond);font-size:0.78rem;padding:0.3rem 0.5rem;border-radius:4px;cursor:pointer;flex:1;min-width:160px">
+          <option value="">— pick a workout —</option>
+          ${otherDays.map(d=>`<option value="${d.day}">${d.day}: ${d.focus}</option>`).join('')}
+        </select>
+        ${isRemapped?`<button onclick="doTodayInstead('${day.day}')" style="background:none;border:1px solid rgba(224,82,82,0.3);color:var(--red);font-size:0.7rem;font-family:var(--font-cond);padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer">✕ Reset</button>`:''}
+      </div>` : `
+      <div style="padding:0.6rem 1rem;border-top:1px solid rgba(255,255,255,0.04)">
+        <button onclick="doTodayInstead('${day.day}')" style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);color:var(--gold2);font-family:var(--font-cond);font-size:0.72rem;letter-spacing:0.06em;padding:0.35rem 0.75rem;border-radius:4px;cursor:pointer;width:100%">
+          ↩ Do this workout today instead
+        </button>
+      </div>`;
 
     return `<div class="workout-day ${isToday?'is-today':''} ${isDone?'is-done':''} ${isToday?'open':''}" id="wday-${day.day}">
       <div class="workout-day-header" onclick="toggleWorkoutDay('${day.day}')">
@@ -7877,42 +7930,39 @@ function renderWorkouts(){
               ${day.day} — ${day.focus}
               ${isToday?'<span style="color:var(--gold);font-size:0.65rem;margin-left:0.4rem">◄ TODAY</span>':''}
               ${isDone?'<span style="color:var(--green);font-size:0.65rem;margin-left:0.4rem">✓ DONE</span>':''}
+              ${isRemapped?`<span style="color:var(--blue);font-size:0.62rem;margin-left:0.4rem">↩ from ${day._remappedFrom}</span>`:''}
             </div>
             <div class="workout-day-meta">${day.type}${vol>0?' · '+Math.round(vol).toLocaleString()+' lbs volume':''}</div>
           </div>
         </div>
         <span class="badge ${day.type==='Rest'?'badge-rest':day.type==='Cardio'?'badge-cardio':''}">${day.type}</span>
       </div>
-
       <div class="workout-day-body">
         ${isRest
           ? `<div style="padding:1.25rem 1rem;color:var(--muted);font-size:0.88rem;line-height:1.6">🛌 Rest & recover. Growth happens outside the gym.<br><span style="font-size:0.78rem">Walk 8,000+ steps, sleep 8+ hours, eat your macros.</span></div>`
           : buildExerciseLogHtml(day, user.email, dateForDay, log)
         }
+        ${!isRest ? swapBtn : ''}
       </div>
     </div>`;
   }).join('');
 
-  // Build 7-day calendar strip
-  const calStrip = buildWorkoutCalStrip(user);
+  const splitNotice = custom ? `
+    <div style="background:rgba(78,143,224,0.06);border:1px solid rgba(78,143,224,0.2);border-radius:var(--radius-sm);padding:0.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
+      <span style="font-size:0.78rem;color:var(--blue);font-family:var(--font-cond)">↩ Custom workout active today</span>
+      <button onclick="clearCustomSplit('${user.email}');renderWorkouts()" style="background:none;border:1px solid rgba(78,143,224,0.3);color:var(--blue);font-size:0.7rem;font-family:var(--font-cond);padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer">Reset to default</button>
+    </div>` : '';
 
+  const calStrip = buildWorkoutCalStrip(user);
   set('mainContent',`
     <div class="section-title">${prog.name}</div>
-    <div class="section-sub">Tap any day to log your sets. Track weight, reps, and RPE — every session builds the next.</div>
+    <div class="section-sub">Tap any day to log sets. Missed a day? Hit "Do this workout today instead" on any card.</div>
     ${calStrip}
-
-    ${(user.tier||'free')==='free'?`
-    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
-      <div style="font-size:0.82rem;color:var(--muted)">
-        <span style="color:var(--green)">✓ Full program unlocked.</span> &nbsp;Add a coach for custom overrides, weekly reviews &amp; direct messaging.
-      </div>
-      <button class="btn btn-outline btn-sm" onclick="openModal('upgradeModal')" style="flex-shrink:0">Get Coaching →</button>
-    </div>`:''}
-
+    ${splitNotice}
+    ${(user.tier||'free')==='free'?`<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap"><div style="font-size:0.82rem;color:var(--muted)"><span style="color:var(--green)">✓ Full program unlocked.</span> &nbsp;Add a coach for custom overrides, weekly reviews &amp; direct messaging.</div><button class="btn btn-outline btn-sm" onclick="openModal('upgradeModal')" style="flex-shrink:0">Get Coaching →</button></div>`:''}
     ${daysHtml}
   `);
 }
-
 // Get the date string for the most recent occurrence of a weekday name (or today)
 function getDateForDayName(dayName){
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -7924,73 +7974,20 @@ function getDateForDayName(dayName){
   return now.toISOString().split('T')[0];
 }
 
-function toggleWorkoutDay(dayName){
-  const el = document.getElementById('wday-'+dayName);
-  if(el) el.classList.toggle('open');
-}
-
-// ── EXERCISE SWAP LIBRARY ─────────────────────────────────────
-// Organized by muscle group — used in the exercise picker
+// ── EXERCISE LIBRARY (shared by client swap + coach editor) ──
 const EXERCISE_LIBRARY = {
-  'Chest': [
-    'Barbell Bench Press','Incline Barbell Press','Decline Barbell Press',
-    'Flat DB Press','Incline DB Press','Decline DB Press',
-    'Cable Crossover High to Low','Cable Crossover Low to High','Cable Fly',
-    'Weighted Dips','Machine Chest Press','Pec Deck Fly','Push-Ups',
-    'Landmine Press','DB Pullover'
-  ],
-  'Back': [
-    'Barbell Bent-Over Row','T-Bar Row','Pendlay Row',
-    'Weighted Pull-Ups','Lat Pulldown Wide Grip','Lat Pulldown Close Grip',
-    'Single-Arm DB Row','Seated Cable Row','Face Pulls',
-    'Straight-Arm Pulldown','Deadlift','Rack Pull','Chest Supported Row',
-    'Rear Delt Fly Cable','Rear Delt Fly DB','Machine Row'
-  ],
-  'Shoulders': [
-    'Overhead Press Barbell','DB Shoulder Press Seated','Arnold Press DB',
-    'Lateral Raises','Cable Lateral Raises','Lateral Raises Drop Set',
-    'Front Plate Raises','Front DB Raises','Upright Row',
-    'Machine Shoulder Press','Cable Front Raise','Band Pull-Apart'
-  ],
-  'Legs': [
-    'Barbell Back Squat','Front Squat','Goblet Squat','Hack Squat',
-    'Romanian Deadlift','Stiff-Leg Deadlift','Sumo Deadlift',
-    'Leg Press','Walking Lunges DB','Reverse Lunges','Bulgarian Split Squat',
-    'Leg Extension','Leg Curl Seated','Leg Curl Lying','Nordic Curl',
-    'Standing Calf Raises','Seated Calf Raises','Donkey Calf Raises',
-    'Step-Ups','Hip Thrust Barbell'
-  ],
-  'Glutes': [
-    'Barbell Hip Thrust','Hip Thrust Machine','Cable Kickbacks',
-    'Glute Bridge Pulse','Abductor Machine','Hip Abduction Machine',
-    'Sumo Squat DB','Romanian Deadlift','Cable Pull-Through',
-    'Single-Leg Hip Thrust','Donkey Kickbacks','Frog Pumps'
-  ],
-  'Arms - Biceps': [
-    'Barbell Curl','EZ Bar Curl','Incline DB Curl','Hammer Curls',
-    'Concentration Curl','Cable Curl','Preacher Curl','Spider Curl',
-    'Reverse Curl','Zottman Curl','Machine Curl','Cross-Body Hammer Curl'
-  ],
-  'Arms - Triceps': [
-    'Skull Crushers','V-Bar Tricep Pushdown','Rope Tricep Pushdown',
-    'Overhead Tricep Extension','Close-Grip Bench Press','Tricep Dips',
-    'Single-Arm Overhead Extension','JM Press','Kickbacks','Machine Tricep Press'
-  ],
-  'Core': [
-    'Ab Wheel Rollout','Cable Crunches','Hanging Leg Raises',
-    'Plank','Side Plank','Russian Twists Weighted','L-Sit Hold',
-    'Decline Sit-Ups','Reverse Crunch','Dragon Flag',
-    'Cable Woodchops','Pallof Press','Dead Bug','Hollow Hold'
-  ],
-  'Cardio / Full Body': [
-    'Sprint Intervals','Assault Bike Intervals','Rowing Machine',
-    'Battle Ropes','Sled Push','Sled Pull','Box Jumps',
-    'Burpees','Kettlebell Swings','Thrusters','Clean and Press',
-    'Stairmaster','Incline Treadmill Walk','Jump Rope'
-  ]
+  'Chest': ['Barbell Bench Press','Incline Barbell Press','Decline Barbell Press','Flat DB Press','Incline DB Press','Decline DB Press','Cable Crossover High to Low','Cable Crossover Low to High','Cable Fly','Weighted Dips','Machine Chest Press','Pec Deck Fly','Push-Ups','DB Pullover'],
+  'Back': ['Barbell Bent-Over Row','T-Bar Row','Pendlay Row','Weighted Pull-Ups','Lat Pulldown Wide Grip','Lat Pulldown Close Grip','Single-Arm DB Row','Seated Cable Row','Face Pulls','Straight-Arm Pulldown','Deadlift','Rack Pull','Chest Supported Row','Rear Delt Fly Cable','Rear Delt Fly DB','Machine Row'],
+  'Shoulders': ['Overhead Press Barbell','DB Shoulder Press Seated','Arnold Press DB','Lateral Raises','Cable Lateral Raises','Lateral Raises Drop Set','Front Plate Raises','Front DB Raises','Upright Row','Machine Shoulder Press','Cable Front Raise','Band Pull-Apart'],
+  'Legs': ['Barbell Back Squat','Front Squat','Goblet Squat','Hack Squat','Romanian Deadlift','Stiff-Leg Deadlift','Sumo Deadlift','Leg Press','Walking Lunges DB','Reverse Lunges','Bulgarian Split Squat','Leg Extension','Leg Curl Seated','Leg Curl Lying','Nordic Curl','Standing Calf Raises','Seated Calf Raises','Donkey Calf Raises','Step-Ups','Hip Thrust Barbell'],
+  'Glutes': ['Barbell Hip Thrust','Hip Thrust Machine','Cable Kickbacks','Glute Bridge Pulse','Abductor Machine','Hip Abduction Machine','Sumo Squat DB','Romanian Deadlift','Cable Pull-Through','Single-Leg Hip Thrust','Donkey Kickbacks','Frog Pumps'],
+  'Arms - Biceps': ['Barbell Curl','EZ Bar Curl','Incline DB Curl','Hammer Curls','Concentration Curl','Cable Curl','Preacher Curl','Spider Curl','Reverse Curl','Zottman Curl','Machine Curl','Cross-Body Hammer Curl'],
+  'Arms - Triceps': ['Skull Crushers','V-Bar Tricep Pushdown','Rope Tricep Pushdown','Overhead Tricep Extension','Close-Grip Bench Press','Tricep Dips','Single-Arm Overhead Extension','JM Press','Kickbacks','Machine Tricep Press'],
+  'Core': ['Ab Wheel Rollout','Cable Crunches','Hanging Leg Raises','Plank','Side Plank','Russian Twists Weighted','L-Sit Hold','Decline Sit-Ups','Reverse Crunch','Dragon Flag','Cable Woodchops','Pallof Press','Dead Bug','Hollow Hold'],
+  'Cardio / Full Body': ['Sprint Intervals','Assault Bike Intervals','Rowing Machine','Battle Ropes','Sled Push','Sled Pull','Box Jumps','Burpees','Kettlebell Swings','Thrusters','Clean and Press','Stairmaster','Incline Treadmill Walk','Jump Rope']
 };
 
-// Get/save exercise swaps per day per user
+// ── CLIENT-SIDE EXERCISE SWAP ─────────────────────────────────
 function getExSwaps(email, dateStr, dayName) {
   return lf.get(`exswap_${email}_${dateStr}_${dayName}`) || {};
 }
@@ -8000,68 +7997,85 @@ function saveExSwap(email, dateStr, dayName, origName, newName) {
   else delete swaps[origName];
   lf.set(`exswap_${email}_${dateStr}_${dayName}`, swaps);
 }
-
-// Build the exercise picker dropdown HTML
 function exPickerHTML(dateStr, idx, origName, dayName, email, currentName) {
-  const id = `expicker-${dateStr}-${idx}`;
   const isSwapped = currentName !== origName;
-  let opts = `<option value="">— swap exercise —</option>`;
+  let opts = '<option value="">— swap exercise —</option>';
   Object.entries(EXERCISE_LIBRARY).forEach(([group, exercises]) => {
     opts += `<optgroup label="${group}">`;
-    exercises.forEach(ex => {
-      opts += `<option value="${escQ(ex)}" ${currentName===ex?'selected':''}>${ex}</option>`;
-    });
+    exercises.forEach(ex => { opts += `<option value="${ex}" ${currentName===ex?'selected':''}>${ex}</option>`; });
     opts += '</optgroup>';
   });
-  return `<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
-    <select id="${id}" onchange="swapExercise('${dateStr}','${idx}','${escQ(origName)}','${dayName}','${email}',this.value)"
+  return `<div class="ex-picker-wrap-inner" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
+    <select onchange="swapExercise('${dateStr}','${idx}','${origName.replace(/'/g,"\'")}','${dayName}','${email}',this.value)"
       style="background:var(--dark3);border:1px solid ${isSwapped?'rgba(78,143,224,0.4)':'rgba(255,255,255,0.1)'};color:${isSwapped?'var(--blue)':'var(--muted)'};font-family:var(--font-cond);font-size:0.72rem;padding:0.25rem 0.4rem;border-radius:4px;cursor:pointer;flex:1;min-width:180px">
       ${opts}
     </select>
-    ${isSwapped?`<button onclick="swapExercise('${dateStr}','${idx}','${escQ(origName)}','${dayName}','${email}','')" style="background:none;border:1px solid rgba(224,82,82,0.3);color:var(--red);font-size:0.65rem;font-family:var(--font-cond);padding:0.2rem 0.5rem;border-radius:4px;cursor:pointer;white-space:nowrap">✕ Reset</button>`:''}
+    ${isSwapped?`<button onclick="swapExercise('${dateStr}','${idx}','${origName.replace(/'/g,"\'")}','${dayName}','${email}','')" style="background:none;border:1px solid rgba(224,82,82,0.3);color:var(--red);font-size:0.65rem;font-family:var(--font-cond);padding:0.2rem 0.5rem;border-radius:4px;cursor:pointer;white-space:nowrap">✕ Reset</button>`:''}
   </div>`;
 }
-
 function swapExercise(dateStr, idxStr, origName, dayName, email, newName) {
-  const idx = parseInt(idxStr);
   saveExSwap(email, dateStr, dayName, origName, newName || null);
-  // Re-render just this exercise block
-  const prog = getProgram(currentUser);
-  const effSchedule = getEffectiveSchedule(currentUser);
-  const day = effSchedule.find(d => d.day === dayName) || prog.schedule.find(d => d.day === dayName);
-  if (!day) return;
+  const idx = parseInt(idxStr);
   const log = getWorkoutLog(email, dateStr) || {};
   const swaps = getExSwaps(email, dateStr, dayName);
-  const ex = day.exercises[idx];
-  if (!ex) return;
-  const effectiveName = swaps[ex.name] || ex.name;
+  const effectiveName = swaps[origName] || origName;
   const exLog = log.exercises?.[effectiveName] || { sets: [] };
   const sets = exLog.sets || [];
   const prev = getPrevLiftData(email, dayName, effectiveName);
   const prevText = prev ? prev.sets.map(s=>`${s.weight||'—'}×${s.reps||'—'}`).join(', ') : null;
-  const isSwapped = effectiveName !== ex.name;
+  const isSwapped = effectiveName !== origName;
   const block = document.getElementById(`exblock-${dateStr}-${idx}`);
   if (block) {
-    block.querySelector('.exercise-name').textContent = effectiveName;
-    block.querySelector('.exercise-tip').textContent = '💡 ' + (isSwapped ? 'Custom exercise' : ex.tip);
-    if (isSwapped) block.querySelector('.exercise-name').style.color = 'var(--blue)';
-    else block.querySelector('.exercise-name').style.color = '';
-    // Update picker
+    const nameEl = block.querySelector('.exercise-name');
+    if (nameEl) { nameEl.textContent = effectiveName; nameEl.style.color = isSwapped?'var(--blue)':''; }
+    const tipEl = block.querySelector('.exercise-tip');
+    if (tipEl) tipEl.textContent = '💡 ' + (isSwapped?'Custom exercise':'');
     const pickerWrap = block.querySelector('.ex-picker-wrap');
-    if (pickerWrap) pickerWrap.innerHTML = exPickerHTML(dateStr, idx, ex.name, dayName, email, effectiveName);
-    // Update sets tbody
+    if (pickerWrap) pickerWrap.innerHTML = exPickerHTML(dateStr, idx, origName, dayName, email, effectiveName);
     const tbody = block.querySelector(`#sets-${dateStr}-${idx}`);
     if (tbody) tbody.innerHTML = sets.map((s,si) => buildSetRow(dateStr, idx, si, s, email, dayName, effectiveName)).join('');
-    // Update add set button
     const addBtn = block.querySelector('.set-add-row button');
-    if (addBtn) addBtn.setAttribute('onclick', `addSet('${dateStr}','${idx}','${escQ(effectiveName)}','${dayName}','${email}')`);
-    // Update prev text
+    if (addBtn) addBtn.setAttribute('onclick', `addSet('${dateStr}','${idx}','${effectiveName.replace(/'/g,"\'")}','${dayName}','${email}')`);
     const prevEl = block.querySelector('.exercise-prev');
     if (prevEl) prevEl.innerHTML = prevText ? `Last time: <span>${prevText}</span>` : '';
-    showToast(newName ? `Swapped to ${newName}` : `Reset to ${ex.name}`, 'gold', 2000);
+    showToast(newName ? `Swapped to ${newName}` : `Reset to ${origName}`, 'gold', 2000);
   }
 }
+
+// ── CLIENT CUSTOM SPLIT (swap whole days) ─────────────────────
+function getCustomSplit(email) { return lf.get('custom_split_' + email) || null; }
+function saveCustomSplit(email, split) { if(split && Object.keys(split).length) lf.set('custom_split_' + email, split); else lf.del('custom_split_' + email); }
+function clearCustomSplit(email) { lf.del('custom_split_' + email); }
+function getEffectiveSchedule(user) {
+  const prog = getProgram(user);
+  const custom = getCustomSplit(user.email);
+  if (!custom) return prog.schedule;
+  return prog.schedule.map(day => {
+    const remapped = custom[day.day];
+    if (!remapped) return day;
+    const source = prog.schedule.find(d => d.day === remapped);
+    if (!source) return day;
+    return { ...source, day: day.day, _remappedFrom: remapped };
+  });
+}
+function doTodayInstead(sourceDayName) {
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const todayName = dayNames[new Date().getDay()];
+  const custom = getCustomSplit(currentUser.email) || {};
+  if (sourceDayName === todayName) { delete custom[todayName]; }
+  else { custom[todayName] = sourceDayName; }
+  saveCustomSplit(currentUser.email, Object.keys(custom).length ? custom : null);
+  const prog = getProgram(currentUser);
+  const src = prog.schedule.find(d=>d.day===sourceDayName);
+  showToast(sourceDayName===todayName ? 'Reset to default workout' : `Today → ${sourceDayName}: ${src?.focus||''}`, 'gold', 3000);
+  renderWorkouts();
+}
 // ─────────────────────────────────────────────────────────────
+
+function toggleWorkoutDay(dayName){
+  const el = document.getElementById('wday-'+dayName);
+  if(el) el.classList.toggle('open');
+}
 
 function buildExerciseLogHtml(day, email, dateStr, log){
   const exLogs = log.exercises || {};
@@ -8070,22 +8084,19 @@ function buildExerciseLogHtml(day, email, dateStr, log){
 
   let html = '';
   day.exercises.forEach((ex, idx) => {
-    // Apply any saved swap for this slot
     const effectiveName = swaps[ex.name] || ex.name;
     const isSwapped = effectiveName !== ex.name;
     const exLog = exLogs[effectiveName] || { sets: [] };
     const sets = exLog.sets.length > 0 ? exLog.sets : [];
     const prev = getPrevLiftData(email, day.day, effectiveName);
-    const prevText = prev
-      ? prev.sets.map(s=>`${s.weight||'—'}×${s.reps||'—'}`).join(', ')
-      : null;
+    const prevText = prev ? prev.sets.map(s=>`${s.weight||'—'}×${s.reps||'—'}`).join(', ') : null;
 
     html += `<div class="exercise-block" id="exblock-${dateStr}-${idx}">
       <div class="exercise-header">
         <span class="exercise-num">${idx+1}</span>
         <div class="exercise-info">
           <div class="exercise-name" style="${isSwapped?'color:var(--blue)':''}">${effectiveName}</div>
-          <div class="exercise-tip">💡 ${isSwapped?'Custom exercise':ex.tip}</div>
+          <div class="exercise-tip">💡 ${isSwapped?'Custom swap':ex.tip}</div>
         </div>
         <span class="exercise-prescribed">${ex.sets}</span>
       </div>
@@ -8177,10 +8188,9 @@ function escQ(s){ return (s||'').replace(/'/g,"\\'"); }
 function getOrInitWorkoutLog(email, dateStr, dayName, exercises){
   let log = getWorkoutLog(email, dateStr) || { dayName, completed:false, exercises:{} };
   const swaps = getExSwaps(email, dateStr, dayName);
-  // Ensure all exercises exist (using effective names)
   exercises.forEach(ex => {
-    const effectiveName = swaps[ex.name] || ex.name;
-    if(!log.exercises[effectiveName]) log.exercises[effectiveName] = { sets:[] };
+    const eff = swaps[ex.name] || ex.name;
+    if(!log.exercises[eff]) log.exercises[eff] = { sets:[] };
   });
   return log;
 }
@@ -9261,8 +9271,181 @@ async function coachCalNav(action, arg){
 
 async function saveClientNotes(email){ setBtn('saveNotesBtn',true);await saveCoachNotes(email,document.getElementById('coachNotesArea').value);const el=document.getElementById('cnoteMsg');el.style.color='var(--green)';el.textContent='✅ Saved.';setBtn('saveNotesBtn',false,'Save Notes'); }
 async function resetClientPass(email){ const np=document.getElementById('resetPass').value,el=document.getElementById('resetMsg');if(np.length<4){el.style.color='var(--red)';el.textContent='Too short.';return;}setBtn('resetPassBtn',true);await updateUser(email,{password:np});el.style.color='var(--green)';el.textContent='✅ Password reset.';setBtn('resetPassBtn',false,'Reset'); }
-function startCustomizeWorkout(email){ getAllUsers().then(users=>{viewingClient=users.find(u=>u.email===email);if(!viewingClient)return;document.getElementById('cwClient').value=viewingClient.firstName+' '+viewingClient.lastName;document.getElementById('cwNotes').value='';document.getElementById('cwError').textContent='';openModal('customWorkoutModal');}); }
-async function saveCustomWorkout(){ setBtn('cwBtn',true);await saveOverride(viewingClient.email,document.getElementById('cwDay').value,document.getElementById('cwFocus').value,document.getElementById('cwNotes').value);closeModal('customWorkoutModal');setBtn('cwBtn',false,'Save Override');showToast(`Workout override saved for ${viewingClient.firstName}!`,'gold'); }
+// ── COACH WORKOUT EDITOR ─────────────────────────────────────
+// Full per-day exercise customization for each client
+
+// Coach overrides stored in Supabase workout_overrides as JSON
+// Structure: { focus, notes, exercises:[{name,sets,tip}] }
+
+let _cwExercises = []; // working copy of exercise list in modal
+
+function _cwExLibraryOptions() {
+  let opts = '<option value="">— pick from library —</option>';
+  // Build from EXERCISE_LIBRARY if available, else inline
+  const lib = typeof EXERCISE_LIBRARY !== 'undefined' ? EXERCISE_LIBRARY : {
+    'Chest':['Barbell Bench Press','Incline Barbell Press','Flat DB Press','Cable Crossover High to Low','Weighted Dips','Push-Ups'],
+    'Back':['Barbell Bent-Over Row','T-Bar Row','Weighted Pull-Ups','Lat Pulldown Wide Grip','Single-Arm DB Row','Seated Cable Row','Face Pulls','Deadlift'],
+    'Shoulders':['Overhead Press Barbell','DB Shoulder Press Seated','Arnold Press DB','Lateral Raises','Cable Lateral Raises'],
+    'Legs':['Barbell Back Squat','Romanian Deadlift','Leg Press','Walking Lunges DB','Leg Extension','Leg Curl Seated','Standing Calf Raises','Bulgarian Split Squat'],
+    'Glutes':['Barbell Hip Thrust','Cable Kickbacks','Abductor Machine','Glute Bridge Pulse'],
+    'Arms - Biceps':['Barbell Curl','Incline DB Curl','Hammer Curls','Cable Curl','Preacher Curl'],
+    'Arms - Triceps':['Skull Crushers','V-Bar Tricep Pushdown','Overhead Tricep Extension','Close-Grip Bench Press'],
+    'Core':['Ab Wheel Rollout','Cable Crunches','Hanging Leg Raises','Plank','Russian Twists Weighted'],
+    'Cardio / Full Body':['Sprint Intervals','Assault Bike Intervals','Battle Ropes','Kettlebell Swings','Box Jumps']
+  };
+  Object.entries(lib).forEach(([group, exercises]) => {
+    opts += `<optgroup label="${group}">`;
+    exercises.forEach(ex => { opts += `<option value="${ex}">${ex}</option>`; });
+    opts += '</optgroup>';
+  });
+  return opts;
+}
+
+function _cwRenderExerciseList() {
+  const container = document.getElementById('cwExerciseList');
+  if (!container) return;
+  if (!_cwExercises.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;padding:0.5rem 0">No exercises — add from library or type custom names.</div>';
+    return;
+  }
+  container.innerHTML = _cwExercises.map((ex, i) => `
+    <div style="background:var(--dark3);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:0.6rem 0.75rem;display:flex;gap:0.5rem;align-items:flex-start">
+      <div style="flex:1;display:flex;flex-direction:column;gap:0.35rem">
+        <div style="display:flex;gap:0.4rem;align-items:center">
+          <select onchange="cwPickLibraryEx(${i},this.value)" style="background:var(--dark2);border:1px solid rgba(255,255,255,0.1);color:var(--muted);font-family:var(--font-cond);font-size:0.68rem;padding:0.2rem 0.35rem;border-radius:3px;max-width:160px">
+            ${_cwExLibraryOptions()}
+          </select>
+          <span style="font-size:0.65rem;color:var(--muted)">or type:</span>
+        </div>
+        <input value="${ex.name}" placeholder="Exercise name"
+          oninput="_cwExercises[${i}].name=this.value"
+          style="background:var(--dark2);border:1px solid rgba(255,255,255,0.1);color:var(--light);padding:0.3rem 0.5rem;font-family:var(--font-body);font-size:0.85rem;border-radius:4px;width:100%">
+        <div style="display:flex;gap:0.4rem">
+          <input value="${ex.sets||''}" placeholder="Sets (e.g. 4×8-10)"
+            oninput="_cwExercises[${i}].sets=this.value"
+            style="background:var(--dark2);border:1px solid rgba(255,255,255,0.1);color:var(--light);padding:0.25rem 0.4rem;font-family:var(--font-cond);font-size:0.78rem;border-radius:4px;width:120px">
+          <input value="${ex.tip||''}" placeholder="Coaching tip"
+            oninput="_cwExercises[${i}].tip=this.value"
+            style="background:var(--dark2);border:1px solid rgba(255,255,255,0.1);color:var(--muted);padding:0.25rem 0.4rem;font-family:var(--font-body);font-size:0.75rem;border-radius:4px;flex:1">
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.3rem;flex-shrink:0">
+        ${i > 0 ? `<button onclick="cwMoveEx(${i},-1)" title="Move up" style="background:none;border:1px solid rgba(255,255,255,0.1);color:var(--muted);padding:0.2rem 0.4rem;border-radius:3px;cursor:pointer;font-size:0.7rem">↑</button>` : '<div style="height:24px"></div>'}
+        ${i < _cwExercises.length-1 ? `<button onclick="cwMoveEx(${i},1)" title="Move down" style="background:none;border:1px solid rgba(255,255,255,0.1);color:var(--muted);padding:0.2rem 0.4rem;border-radius:3px;cursor:pointer;font-size:0.7rem">↓</button>` : '<div style="height:24px"></div>'}
+        <button onclick="cwRemoveEx(${i})" title="Remove" style="background:none;border:1px solid rgba(224,82,82,0.3);color:var(--red);padding:0.2rem 0.4rem;border-radius:3px;cursor:pointer;font-size:0.7rem">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function cwPickLibraryEx(i, name) {
+  if (!name) return;
+  _cwExercises[i].name = name;
+  _cwRenderExerciseList();
+}
+function cwAddExercise() {
+  _cwExercises.push({ name: '', sets: '3×10', tip: '' });
+  _cwRenderExerciseList();
+  // Focus the last name input
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('#cwExerciseList input[placeholder="Exercise name"]');
+    if (inputs.length) inputs[inputs.length-1].focus();
+  }, 50);
+}
+function cwRemoveEx(i) {
+  _cwExercises.splice(i, 1);
+  _cwRenderExerciseList();
+}
+function cwMoveEx(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= _cwExercises.length) return;
+  [_cwExercises[i], _cwExercises[j]] = [_cwExercises[j], _cwExercises[i]];
+  _cwRenderExerciseList();
+}
+
+function cwLoadDay() {
+  if (!viewingClient) return;
+  const dayName = document.getElementById('cwDay').value;
+  const prog = getProgram(viewingClient);
+  const daySchedule = prog.schedule.find(d => d.day === dayName);
+  // Load existing override if any
+  getOverrides(viewingClient.email).then(overrides => {
+    const ov = overrides[dayName];
+    if (ov && ov.exercises) {
+      // Has full exercise override
+      _cwExercises = ov.exercises.map(ex => ({...ex}));
+      document.getElementById('cwFocus').value = ov.focus || (daySchedule?.focus || '');
+      document.getElementById('cwNotes').value = ov.notes || '';
+    } else if (ov) {
+      // Has basic override (focus/notes only)
+      _cwExercises = (daySchedule?.exercises || []).map(ex => ({...ex}));
+      document.getElementById('cwFocus').value = ov.focus || '';
+      document.getElementById('cwNotes').value = ov.notes || '';
+    } else {
+      // Load program defaults
+      _cwExercises = (daySchedule?.exercises || []).map(ex => ({...ex}));
+      document.getElementById('cwFocus').value = daySchedule?.focus || '';
+      document.getElementById('cwNotes').value = '';
+    }
+    _cwRenderExerciseList();
+  });
+}
+
+function cwResetToDefault() {
+  if (!viewingClient) return;
+  const dayName = document.getElementById('cwDay').value;
+  const prog = getProgram(viewingClient);
+  const daySchedule = prog.schedule.find(d => d.day === dayName);
+  _cwExercises = (daySchedule?.exercises || []).map(ex => ({...ex}));
+  document.getElementById('cwFocus').value = daySchedule?.focus || '';
+  document.getElementById('cwNotes').value = '';
+  _cwRenderExerciseList();
+  showToast('Reset to program default — save to apply', 'info');
+}
+
+function startCustomizeWorkout(email) {
+  getAllUsers().then(users => {
+    viewingClient = users.find(u => u.email === email);
+    if (!viewingClient) return;
+    document.getElementById('cwClientName').textContent = viewingClient.firstName + ' ' + viewingClient.lastName;
+    document.getElementById('cwError').textContent = '';
+    document.getElementById('cwDay').value = 'Monday';
+    cwLoadDay();
+    openModal('customWorkoutModal');
+  });
+}
+
+async function saveCustomWorkout() {
+  setBtn('cwBtn', true);
+  const dayName = document.getElementById('cwDay').value;
+  const focus   = document.getElementById('cwFocus').value.trim();
+  const notes   = document.getElementById('cwNotes').value.trim();
+  const exercises = _cwExercises.filter(ex => ex.name.trim());
+
+  if (!exercises.length && !focus && !notes) {
+    document.getElementById('cwError').textContent = 'Add at least one exercise or a focus label.';
+    setBtn('cwBtn', false, 'Save');
+    return;
+  }
+
+  // Save as enriched override with exercises array
+  const overrideData = { focus, notes, exercises };
+  // Save to Supabase workout_overrides as JSON in notes field (backward compat)
+  await sbUpsert('workout_overrides', {
+    user_email: viewingClient.email,
+    day_name: dayName,
+    focus,
+    notes: JSON.stringify(overrideData) // store full data in notes column
+  }, 'user_email,day_name');
+
+  // Also update local cache
+  const ovCache = await getOverrides(viewingClient.email);
+  ovCache[dayName] = overrideData;
+
+  closeModal('customWorkoutModal');
+  setBtn('cwBtn', false, 'Save');
+  showToast(`Workout saved for ${viewingClient.firstName} — ${dayName}`, 'gold');
+}
+// ─────────────────────────────────────────────────────────────
 function useTemplate(btn, msg){
   const ta=document.getElementById('coachMsgDraft');
   if(ta) ta.value=msg;
