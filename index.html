@@ -6333,6 +6333,7 @@ function dayDetailHTML(date, lg, macros, showDelete=false, clientName=''){
           <td>
             <span>${f.name}</span>
             ${f.aiScanned||f.micros?`<span style="font-size:0.58rem;background:rgba(201,168,76,0.12);color:var(--gold2);padding:1px 4px;border-radius:2px;font-family:var(--font-cond);margin-left:4px">AI</span>`:''}
+            ${f.loggedAt?`<span style="font-size:0.62rem;color:var(--muted);font-family:var(--font-cond);margin-left:4px;opacity:0.7">${f.loggedAt}</span>`:''}
             ${f.portion?`<div style="font-size:0.68rem;color:var(--muted)">${f.portion}</div>`:''}
           </td>
           <td style="color:var(--muted);font-size:0.75rem">${f.meal||'—'}</td>
@@ -6879,13 +6880,16 @@ let macroCalYear=null, macroCalMonth=null, macroCalSelected=null;
 function calInit(){
   const t=getToday();
   const todayStr=getTodayStr();
+  // Always sync year/month if null
   if(macroCalYear===null){ macroCalYear=t.getFullYear(); macroCalMonth=t.getMonth(); }
-  if(macroCalSelected===null) macroCalSelected=todayStr;
-  // If date has changed since last load (midnight rollover), reset to today
-  if(window._calLastDate && window._calLastDate !== todayStr){
-    macroCalSelected=todayStr;
-    macroCalYear=t.getFullYear();
-    macroCalMonth=t.getMonth();
+  // Always reset selected to today if it was null OR if the date has rolled over
+  if(macroCalSelected===null || macroCalSelected!==todayStr){
+    // Only reset if selected was today's old date (not user navigating to a past day)
+    if(!window._calLastDate || window._calLastDate!==todayStr){
+      macroCalSelected=todayStr;
+      macroCalYear=t.getFullYear();
+      macroCalMonth=t.getMonth();
+    }
   }
   window._calLastDate=todayStr;
 }
@@ -7576,6 +7580,7 @@ async function aiLogMeal(foodStr){
     protein: food.protein || 0,
     carb: food.carbs || 0,
     fat: food.fats || 0,
+    loggedAt: new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}),
     fiber: food.fiber || 0,
     sugar: food.sugar || 0,
     micros: food.micros || null,
