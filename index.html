@@ -2881,8 +2881,12 @@ window._pwaInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   window._pwaInstallPrompt = e;
-  // Show install banner after 3 seconds if not already installed
-  setTimeout(showPWAInstallBanner, 3000);
+  // Show install banner after 4 seconds — only if not in standalone mode
+  setTimeout(function() {
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (window.navigator.standalone === true) return; // iOS installed
+    showPWAInstallBanner();
+  }, 4000);
 });
 
 window.addEventListener('appinstalled', function() {
