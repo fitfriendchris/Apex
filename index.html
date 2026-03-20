@@ -4896,13 +4896,32 @@ function logMeasurement(site){
 //  WEEKLY CHECK-IN FORM
 // ================================================================
 function renderWeeklyCheckIn(){
+  // Tier gate — Core+ only
+  const tier = currentUser?.tier || 'free';
+  const tierLevel = {free:0,core:1,elite:2,vip:3,diamond:4};
+  if((tierLevel[tier]||0) < 1){
+    set('mainContent',`
+      <div class="section-title">Daily Check-In</div>
+      <div class="card" style="text-align:center;padding:2.5rem 1.5rem">
+        <div style="font-size:2.5rem;margin-bottom:0.75rem">🔒</div>
+        <div style="font-family:var(--font-display);font-size:1.4rem;letter-spacing:0.04em;color:var(--gold);margin-bottom:0.5rem">CORE PLAN REQUIRED</div>
+        <div style="color:var(--muted);font-size:0.88rem;line-height:1.6;max-width:400px;margin:0 auto 1.25rem">Daily check-ins with coach review are available on Core and above. Your coach uses these to track your progress, adjust your program, and see your progress photos.</div>
+        <button class="btn btn-gold" onclick="openModal('upgradeModal')">Upgrade to Core — $97/mo →</button>
+      </div>
+      <button class="btn btn-outline" style="margin-top:0.75rem" onclick="switchToTab('Today')">← Back</button>
+    `);
+    return;
+  }
+
   const last=lf.get('checkin_'+currentUser.email)||null;
   const lastDate=last?last.date:'Never';
+  const alreadyToday = last && last.date === getTodayStr();
+
   set('mainContent',`
-    <div class="section-title">Weekly Check-In</div>
-    <div class="section-sub">Submit your weekly report to your coach every Sunday. Last submitted: <b style="color:var(--gold)">${lastDate}</b></div>
+    <div class="section-title">Daily Check-In</div>
+    <div class="section-sub">Log how you're feeling every day — your coach reviews these. Last submitted: <b style="color:var(--gold)">${lastDate}</b>${alreadyToday?` <span style="color:var(--green);font-size:0.8rem">✓ submitted today</span>`:''}</div>
     <div class="card">
-      <div class="card-title">📋 This Week's Check-In</div>
+      <div class="card-title">📋 Today's Check-In</div>
 
       <div class="checkin-q">
         <label>How was your energy this week? (1-10)</label>
