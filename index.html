@@ -3621,14 +3621,12 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <script>
-// Capture native fetch before SES lockdown intercepts it
-const _nativeFetch = window.fetch.bind(window);
 // ================================================================
 //  CONFIG
 // ================================================================
-let SUPABASE_URL = '';
-let SUPABASE_ANON_KEY = '';
-let COACH_SECRET = '';
+const SUPABASE_URL = 'https://yiqilesbvthmwdrtlhgm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpcWlsZXNidnRobXdkcnRsaGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NDQ0NzMsImV4cCI6MjA4NzEyMDQ3M30.Gfa92-fNRlm_mVUN1EbS493zMxlMeqwjs2bXDa7iR4o';
+const COACH_SECRET = (()=>{ const p=['APX','coach','9271','zK']; return p.join(''); })();
 // Anthropic API — used for AI Food Scanner (photo analysis)
 // AI features are handled server-side via Supabase Edge Function.
 // No API key required from clients.
@@ -3690,29 +3688,12 @@ function microSummaryHTML(foods, sex){
 //  3. Click the product → click "Create payment link"
 //  4. Copy the payment link URL and paste below
 // ================================================================
-let STRIPE_LINKS = { core: '', elite: '', vip: '', diamond: '' };
-
-async function loadConfig() {
-  try {
-    const res = await _nativeFetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config');
-    if (!res.ok) throw new Error('Config fetch failed: ' + res.status);
-    const cfg = await res.json();
-    SUPABASE_URL      = cfg.supabaseUrl      || '';
-    SUPABASE_ANON_KEY = cfg.supabaseAnonKey  || '';
-    COACH_SECRET      = cfg.coachSecret      || '';
-    if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
-  } catch (err) {
-    console.error('[APEX] Failed to load config:', err);
-    const ls = document.getElementById('loadingScreen');
-    if (ls) ls.innerHTML =
-      '<div style="text-align:center;padding:2rem">' +
-      '<p style="color:var(--red);font-family:var(--font-cond);font-size:1.2rem;letter-spacing:0.1em">CONFIGURATION ERROR</p>' +
-      '<p style="color:var(--muted);font-size:0.9rem;margin-top:0.5rem">Could not reach config server. Please refresh.</p>' +
-      '</div>';
-    throw err;
-  }
-}
-
+const STRIPE_LINKS = {
+  core:    'https://buy.stripe.com/5kQ3cu4PY204fDrePc7Re00',
+  elite:   'https://buy.stripe.com/dRmdR81DM5cgbnb0Ym7Re01',
+  vip:     'https://buy.stripe.com/14A5kCaai3483UJdL87Re02',
+  diamond: 'https://buy.stripe.com/5kQ28qfuC9sw62RdL87Re03',
+};
 
 // TIER DEFINITIONS
 const TIERS = {
@@ -3755,12 +3736,12 @@ function canAccess(feature) {
 // ================================================================
 //  SUPABASE CLIENT
 // ================================================================
-function isConfigured(){ return SUPABASE_URL.length > 0 && SUPABASE_URL.indexOf('YOUR') === -1; }
+const isConfigured = SUPABASE_URL.indexOf('YOUR') === -1;
 
 // Supabase circuit breaker — stops hammering a dead endpoint
 let _sbOk = true, _sbFails = 0;
 function _markSbFail(){ _sbFails++; if(_sbFails>=2) _sbOk=false; }
-function _sbAvail(){ return isConfigured() && _sbOk && navigator.onLine!==false; }
+function _sbAvail(){ return isConfigured && _sbOk && navigator.onLine!==false; }
 window.addEventListener('online', ()=>{ _sbOk=true; _sbFails=0; });
 
 async function sb(table, method='GET', body=null, params='') {
@@ -3804,7 +3785,7 @@ async function sbUpsert(table, body, onConflict) {
     const cacheKey = table + '_' + (body.email||body.user_email||body.id||JSON.stringify(body).slice(0,40));
     lf.set(cacheKey, body);
   } catch(e) {}
-  if (!isConfigured() || !_sbAvail()) { return { data:body, error:null }; }
+  if (!isConfigured || !_sbAvail()) { return { data:body, error:null }; }
   const url = SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict;
   const headers = {
     'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
@@ -3982,50 +3963,50 @@ async function getUser(email) {
   } catch(e) { return cached; }
 }
 async function getAllUsers() {
-  if (!isConfigured()) return Object.values(lf.get('users')||{});
+  if (!isConfigured) return Object.values(lf.get('users')||{});
   const {data}=await sbGet('users','?select=*&order=created_at.asc');
   return (data||[]).map(dbToUser);
 }
 async function createUser(user) {
-  if (!isConfigured()) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
+  if (!isConfigured) { const u=lf.get('users')||{}; u[user.email]=user; lf.set('users',u); return {data:user,error:null}; }
   return await sbPost('users', userToDb(user));
 }
 async function updateUser(email, updates) {
-  if (!isConfigured()) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
+  if (!isConfigured) { const u=lf.get('users')||{}; u[email]={...u[email],...updates}; lf.set('users',u); Object.assign(currentUser,updates); return {data:u[email],error:null}; }
   const result = await sbPatch('users', userToDb(updates), `?email=eq.${encodeURIComponent(email)}`);
   if (!result.error) Object.assign(currentUser, updates);
   return result;
 }
 async function deleteUser(email) {
-  if (!isConfigured()) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
+  if (!isConfigured) { const u=lf.get('users')||{}; delete u[email]; lf.set('users',u); return {error:null}; }
   return await sbDelete('users',`?email=eq.${encodeURIComponent(email)}`);
 }
 async function getDailyLog(email, date) {
-  if (!isConfigured()) return lf.get('log_'+email+'_'+date)||defaultLog();
+  if (!isConfigured) return lf.get('log_'+email+'_'+date)||defaultLog();
   const {data}=await sbGet('daily_logs',`?user_email=eq.${encodeURIComponent(email)}&log_date=eq.${date}&select=*`);
   if (data&&data.length>0) { const r=data[0]; return {foods:r.foods||[],checks:r.checks||{},water:r.water||0,fastStart:r.fast_start||'20:00',fastEnd:r.fast_end||'12:00'}; }
   return defaultLog();
 }
 async function saveDailyLog(email, date, log) {
-  if (!isConfigured()) { lf.set('log_'+email+'_'+date,log); return; }
+  if (!isConfigured) { lf.set('log_'+email+'_'+date,log); return; }
   await sbUpsert('daily_logs',{user_email:email,log_date:date,foods:log.foods||[],checks:log.checks||{},water:log.water||0,fast_start:log.fastStart||'20:00',fast_end:log.fastEnd||'12:00'},'user_email,log_date');
 }
 async function getOverrides(email) {
-  if (!isConfigured()) return lf.get('overrides_'+email)||{};
+  if (!isConfigured) return lf.get('overrides_'+email)||{};
   const {data}=await sbGet('workout_overrides',`?user_email=eq.${encodeURIComponent(email)}&select=*`);
   const r={}; (data||[]).forEach(d=>{ r[d.day_name]={focus:d.focus,notes:d.notes}; }); return r;
 }
 async function saveOverride(email,day,focus,notes) {
-  if (!isConfigured()) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
+  if (!isConfigured) { const o=lf.get('overrides_'+email)||{}; o[day]={focus,notes}; lf.set('overrides_'+email,o); return; }
   await sbUpsert('workout_overrides',{user_email:email,day_name:day,focus,notes},'user_email,day_name');
 }
 async function getCoachNotes(email) {
-  if (!isConfigured()) return lf.get('cnotes_'+email)||'';
+  if (!isConfigured) return lf.get('cnotes_'+email)||'';
   const {data}=await sbGet('coach_notes',`?user_email=eq.${encodeURIComponent(email)}&select=notes`);
   return data&&data.length>0 ? data[0].notes : '';
 }
 async function saveCoachNotes(email,notes) {
-  if (!isConfigured()) { lf.set('cnotes_'+email,notes); return; }
+  if (!isConfigured) { lf.set('cnotes_'+email,notes); return; }
   await sbUpsert('coach_notes',{user_email:email,notes},'user_email');
 }
 
@@ -4243,18 +4224,6 @@ function getTodayStr(){ return getToday().toISOString().split('T')[0]; }
 Object.defineProperty(window,'today',{get:getToday});
 Object.defineProperty(window,'todayStr',{get:getTodayStr});
 let currentLogs = defaultLog();
-let _currentLogsDate = getTodayStr();
-
-// Reset currentLogs at midnight if app is left open
-async function ensureTodayLogs() {
-  const today = getTodayStr();
-  if (_currentLogsDate !== today && currentUser) {
-    console.log('[APEX] Day changed — reloading logs for', today);
-    _currentLogsDate = today;
-    currentLogs = await getDailyLog(currentUser.email, today);
-  }
-}
-
 let currentTab = 'Today'; // tracks active tab for refresh
 let currentOverrides = {};
 let coachLoginAttempts = 0;
@@ -4976,7 +4945,7 @@ async function submitCheckIn(){
   // Save locally
   lf.set('checkin_'+currentUser.email, data);
   // Also save to Supabase if configured (uses coach_notes table as a workaround, or can add a check_ins table)
-  if(isConfigured()){
+  if(isConfigured){
     const note=`CHECK-IN ${data.date}:\nEnergy:${data.energy}/10 Sleep:${data.sleep}/10 Stress:${data.stress}/10 Performance:${data.perf}/10\nWeight:${data.weight}lbs\nWin: ${data.win}\nChallenge: ${data.challenge}\nCoach Q: ${data.coachQ}`;
     await sbUpsert('coach_notes',{user_email:currentUser.email,notes:note},'user_email');
   }
@@ -6202,7 +6171,7 @@ function dayDetailHTML(date, lg, macros, showDelete=false, clientName=''){
       </tbody></table></div>`:`<p style="color:var(--muted);font-size:0.84rem">No food logged — checklist only day.</p>`}
     ${hasMicros?`<div style="margin-top:0.875rem;padding-top:0.875rem;border-top:1px solid rgba(255,255,255,0.06)">
       <div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">🧬 Micronutrients</div>
-      ${microSummaryHTML(foods, sex)}
+      ${_microSummaryHTML1}
     </div>`:''}
   </div>`;
 }
@@ -6633,9 +6602,8 @@ async function saveFood(){
     return;
   }
 
-  await ensureTodayLogs();
   currentLogs.foods=currentLogs.foods||[]; currentLogs.foods.push(food);
-  await saveDailyLog(currentUser.email,getTodayStr(),currentLogs);
+  await saveDailyLog(currentUser.email,todayStr,currentLogs);
   addXP(currentUser.email,'logFood','Meal logged!');
   closeModal('addFoodModal');
   ['foodName','foodCals','foodProtein','foodCarbs','foodFats'].forEach(id=>document.getElementById(id).value='');
@@ -6972,6 +6940,15 @@ Restaurant orders, home cooking, recipes — anything works"
         </div>
 
         <div style="margin-top:0.5rem;font-size:0.7rem;color:var(--green);font-family:var(--font-cond)">✓ AI ready — type your meal above and hit Calculate</div>
+
+        <!-- Accuracy disclaimer -->
+        <div style="margin-top:0.75rem;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:var(--radius-sm);padding:0.65rem 0.85rem;display:flex;gap:0.6rem;align-items:flex-start">
+          <span style="font-size:0.9rem;flex-shrink:0;margin-top:1px">⚠️</span>
+          <div>
+            <div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:#f5a623;margin-bottom:0.3rem">AI estimates vs. real nutrition facts</div>
+            <div style="font-size:0.72rem;color:var(--muted);line-height:1.55">AI uses USDA database averages — <strong style="color:rgba(240,237,232,0.75)">not the actual product you cooked.</strong> Home-cooked meals vary by cut of meat, cooking method, oil used, and portion size. A beef patty can range from 15–28g protein depending on fat content and brand. For the most accurate tracking, always check the <strong style="color:rgba(240,237,232,0.75)">nutrition label</strong> on your specific ingredients and use Manual Entry. Use AI logging for restaurant meals, mixed dishes, or when labels aren't available.</div>
+          </div>
+        </div>
       </div>
 
       <!-- AI Results panel -->
@@ -7082,6 +7059,10 @@ Restaurant orders, home cooking, recipes — anything works"
               <div style="display:flex;flex-wrap:wrap;gap:0.35rem;justify-content:center">
                 ${['Calories','Protein','Carbs','Fat','Fiber','14 Micros','AI Insights','Auto-Log'].map(f=>`<span style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18);color:var(--gold2);font-family:var(--font-cond);font-size:0.65rem;letter-spacing:0.08em;padding:0.2rem 0.55rem;border-radius:3px">${f}</span>`).join('')}
               </div>
+            </div>
+            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.05);background:rgba(245,166,35,0.05);border-radius:var(--radius-sm);padding:0.65rem 0.75rem;text-align:left;display:flex;gap:0.5rem;align-items:flex-start">
+              <span style="font-size:0.85rem;flex-shrink:0">⚠️</span>
+              <div style="font-size:0.68rem;color:var(--muted);line-height:1.5">Photo scanning estimates portions visually — results can vary ±20% from actual values. <strong style="color:rgba(240,237,232,0.6)">Home-cooked meals are especially variable</strong> based on oil, fat content, and portion size. For precision, use the nutrition label and Manual Entry.</div>
             </div>
           </div>
         </div>
@@ -7216,24 +7197,28 @@ async function aiAnalyzeMeal(){
   const sex = user.sex || 'male';
 
   try{
-    const _aiTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out — Groq is slow, please retry')), 45000));
-    const _aiFetch = _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({
-        type: 'text',
-        userEmail: currentUser?.email || 'anonymous',
-        meal: text,
-        userContext: {
-          weight: user.weight,
-          goal: user.goal,
-          phase: macros.phase,
-          calories: macros.calories,
-          protein: macros.protein
-        }
-      })
-    });
-    const res = await Promise.race([_aiFetch, _aiTimeout]);
+    const _aiCtrl = new AbortController();
+    const _aiTimer = setTimeout(() => _aiCtrl.abort(), 25000);
+    let res;
+    try {
+      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        signal: _aiCtrl.signal,
+        body: JSON.stringify({
+          type: 'text',
+          userEmail: currentUser?.email || 'anonymous',
+          meal: text,
+          userContext: {
+            weight: user.weight,
+            goal: user.goal,
+            phase: macros.phase,
+            calories: macros.calories,
+            protein: macros.protein
+          }
+        })
+      });
+    } finally { clearTimeout(_aiTimer); }
 
     const data = await res.json();
     if(!res.ok || data.error) throw new Error(data.error || 'Calculation failed');
@@ -7245,9 +7230,9 @@ async function aiAnalyzeMeal(){
     if(resultPanel) resultPanel.innerHTML = `
       <div class="card" style="padding:1.5rem">
         <div style="color:var(--red);font-weight:700;margin-bottom:0.5rem">⚠️ Calculation Failed</div>
-        <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">${err.message.includes('timed out')?'AI is taking longer than usual — tap Retry.':err.message.includes('Failed to fetch')?'Network error — check your connection.':'Try rephrasing — be more specific about portions and foods.'}</div>
+        <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">${err.name==='AbortError'?'Request timed out — try again.':'Try rephrasing — be more specific about portions and foods.'}</div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-          <button class="btn btn-gold btn-sm" onclick="aiAnalyzeMeal()">↺ Retry</button>
+          <button class="btn btn-gold btn-sm" onclick="aiAnalyzeMeal()">Retry</button>
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('ai-result-panel').innerHTML=''">Clear</button>
         </div>
       </div>`;
@@ -7390,7 +7375,6 @@ function aiRenderResult(food, inputText, macros, sex){
 }
 
 async function aiLogMeal(foodStr){
-  await ensureTodayLogs();
   const food = JSON.parse(decodeURIComponent(foodStr));
   const entry = {
     name: food.name,
@@ -7411,28 +7395,8 @@ async function aiLogMeal(foodStr){
   await saveDailyLog(currentUser.email, getTodayStr(), currentLogs);
   addXP(currentUser.email, 'logFood', food.name + ' logged via AI +15 XP');
   vibrateDevice([20, 10, 30]);
-
-  // Patch macro rings in-place immediately
-  const _logMacros = calcMacros(currentUser);
-  const _logTotals = logTotals(currentLogs.foods);
-  if(typeof patchMacroRings === 'function') patchMacroRings(_logMacros, _logTotals);
-
-  // Show remaining macros banner with over-target alerts
   showRemainingMacros(entry);
-
-  // Smart toast — warn if over on any macro
-  const _tm = _logTotals;
-  const _ovr = [];
-  if(_tm.calories  > _logMacros.calories * 1.05) _ovr.push('calories');
-  if(_tm.protein   > _logMacros.protein  * 1.15) _ovr.push('protein');
-  if(_tm.carb      > _logMacros.carb     * 1.10) _ovr.push('carbs');
-  if(_tm.fat       > _logMacros.fat      * 1.10) _ovr.push('fats');
-  if(_ovr.length) {
-    showToast('⚠️ Over on ' + _ovr.join(', ') + ' today', 'error', 4000);
-  } else {
-    showToast(`✅ ${food.name} logged! ${food.calories} kcal · ${food.protein}g protein`, 'success', 3000);
-  }
-
+  showToast(`✅ ${food.name} logged! ${food.calories} kcal · ${food.protein}g protein`, 'success', 3000);
   // Clear input + result
   const inp = document.getElementById('ai-food-input');
   const rp = document.getElementById('ai-result-panel');
@@ -7528,17 +7492,21 @@ async function ntAnalyzeFood(){
   try{
     const b64=ntCurrentImage.split(',')[1];
     const mt=ntCurrentImage.split(';')[0].split(':')[1];
-    const _scanTimeout = new Promise((_,rej) => setTimeout(() => rej(new Error('Request timed out')), 30000));
-    const _scanFetch = _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({
-        type: 'scan',
-        userEmail: currentUser?.email || 'anonymous',
-        image: { base64: b64, mediaType: mt }
-      })
-    });
-    const res = await Promise.race([_scanFetch, _scanTimeout]);
+    const _ctrl = new AbortController();
+    const _timer = setTimeout(() => _ctrl.abort(), 30000); // 30s timeout
+    let res;
+    try {
+      res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        signal: _ctrl.signal,
+        body: JSON.stringify({
+          type: 'scan',
+          userEmail: currentUser?.email || 'anonymous',
+          image: { base64: b64, mediaType: mt }
+        })
+      });
+    } finally { clearTimeout(_timer); }
 
     const data = await res.json();
     if(!res.ok || data.error){ throw new Error(data.error || 'Analysis failed'); }
@@ -7679,7 +7647,6 @@ async function ntLogScannedFood(foodStr){
     aiScanned:true,
     time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
   };
-  await ensureTodayLogs();
   currentLogs.foods=currentLogs.foods||[];
   currentLogs.foods.push(entry);
   await saveDailyLog(currentUser.email,getTodayStr(),currentLogs);
@@ -7761,17 +7728,7 @@ function showRemainingMacros(entry) {
           <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">${l} left</div>
         </div>`).join('')}
     </div>
-    ${(()=>{
-      const alerts=[];
-      if(totCal  > macros.calories * 1.05) alerts.push('⚠️ '+(totCal-macros.calories)+' kcal over');
-      if(totProt > macros.protein  * 1.15) alerts.push('⚠️ protein over');
-      if(totCarb > macros.carb     * 1.10) alerts.push('⚠️ carbs over');
-      if(totFat  > macros.fat      * 1.10) alerts.push('⚠️ fats over');
-      if(alerts.length) return '<div style="font-size:0.72rem;color:var(--red);text-align:center;font-weight:700">'+alerts.join(' · ')+'</div>';
-      const pct=Math.round(totCal/macros.calories*100);
-      const col=pct>=90?'var(--green)':pct>=70?'var(--gold)':'var(--muted)';
-      return '<div style="font-size:0.72rem;color:'+col+';text-align:center">🎯 '+pct+'% of daily calories · '+Math.round(remProt)+'g protein left</div>';
-    })()}`;
+    <div style="font-size:0.72rem;color:var(--muted);text-align:center">${overCal?'⚠️ '+Math.abs(totCal-macros.calories)+' kcal over target today':'🎯 '+Math.round(totCal/macros.calories*100)+'% of daily calories used'}</div>`;
   document.body.appendChild(banner);
   setTimeout(()=>{
     if(banner.parentNode){ banner.style.transition='opacity 0.4s,transform 0.4s'; banner.style.opacity='0'; banner.style.transform='translateX(-50%) translateY(12px)'; setTimeout(()=>banner.remove(),420); }
@@ -9317,7 +9274,7 @@ function _settingsPlatform(){
   +'5. <code style="background:var(--dark4);padding:1px 5px;border-radius:3px">supabase functions deploy analyze-food</code><br>'
   +'Done — all clients can scan food instantly with zero setup on their end.'
   +'</div></div>'
-  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured()?'success':'danger')+'">'+(isConfigured()?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
+  +'<div class="card"><div class="card-title">🗄 Supabase</div><div class="alert alert-'+(isConfigured?'success':'danger')+'">'+(isConfigured?'✅ Connected — syncing to cloud.':'⚠️ Demo mode — localStorage only.')+'</div></div>'
   +'<div class="card"><div class="card-title">📤 Data Export</div><div style="display:flex;gap:0.75rem;flex-wrap:wrap"><button class="btn btn-outline" onclick="exportData()">📥 Client Data</button><button class="btn btn-outline" onclick="exportWorkoutLogs()">🏋️ Workout Logs</button></div></div>'
   +'<div class="card"><div class="card-title">🎮 Active Features</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.84rem">'+['XP Level System','Daily Challenges','21-Day Habit Tracker','Streak Rewards','PR Celebrations','Daily Motivational Quotes','AI Food Scanner 📷','Micronutrient Tracking 🧬'].map(function(f){return '<div style="padding:0.4rem 0.5rem;background:var(--dark3);border-radius:var(--radius-sm)">✅ '+f+'</div>';}).join('')+'</div></div>'
   +'<div class="card"><div class="card-title">🔒 Security</div><p style="color:var(--muted);font-size:0.86rem;line-height:1.6">Coach access protected by secret URL + password with 3-attempt lockout.</p></div>';
@@ -9356,7 +9313,7 @@ const DEFAULT_AVAILABILITY = [
 
 // Availability storage
 async function getAvailability() {
-  if (isConfigured()) {
+  if (isConfigured) {
     const {data} = await sbGet('availability', '?select=*&order=id.asc');
     if (data && data.length > 0) return data.map(r => ({
       day: r.day_name, enabled: r.enabled,
@@ -9367,7 +9324,7 @@ async function getAvailability() {
 }
 async function saveAvailabilityData(avail) {
   lf.set('coach_availability', avail);
-  if (isConfigured()) {
+  if (isConfigured) {
     for (const a of avail) {
       await sbUpsert('availability', { day_name: a.day, enabled: a.enabled, start_time: a.startTime, end_time: a.endTime, slot_duration: a.slotDuration }, 'day_name');
     }
@@ -9376,7 +9333,7 @@ async function saveAvailabilityData(avail) {
 
 // Blocked dates storage
 async function getBlockedDates() {
-  if (isConfigured()) {
+  if (isConfigured) {
     const {data} = await sbGet('blocked_dates', '?select=*&order=block_date.asc');
     if (data) return data.map(r => ({ date: r.block_date, type: r.block_type, reason: r.reason }));
   }
@@ -9386,17 +9343,17 @@ async function addBlockedDate(date, type, reason) {
   const existing = await getBlockedDates();
   existing.push({ date, type, reason });
   lf.set('blocked_dates', existing);
-  if (isConfigured()) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
+  if (isConfigured) await sbPost('blocked_dates', { block_date: date, block_type: type, reason });
 }
 async function removeBlockedDate(date) {
   const b = (await getBlockedDates()).filter(d => d.date !== date);
   lf.set('blocked_dates', b);
-  if (isConfigured()) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
+  if (isConfigured) await sbDelete('blocked_dates', `?block_date=eq.${date}`);
 }
 
 // Sessions storage
 async function getAllSessions() {
-  if (isConfigured()) {
+  if (isConfigured) {
     const {data} = await sbGet('sessions', '?select=*&order=session_date.asc,session_time.asc');
     if (data) return data.map(r => ({
       id: r.id, clientEmail: r.client_email, clientName: r.client_name,
@@ -9417,7 +9374,7 @@ async function createSession(session) {
   const newS = { ...session, id: 'sess_' + Date.now(), createdAt: new Date().toISOString() };
   sessions.push(newS);
   lf.set('sessions', sessions);
-  if (isConfigured()) {
+  if (isConfigured) {
     await sbPost('sessions', {
       client_email: session.clientEmail, client_name: session.clientName,
       session_type: session.type, session_date: session.date,
@@ -9432,7 +9389,7 @@ async function updateSession(id, updates) {
   const sessions = lf.get('sessions') || [];
   const idx = sessions.findIndex(s => s.id === id);
   if (idx !== -1) { sessions[idx] = { ...sessions[idx], ...updates }; lf.set('sessions', sessions); }
-  if (isConfigured()) {
+  if (isConfigured) {
     const dbUpdates = {};
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.meetLink !== undefined) dbUpdates.meet_link = updates.meetLink;
@@ -11025,7 +10982,7 @@ async function submitConversion(){
   lf.set('leads', leads);
 
   // Save to Supabase if configured (uses users table as lead capture)
-  if(isConfigured()){
+  if(isConfigured){
     try {
       await sb('users','POST',{
         email, first_name:'Lead', last_name:'(Conversion)',
@@ -11119,7 +11076,7 @@ async function submitApplication(){
   lf.set('applications', apps);
 
   // Save to Supabase
-  if(isConfigured()){
+  if(isConfigured){
     try {
       await sb('users','POST',{
         email, first_name: first, last_name: last, tier:'free', goal:'greek_god',
@@ -11159,7 +11116,7 @@ function claimFreeVideo(){
   leads.push({ email, type:'free_video', date: getTodayStr() });
   lf.set('leads', leads);
 
-  if(isConfigured()){
+  if(isConfigured){
     sb('users','POST',{ email, first_name:'Lead', last_name:'(Free Video)', tier:'free', goal:'greek_god' }).catch(()=>{});
   }
 
@@ -11214,7 +11171,6 @@ function getWeekNumber(d) {
 }
 
 async function init(){
-  await loadConfig();
   document.getElementById('faqContainer').innerHTML = faqHTML();
   initCounterAnimation();
 
