@@ -1,0 +1,32 @@
+{
+  "name": "APEX Coaching",
+  "short_name": "APEX",
+  "description": "Elite physique transformation — macros, workouts, and coaching.",
+  "start_url": "/Apex/",
+  "scope": "/Apex/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060608",
+  "theme_color": "#C9A84C",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%23060608'/%3E%3Ctext x='50%25' y='54%25' font-family='Arial Black,sans-serif' font-size='280' font-weight='900' fill='%23C9A84C' text-anchor='middle' dominant-baseline='middle'%3EA%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness"],
+  "shortcuts": [
+    {
+      "name": "Log Food",
+      "url": "/Apex/?tab=nutrition",
+      "description": "Log today's meals"
+    },
+    {
+      "name": "Workouts",
+      "url": "/Apex/?tab=workouts",
+      "description": "Today's workout"
+    }
+  ]
+}

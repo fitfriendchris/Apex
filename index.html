@@ -5,7 +5,14 @@
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex,nofollow">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="APEX">
+<meta name="theme-color" content="#060608">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23060608'/%3E%3Ctext x='50%25' y='54%25' font-family='Arial Black,sans-serif' font-size='280' font-weight='900' fill='%23C9A84C' text-anchor='middle' dominant-baseline='middle'%3EA%3C/text%3E%3C/svg%3E">
 <title>APEX COACHING — Elite Physique Transformation</title>
 <meta name="description" content="Stop guessing. Start transforming. Personalized macros, custom workout programs, and elite coaching accountability. Greek God physique or Bikini Model body — we build the plan, you execute it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2837,29 +2844,55 @@ input:focus, select:focus, textarea:focus {
 </style>
 
 <script>
-// Service worker for offline capability
+// PWA: Service worker + install prompt
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    var swCode = [
-      'self.addEventListener("install",e=>self.skipWaiting());',
-      'self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));',
-      'self.addEventListener("fetch",function(e){',
-      '  if(e.request.method!=="GET")return;',
-      '  if(e.request.url.includes("anthropic.com")||e.request.url.includes("supabase.co"))return;',
-      '  e.respondWith(caches.match(e.request).then(function(c){',
-      '    return c||fetch(e.request).then(function(r){',
-      '      if(r&&r.status===200){var cl=r.clone();caches.open("apex-v4").then(function(ca){ca.put(e.request,cl);})}',
-      '      return r;',
-      '    }).catch(function(){return c;});',
-      '  }));',
-      '});'
-    ].join('\n');
-    try {
-      var blob = new Blob([swCode],{type:'application/javascript'});
-      var url = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(url).catch(function(){});
-    } catch(e) {}
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('[APEX] SW registered:', reg.scope))
+      .catch(err => console.log('[APEX] SW failed:', err));
   });
+}
+
+// Install prompt — store it so we can trigger it from UI
+window._pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  window._pwaInstallPrompt = e;
+  // Show install banner after 3 seconds if not already installed
+  setTimeout(showPWAInstallBanner, 3000);
+});
+
+window.addEventListener('appinstalled', function() {
+  window._pwaInstallPrompt = null;
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.remove();
+  showToast('APEX added to your home screen!', 'gold', 4000);
+});
+
+function showPWAInstallBanner() {
+  if (!window._pwaInstallPrompt) return;
+  if (document.getElementById('pwa-install-banner')) return;
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-install-banner';
+  banner.style.cssText = 'position:fixed;bottom:calc(4.5rem + env(safe-area-inset-bottom));left:0.75rem;right:0.75rem;background:linear-gradient(135deg,#0D0D10,rgba(201,168,76,0.08));border:1px solid rgba(201,168,76,0.35);border-radius:12px;padding:0.875rem 1rem;z-index:8000;display:flex;align-items:center;gap:0.75rem;box-shadow:0 8px 32px rgba(0,0,0,0.5);animation:fadeIn 0.4s ease';
+  banner.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:1.5rem;color:var(--gold);flex-shrink:0">A</div>
+    <div style="flex:1">
+      <div style="font-family:var(--font-cond);font-size:0.82rem;font-weight:700;letter-spacing:0.08em;color:var(--light)">ADD TO HOME SCREEN</div>
+      <div style="font-size:0.72rem;color:var(--muted)">Install APEX for faster access</div>
+    </div>
+    <button onclick="installPWA()" style="background:var(--gold);color:var(--dark);font-family:var(--font-cond);font-size:0.78rem;font-weight:700;padding:0.4rem 0.85rem;border:none;border-radius:6px;cursor:pointer;flex-shrink:0">Install</button>
+    <button onclick="document.getElementById('pwa-install-banner').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:0.2rem;flex-shrink:0">✕</button>`;
+  document.body.appendChild(banner);
+}
+
+async function installPWA() {
+  if (!window._pwaInstallPrompt) return;
+  window._pwaInstallPrompt.prompt();
+  const {outcome} = await window._pwaInstallPrompt.userChoice;
+  window._pwaInstallPrompt = null;
+  console.log('[APEX] PWA install outcome:', outcome);
 }
 </script>
 </head>
