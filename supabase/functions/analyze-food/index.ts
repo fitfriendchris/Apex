@@ -11,15 +11,13 @@ const GEMINI_MODEL = "models/gemini-2.5-flash";
 // ── STEP 1: Gemini identifies foods + portions ─────────────────────────────
 async function identifyFoods(meal: string, image: any, geminiKey: string) {
   const prompt = image
-    ? `You are a food portion estimator. List every food visible in this photo with realistic portion sizes.
-Return ONLY a raw JSON array (no markdown, no explanation):
-[{"food":"chicken breast","portion":"6 oz","grams":170},{"food":"white rice cooked","portion":"1 cup","grams":186}]
-Be specific: use "cooked oatmeal" not "oats", "scrambled eggs" not "eggs".`
-    : `You are a food portion estimator. Break this meal into individual foods with realistic portions:
-"${meal}"
-Return ONLY a raw JSON array (no markdown, no explanation):
-[{"food":"scrambled eggs","portion":"2 large","grams":100},{"food":"cooked oatmeal","portion":"1 cup","grams":234},{"food":"raw blueberries","portion":"0.5 cup","grams":74}]
-Be very specific with food names to help database matching.`;
+    ? `List every food in this photo with portions. Return ONLY a JSON array:
+[{"food":"chicken breast","portion":"6 oz","grams":170}]
+Use specific names: "cooked oatmeal" not "oats", "scrambled eggs" not "eggs".`
+    : `Break this meal into foods with portions: "${meal}"
+Return ONLY a JSON array, no markdown:
+[{"food":"scrambled eggs","portion":"2 large","grams":100},{"food":"cooked oatmeal","portion":"1 cup","grams":234}]
+Use specific USDA-friendly names.`;
 
   const parts = image
     ? [{ inline_data: { mime_type: image.mediaType || "image/jpeg", data: image.base64 } }, { text: prompt }]
@@ -32,7 +30,7 @@ Be very specific with food names to help database matching.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature: 0, maxOutputTokens: 512 },
+        generationConfig: { temperature: 0, maxOutputTokens: 2048 },
       }),
     }
   );
