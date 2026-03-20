@@ -8753,7 +8753,7 @@ async function renderCoachDashboard(){
     if(cals>macros.calories*1.25) alerts.push({name:u.firstName+' '+u.lastName,email:u.email,issue:`Over calories — ${cals} vs ${macros.calories}`,type:'warning'});
     if(weekPct<40) alerts.push({name:u.firstName+' '+u.lastName,email:u.email,issue:`7-day compliance only ${weekPct}%`,type:'warning'});
   }
-  const avgC=allUsers.length>0?Math.round(clientData.reduce((a,d)=>a+d.checks,0)/(allUsers.length*8)*100):0;
+  const avgC=tierFiltered.length>0?Math.round(clientData.reduce((a,d)=>a+d.checks,0)/(allUsers.length*8)*100):0;
   const revenue=allUsers.reduce((a,u)=>{const tier=u.tier||'free';return a+({free:0,core:97,elite:297,vip:500,diamond:833}[tier]||0);},0);
   const paying=allUsers.filter(u=>u.tier&&u.tier!=='free').length;
 
@@ -8946,10 +8946,15 @@ async function renderClientList(){
   const PAGE_SIZE = 25;
   const page = window._clientPage || 0;
   const filter = (window._clientFilter || '').toLowerCase();
+  const _tierFilter = window._coachClientFilter || 'paid';
   const allUsers=await getAllUsers();
+  // Apply tier filter
+  const tierFiltered = _tierFilter === 'all' ? allUsers
+    : _tierFilter === 'paid' ? allUsers.filter(u => (u.tier||'free') !== 'free')
+    : allUsers.filter(u => (u.tier||'free') === _tierFilter);
   set('mainContent',`
-    <div class="section-title">All Clients</div>
-    <div class="section-sub">Click any client to view their full dashboard and manage their plan.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem">
+      <div><div class="section-title" style="margin:0">Clients (${tierFiltered.length})</div><div class="section-sub" style="margin:0">Click any client to view their full dashboard and manage their plan.</div>
     ${allUsers.length===0?`<div class="alert alert-info">No clients yet.</div>`:''}
     ${(await Promise.all(allUsers.map(async u=>{
       const logs=await getDailyLog(u.email,todayStr);
