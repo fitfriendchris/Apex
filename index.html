@@ -4243,6 +4243,18 @@ function getTodayStr(){ return getToday().toISOString().split('T')[0]; }
 Object.defineProperty(window,'today',{get:getToday});
 Object.defineProperty(window,'todayStr',{get:getTodayStr});
 let currentLogs = defaultLog();
+let _currentLogsDate = getTodayStr();
+
+// Reset currentLogs at midnight if app is left open
+async function ensureTodayLogs() {
+  const today = getTodayStr();
+  if (_currentLogsDate !== today && currentUser) {
+    console.log('[APEX] Day changed — reloading logs for', today);
+    _currentLogsDate = today;
+    currentLogs = await getDailyLog(currentUser.email, today);
+  }
+}
+
 let currentTab = 'Today'; // tracks active tab for refresh
 let currentOverrides = {};
 let coachLoginAttempts = 0;
@@ -6621,8 +6633,9 @@ async function saveFood(){
     return;
   }
 
+  await ensureTodayLogs();
   currentLogs.foods=currentLogs.foods||[]; currentLogs.foods.push(food);
-  await saveDailyLog(currentUser.email,todayStr,currentLogs);
+  await saveDailyLog(currentUser.email,getTodayStr(),currentLogs);
   addXP(currentUser.email,'logFood','Meal logged!');
   closeModal('addFoodModal');
   ['foodName','foodCals','foodProtein','foodCarbs','foodFats'].forEach(id=>document.getElementById(id).value='');
@@ -7377,6 +7390,7 @@ function aiRenderResult(food, inputText, macros, sex){
 }
 
 async function aiLogMeal(foodStr){
+  await ensureTodayLogs();
   const food = JSON.parse(decodeURIComponent(foodStr));
   const entry = {
     name: food.name,
@@ -7665,6 +7679,7 @@ async function ntLogScannedFood(foodStr){
     aiScanned:true,
     time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
   };
+  await ensureTodayLogs();
   currentLogs.foods=currentLogs.foods||[];
   currentLogs.foods.push(entry);
   await saveDailyLog(currentUser.email,getTodayStr(),currentLogs);
