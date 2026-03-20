@@ -7618,8 +7618,13 @@ function ntHandleDrop(e){
   const zone=document.getElementById('nt-upload-zone');
   if(zone){zone.style.borderColor='rgba(255,255,255,0.1)';zone.style.background='rgba(255,255,255,0.02)';}
   zone?.classList.remove('drag-over');
-  const f=e.dataTransfer.files[0];
-  if(f&&f.type.startsWith('image/')) ntProcessFile(f);
+  // Try files (Finder, Files app, iMessage saves)
+  const files=e.dataTransfer.files;
+  if(files&&files.length>0){ntProcessFile(files[0]);return;}
+  // Try items API (Chrome drag from web, iMessage)
+  const items=Array.from(e.dataTransfer.items||[]);
+  const imgItem=items.find(i=>i.kind==='file'&&(i.type.startsWith('image/')||i.type===''));
+  if(imgItem){const f=imgItem.getAsFile();if(f){ntProcessFile(f);return;}}
   // Also handle drag of image URLs (e.g. dragging from browser)
   else {
     const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
