@@ -42,9 +42,16 @@ CRITICAL RULES:
   * "potato/potatoes" → "potato boiled"
   * "egg/eggs" → "egg whole cooked scrambled"
   * "mini potatoes" → "potato boiled" (small, ~50g each)
+  * "cupcake/muffin/cake" → "cake chocolate" or "cake yellow" (use generic)
+  * "cookie" → "cookies chocolate chip"
+  * "chips" → "potato chips"
+  * "pizza" → "pizza cheese"
+  * "burger" → "hamburger beef patty"
+  * Any packaged snack → use the most generic USDA equivalent
 - Estimate realistic portion grams:
   * Large egg = 50g, beef burger patty (regular) = 85g, mini potato = 50g
   * Chicken breast = 140g, banana = 118g, apple = 182g
+  * Bite-size cupcake = 30g, regular cupcake = 75g, muffin = 113g
 
 Return ONLY a valid JSON array, no markdown, no explanation:
 [{"food":"egg whole cooked scrambled","portion":"8 large eggs","grams":400,"notes":"8 eggs total"},{"food":"beef patty cooked broiled","portion":"2 patties","grams":170,"notes":"2 burger patties"},{"food":"potato boiled","portion":"3 mini potatoes","grams":150,"notes":"3 small potatoes"}]`;
@@ -97,7 +104,22 @@ async function usdaLookup(foodName: string, portionStr: string, grams: number, a
     throw new Error("USDA API error " + res.status);
   }
   const data = JSON.parse(raw);
-  const foods = data.foods || [];
+  let foods = data.foods || [];
+
+  // Fallback: if no results, try progressively simpler queries
+  if (!foods.length) {
+    const words = foodName.split(" ").filter((w: string) => w.length > 2);
+    for (let i = words.length - 1; i >= 1; i--) {
+      const simpler = words.slice(0, i).join(" ");
+      console.log(`[USDA] No results for "${foodName}", trying "${simpler}"`);
+      const p2 = new URLSearchParams({ query: simpler, pageSize: "10", api_key: apiKey });
+      p2.append("dataType", "Foundation");
+      p2.append("dataType", "SR Legacy");
+      const r2 = await fetch(`${USDA_BASE}/foods/search?${p2.toString()}`);
+      const d2 = JSON.parse(await r2.text());
+      if (d2.foods?.length) { foods = d2.foods; break; }
+    }
+  }
   if (!foods.length) return null;
 
   // Smart scoring — prioritize exact matches, penalize obvious mismatches
@@ -236,7 +258,7 @@ serve(async (req) => {
 
     if (!valid.length) {
       return new Response(
-        JSON.stringify({ error: "Could not match any foods in the USDA database. Try describing foods more specifically (e.g. 'grilled chicken breast' instead of 'chicken')." }),
+        JSON.stringify({ error: "Could not find these foods in the USDA database. Try simpler descriptions — e.g. 'chocolate cupcake' instead of 'bite size cupcake', or use Manual Entry for packaged foods." }),
         { status: 404, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
