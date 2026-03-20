@@ -5007,12 +5007,12 @@ async function uploadProgressPhoto(email, dataUrl, filename) {
   const base64=dataUrl.split(',')[1]; const mime=dataUrl.split(';')[0].split(':')[1];
   const path=`${email}/${getTodayStr()}_${filename}`;
   const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
-  const res=await _nativeFetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':mime,'x-upsert':'true'},body:bytes});
+  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':mime,'x-upsert':'true'},body:bytes});
   if(!res.ok) throw new Error('Upload failed: '+res.status);
   return path;
 }
 async function getProgressPhotoUrl(path) {
-  const res=await _nativeFetch(`${SUPABASE_URL}/storage/v1/object/sign/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
+  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/sign/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
   const data=await res.json();
   return data.signedURL ? `${SUPABASE_URL}/storage/v1${data.signedURL}` : null;
 }
@@ -5033,7 +5033,7 @@ async function submitCheckIn(){
   }
   const data={date:getTodayStr(),week:getWeekNumber(),energy:r.energy,sleep:r.sleep,stress:r.stress,perf:r.perf,weight:ciWeight,win:document.getElementById('ciWin').value,challenge:document.getElementById('ciChallenge').value,coachQ:document.getElementById('ciCoach').value,photo_urls:photoUrls,email:currentUser.email,name:currentUser.firstName+' '+currentUser.lastName};
   lf.set('checkin_'+currentUser.email,data);
-  if(isConfigured()){
+  if(isConfigured){
     await sbUpsert('check_ins',{user_email:currentUser.email,date:data.date,week:data.week,energy:data.energy,sleep:data.sleep,stress:data.stress,perf:data.perf,weight:data.weight,win:data.win,challenge:data.challenge,coach_q:data.coachQ,photo_urls:JSON.stringify(photoUrls)},'user_email,date');
   }
   if(ciWeight!==currentUser.weight) await updateUser(currentUser.email,{weight:ciWeight});
