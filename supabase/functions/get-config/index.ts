@@ -43,4 +43,4 @@ serve(async (req) => {
       "Cache-Control": "no-store",
     },
   });
-});
+}, { port: 8000 });
