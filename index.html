@@ -10205,6 +10205,20 @@ function saveScannedToFavorites(barcode) {
 }
 
 function switchNutTab(tab, el){
+  if ((tab === 'scan' || tab === 'ai') && currentUser && !hasAIAccess(currentUser)) {
+    const icon = tab==='scan' ? '📷' : '🤖';
+    const title = tab==='scan' ? 'AI Photo Scanner' : 'AI Macro Logger';
+    const desc = tab==='scan' ? 'Snap a photo of any meal — instant macros + 14 micronutrients.' : 'Type what you ate — exact calories, protein, carbs, fat in seconds.';
+    const pw = '<div style="padding:2.5rem 1.5rem;text-align:center"><div style="font-size:2.5rem;margin-bottom:0.75rem">'+icon+'</div><div style="font-family:var(--font-cond);font-size:1.1rem;color:var(--gold);margin-bottom:0.5rem">'+title+' — $9.99/mo</div><div style="color:var(--muted);font-size:0.84rem;line-height:1.6;margin-bottom:1.5rem">'+desc+'<br><br>Included with all coaching plans, or unlock standalone for $9.99/mo.</div><button class="btn btn-gold" style="padding:0.875rem 2rem" onclick="window.open(\'https://buy.stripe.com/aFa14mgyGcEIaj75eC7Re04\',\'_blank\')">Unlock AI Features — $9.99/mo</button><div style="margin-top:0.75rem"><button class="btn btn-outline btn-sm" onclick="openModal(\'upgradeModal\')">See all plans</button></div></div>';
+    window._nutTab = tab;
+    document.querySelectorAll('[id^="nut-tab-"]:not([id*="btn"])').forEach(p=>p.classList.remove('active'));
+    const panel = document.getElementById('nut-tab-'+tab);
+    if(panel){ panel.innerHTML = pw; panel.classList.add('active'); }
+    document.querySelectorAll('.settings-tabs .settings-tab').forEach(t=>{ t.classList.remove('active'); t.style.color=''; });
+    const btn = el || document.getElementById('nut-tab-btn-'+tab);
+    if(btn){ btn.classList.add('active'); if(tab==='scan') btn.style.color='var(--blue)'; else btn.style.color='var(--gold)'; }
+    return;
+  }
   window._nutTab = tab;
   // Hide all panels
   document.querySelectorAll('[id^="nut-tab-"]:not([id*="btn"])').forEach(p=>p.classList.remove('active'));
