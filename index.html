@@ -10006,8 +10006,10 @@ Restaurant orders, home cooking, recipes — anything works"
     console.error('renderNutrition error:', _renderErr);
     try { showToast('renderNutrition failed to load. Please refresh.', 'error', 5000); } catch(_) {}
   }
+}
 
 function renderRecentBarcodes() {
+  try {
   const recent = lf.get('recent_barcodes_' + (currentUser?.email||'')) || [];
   if (!recent.length) return '<div style="color:var(--muted);font-size:0.82rem">No recent lookups yet.</div>';
   return recent.slice(0,8).map((f,i) => `
@@ -10018,10 +10020,9 @@ function renderRecentBarcodes() {
       </div>
       <button class="btn btn-gold btn-sm" style="font-size:0.7rem;padding:0.2rem 0.6rem" onclick="logBarcodeFood(${i})">+ Log</button>
     </div>`).join('');
-
   } catch(e) {
-    console.error('renderNutrition error:', e);
-    showToast('renderNutrition failed to load. Tap to retry.', 'error', 5000);
+    console.error('renderRecentBarcodes error:', e);
+    return '';
   }
 }
 
@@ -14812,16 +14813,12 @@ async function renderCoachTrainingDashboard(profile){
     console.error('renderCoachTrainingDashboard error:', _renderErr);
     try { showToast('renderCoachTrainingDashboard failed to load. Please refresh.', 'error', 5000); } catch(_) {}
   }
+}
 
 // ── COACH TRAINING HELPERS ──
 
 function getCoachWorkoutLog(date){ return lf.get('cwlog_'+date) || null; }
-function saveCoachWorkoutLog(date, log){ lf.set('cwlog_'+date, log); 
-  } catch(e) {
-    console.error('renderCoachTrainingDashboard error:', e);
-    showToast('renderCoachTrainingDashboard failed to load. Tap to retry.', 'error', 5000);
-  }
-}
+function saveCoachWorkoutLog(date, log){ lf.set('cwlog_'+date, log); }
 
 async function getCoachStreak(){
   let streak = 0;
