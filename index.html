@@ -4052,7 +4052,7 @@ async function installPWA() {
 <!-- UPGRADE MODAL -->
 <div class="modal-overlay" id="upgradeModal" role="dialog" aria-modal="true" aria-labelledby="modal-title-upgradeModal">
   <div class="modal" style="max-width:480px">
-    <div class="modal-title">Add a Real Coach</div>
+    <div class="modal-title">Unlock More</div>
     <p style="color:rgba(240,237,232,0.75);font-size:0.88rem;margin-bottom:1rem;line-height:1.6">
       You already have the full app — macros, AI scanner, workouts, everything. A coach adds personalized programming, weekly accountability, and direct feedback on <em>your</em> results.
     </p>
@@ -4094,7 +4094,7 @@ async function installPWA() {
         <span style="font-size:0.8rem;opacity:0.75">6-Month transformation</span>
       </button>
     </div>
-    <button class="btn btn-outline btn-full" style="margin-top:0.75rem" onclick="closeModal('upgradeModal')">Keep using free — close</button>
+    <button class="btn btn-outline btn-full" style="margin-top:0.75rem" onclick="closeModal('upgradeModal')">Maybe later</button>
   </div>
 </div>
 
@@ -4398,7 +4398,7 @@ function microSummaryHTML(foods, sex){
 //  3. Click the product → click "Create payment link"
 //  4. Copy the payment link URL and paste below
 // ================================================================
-let STRIPE_LINKS = { core: '', elite: '', vip: '', diamond: '' };
+let STRIPE_LINKS = { ai_basic: 'https://buy.stripe.com/aFa14mgyGcEIaj75eC7Re04', core: '', elite: '', vip: '', diamond: '' };
 let STRIPE_PORTAL_URL = ''; // Set to your Stripe Customer Portal URL from dashboard.stripe.com → Settings → Billing → Customer portal
 
 function openStripeBillingPortal(action) {
@@ -17079,7 +17079,7 @@ const I18N = {
     emailPlaceholder: 'your@email.com',
     passwordPlaceholder: 'Password',
     loginBtn: 'Login', registerBtn: 'Join for Free →',
-    upgradeTitle: 'Add a Real Coach',
+    upgradeTitle: 'Unlock More',
     noMealsYet: 'No meals logged yet today',
     logFirstMeal: '🤖 Log Your First Meal',
     restComplete: 'Rest complete! Time to crush the next set.',
