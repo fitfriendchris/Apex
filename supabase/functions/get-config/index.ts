@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const ALLOWED_ORIGINS = [
+  "https://apex-356.pages.dev",
   "https://fitfriendchris.github.io",
   "http://localhost:8888",
   "http://localhost:3000",
