@@ -2,3 +2,4 @@
 .env.local
 supabase/.temp/
 node_modules/
+DEPLOYMENT.md
