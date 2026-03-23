@@ -15804,8 +15804,14 @@ async function init(){
     var el = document.getElementById('loadingStatus');
     if (el) { el.style.opacity = '0'; setTimeout(function(){ el.textContent = msg; el.style.opacity = '0.7'; }, 150); }
   }
+  // Safety: force hide loading screen after 3s no matter what
+  setTimeout(() => {
+    const ls = document.getElementById('loadingScreen');
+    if (ls) { ls.style.display = 'none'; ls.style.visibility = 'hidden'; }
+  }, 3000);
+
   setLoadStatus('Loading configuration...');
-  await loadConfig();
+  try { await Promise.race([loadConfig(), new Promise(r=>setTimeout(r,2500))]); } catch(e) {}
   document.getElementById('faqContainer').innerHTML = faqHTML();
   initCounterAnimation();
 
@@ -15813,7 +15819,7 @@ async function init(){
   await new Promise(r=>setTimeout(r,300));
   const ls = document.getElementById('loadingScreen');
   ls.classList.add('hidden');
-  setTimeout(() => { ls.classList.add('gone'); ls.style.display = 'none'; }, 700);
+  setTimeout(() => { if(ls){ ls.style.display = 'none'; ls.style.visibility = 'hidden'; } }, 600);
 
   // Secret coach URL
   try {
