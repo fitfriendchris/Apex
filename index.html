@@ -10305,6 +10305,12 @@ async function aiAnalyzeMeal(){
     if(btn){ btn.disabled=false; btn.innerHTML='🤖 Calculate Macros with AI'; }
     return;
   }
+  // ── AI ACCESS CHECK ──
+  if (!currentUser || !hasAIAccess(currentUser)) {
+    if(resultPanel) resultPanel.innerHTML = '<div class="card" style="padding:1.5rem;text-align:center"><div style="font-size:2rem;margin-bottom:0.5rem">🤖</div><div style="font-family:var(--font-cond);color:var(--gold);margin-bottom:0.5rem">AI Features — $9.99/month</div><div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">Unlock unlimited AI macro logging, photo food scanning, and personalized insights.</div><button class="btn btn-gold" onclick="window.open('https://buy.stripe.com/aFa14mgyGcEIaj75eC7Re04','_blank')">Unlock AI Features — $9.99/mo</button></div>';
+    if(btn){ btn.disabled=false; btn.innerHTML='🤖 Calculate Macros with AI'; }
+    return;
+  }
   // ── AI QUOTA CHECK ──
   if (currentUser) {
     const _tier = (currentUser.tier || 'free').toLowerCase();
@@ -10675,6 +10681,12 @@ async function ntAnalyzeFood(){
         <div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">Snap a photo of any meal and get instant macros + 14 micronutrients.</div>
         <button class="btn btn-gold" onclick="window.open('https://buy.stripe.com/aFa14mgyGcEIaj75eC7Re04','_blank')">Unlock AI Features — $9.99/mo →</button>
       </div>`;
+    if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze Food';}
+    return;
+  }
+  // ── AI ACCESS CHECK ──
+  if (!currentUser || !hasAIAccess(currentUser)) {
+    document.getElementById('nt-results-panel').innerHTML = '<div class="card" style="padding:1.5rem;text-align:center"><div style="font-size:2rem;margin-bottom:0.5rem">📷</div><div style="font-family:var(--font-cond);color:var(--gold);margin-bottom:0.5rem">AI Photo Scanner — $9.99/month</div><div style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem">Snap a photo of any meal and get instant macros + 14 micronutrients.</div><button class="btn btn-gold" onclick="window.open('https://buy.stripe.com/aFa14mgyGcEIaj75eC7Re04','_blank')">Unlock AI Features — $9.99/mo</button></div>';
     if(btn){btn.disabled=false;btn.innerHTML='🔍 Analyze Food';}
     return;
   }
