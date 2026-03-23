@@ -10009,6 +10009,7 @@ Restaurant orders, home cooking, recipes — anything works"
     console.error('renderNutrition error:', _renderErr);
     try { showToast('renderNutrition failed to load. Please refresh.', 'error', 5000); } catch(_) {}
   }
+  enforceAIPaywall();
 }
 
 function renderRecentBarcodes() {
@@ -10027,6 +10028,31 @@ function renderRecentBarcodes() {
     console.error('renderRecentBarcodes error:', e);
     return '';
   }
+}
+
+
+// ── AI PAYWALL ENFORCER ──────────────────────────────────────────
+// Runs after renderNutrition to overlay paywall on AI/scan tabs for free users
+function enforceAIPaywall() {
+  if (!currentUser || hasAIAccess(currentUser)) return;
+  const pw = function(type) {
+    const icon = type === 'scan' ? '📷' : '🤖';
+    const title = type === 'scan' ? 'AI Photo Scanner' : 'AI Macro Logger';
+    const desc = type === 'scan'
+      ? 'Snap a photo of any meal — instant macros + 14 micronutrients.'
+      : 'Type anything you ate — exact calories, protein, carbs, fat in seconds.';
+    return '<div style="padding:2.5rem 1.5rem;text-align:center">'
+      + '<div style="font-size:2.5rem;margin-bottom:0.75rem">' + icon + '</div>'
+      + '<div style="font-family:var(--font-cond);font-size:1.1rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:0.5rem">' + title + ' — $9.99/mo</div>'
+      + '<div style="color:var(--muted);font-size:0.84rem;line-height:1.6;margin-bottom:1.5rem;max-width:320px;margin-left:auto;margin-right:auto">' + desc + '<br><br>Included with all coaching plans, or unlock for $9.99/mo.</div>'
+      + '<button class="btn btn-gold" style="padding:0.875rem 2rem" onclick="window.open('https://buy.stripe.com/aFa14mgyGcEIaj75eC7Re04','_blank')">Unlock AI Features — $9.99/mo →</button>'
+      + '<div style="margin-top:0.75rem"><button class="btn btn-outline btn-sm" onclick="openModal('upgradeModal')">See all plans →</button></div>'
+      + '</div>';
+  };
+  var aiTab = document.getElementById('nut-tab-ai');
+  if (aiTab) aiTab.innerHTML = pw('ai');
+  var scanTab = document.getElementById('nut-tab-scan');
+  if (scanTab) scanTab.innerHTML = pw('scan');
 }
 
 async function lookupBarcode() {
