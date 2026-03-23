@@ -10266,6 +10266,8 @@ function switchNutTab(tab, el){
     else if(tab==='scan') btn.style.color = 'var(--blue)';
     else if(tab==='barcode') btn.style.color = 'var(--green)';
   }
+  // Re-enforce paywall after tab switch
+  setTimeout(enforceAIPaywall, 0);
   // Focus textarea when switching to AI tab
   if(tab==='ai'){
     // Refresh meal type to current time
