@@ -231,7 +231,7 @@ body{font-family:var(--font-body);background:var(--dark);color:var(--light);min-
 
 /* LOADING */
 #loadingScreen{position:fixed;inset:0;background:var(--dark);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:1.5rem;transition:opacity 0.6s,transform 0.6s;}
-#loadingScreen.hidden{opacity:0;pointer-events:none;transform:scale(1.04);display:none !important;}
+#loadingScreen.hidden{opacity:0;pointer-events:none;transform:scale(1.04);transition:opacity 0.5s,transform 0.5s;} #loadingScreen.hidden.gone{display:none !important;}
 #loadingStatus{font-family:var(--font-cond);font-size:0.62rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--muted);min-height:14px;transition:opacity 0.3s;}
 .loading-logo{font-family:var(--font-display);font-size:5.5rem;color:var(--gold);letter-spacing:0.15em;text-shadow:var(--glow-gold);animation:logo-pulse 2s ease-in-out infinite;}
 @keyframes logo-pulse{0%,100%{opacity:0.85;text-shadow:0 0 20px rgba(201,168,76,0.2);}50%{opacity:1;text-shadow:0 0 40px rgba(201,168,76,0.5),0 0 80px rgba(201,168,76,0.2);}}
@@ -15811,7 +15811,9 @@ async function init(){
 
   // Show loading screen briefly then reveal — never wait on network
   await new Promise(r=>setTimeout(r,300));
-  document.getElementById('loadingScreen').classList.add('hidden');
+  const ls = document.getElementById('loadingScreen');
+  ls.classList.add('hidden');
+  setTimeout(() => { ls.classList.add('gone'); ls.style.display = 'none'; }, 700);
 
   // Secret coach URL
   try {
