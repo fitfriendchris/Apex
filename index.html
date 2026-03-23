@@ -11182,6 +11182,16 @@ function saveCustomSplit(email, split) { if(split && Object.keys(split).length) 
 function clearCustomSplit(email) { lf.del('custom_split_' + email); }
 function getEffectiveSchedule(user) {
   const prog = getProgram(user);
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const todayName = dayNames[new Date().getDay()];
+  const customDayTypeKey = lf.get('custom_day_type_' + (user && user.email ? user.email : ''));
+  if (customDayTypeKey && CUSTOM_DAY_TYPES[customDayTypeKey]) {
+    const cdt = CUSTOM_DAY_TYPES[customDayTypeKey];
+    return prog.schedule.map(day => {
+      if (day.day === todayName) return Object.assign({}, cdt, { day: todayName, _customDayType: customDayTypeKey });
+      return day;
+    });
+  }
   const custom = getCustomSplit(user.email);
   if (!custom) return prog.schedule;
   return prog.schedule.map(day => {
@@ -11189,7 +11199,7 @@ function getEffectiveSchedule(user) {
     if (!remapped) return day;
     const source = prog.schedule.find(d => d.day === remapped);
     if (!source) return day;
-    return { ...source, day: day.day, _remappedFrom: remapped };
+    return Object.assign({}, source, { day: day.day, _remappedFrom: remapped });
   });
 }
 function doTodayInstead(sourceDayName) {
