@@ -16620,6 +16620,8 @@ setTimeout(() => { initInteractivity(); initAllModules(); }, 500);
   });
 })();
 
+// Force hide loading screen after 2s regardless
+setTimeout(function(){ var ls=document.getElementById("loadingScreen"); if(ls){ ls.style.cssText="display:none !important"; } }, 2000);
 init();
 
 // ================================================================
