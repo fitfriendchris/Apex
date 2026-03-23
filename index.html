@@ -5193,7 +5193,7 @@ async function getUser(email) {
   const cached = local[email.toLowerCase()]||null;
   if (!_sbAvail()) return cached;
   try {
-    const {data,error}=await sbGet('users',`?email=eq.${encodeURIComponent(email.toLowerCase())}&select=email,first_name,last_name,age,sex,height,weight,goal_weight,goal,activity,diet,transform,start_weight,join_date,tier,tier_expires,stripe_customer_id,coach_id,created_at,password,email_verified,email_verify_token,email_verify_expires`);
+    const {data,error}=await sbGet('users',`?email=eq.${encodeURIComponent(email.toLowerCase())}&select=email,first_name,last_name,age,sex,height,weight,goal_weight,goal,activity,diet,transform,start_weight,join_date,tier,tier_expires,stripe_customer_id,created_at,password,email_verified`);
     if (error || !data || !data.length) return cached;
     const user = dbToUser(data[0]);
     // SECURITY: Never cache password hash in localStorage — strip it before storing
