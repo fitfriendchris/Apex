@@ -5228,11 +5228,11 @@ async function updateUser(email, updates) {
       const { password: _pw, ...updatesSafe } = updates;
       u[email]={...u[email],...updatesSafe};
       lf.set('users',u);
-      Object.assign(currentUser, updates); // in-memory gets full update
+      if (currentUser) Object.assign(currentUser, updates); // in-memory gets full update
       return {data:u[email],error:null};
     }
     const result = await sbPatch('users', userToDb(updates), `?email=eq.${encodeURIComponent(email)}`);
-    if (!result.error) Object.assign(currentUser, updates);
+    if (!result.error && currentUser) Object.assign(currentUser, updates);
     return result;
   } catch(e) { console.error('[APEX] updateUser failed:', e); return {data:null,error:e}; }
 }
