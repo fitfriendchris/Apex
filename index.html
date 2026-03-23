@@ -9917,7 +9917,7 @@ Restaurant orders, home cooking, recipes — anything works"
           </div>
           <div style="font-size:0.78rem;color:var(--muted);line-height:1.7;margin-top:0.75rem">
             Phase: <b style="color:var(--gold)">${macros.phase.toUpperCase()}</b><br>
-            Protein: <b>${sex==='male'?'1.0':'0.9'}g × ${user.weight}lbs</b><br>
+            Protein: <b>${sex==='male'?'1.2':'1.0'}g × ${user.goalWeight||user.weight}lbs</b><br>
             Fat: <b>${sex==='male'?'25':'30'}% of calories</b>
           </div>
         </div>
