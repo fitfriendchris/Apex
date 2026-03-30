@@ -3314,6 +3314,21 @@ input:focus, select:focus, textarea:focus {
   margin-top: 1rem;
 }
 
+/* ── Transformation simulator (sales page) ── */
+.simulator-wrap{background:linear-gradient(160deg,var(--dark2),rgba(201,168,76,0.04));border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);}
+.simulator-grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:1rem;align-items:stretch;}
+.simulator-panel,.simulator-results{background:var(--dark3);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius);padding:1rem;}
+.simulator-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.75rem;}
+.sim-input label{display:block;font-size:0.74rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;font-family:var(--font-cond);}
+.sim-input input,.sim-input select{width:100%;}
+.sim-kpi{background:var(--dark2);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius-sm);padding:0.8rem;}
+.sim-kpi-label{font-size:0.68rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;font-family:var(--font-cond);margin-bottom:0.25rem;}
+.sim-kpi-val{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.03em;color:var(--gold);}
+.sim-kpi-sub{font-size:0.78rem;color:var(--muted);}
+.simulator-footer{grid-column:1/-1;background:var(--dark2);border:1px dashed rgba(201,168,76,0.35);border-radius:var(--radius-sm);padding:0.9rem;font-size:0.86rem;color:rgba(240,237,232,0.84);line-height:1.6;}
+@media(max-width:980px){.simulator-grid{grid-template-columns:1fr;}.simulator-results{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:600px){.simulator-results{grid-template-columns:1fr;}}
+
 </style>
 
 <script>
@@ -3498,6 +3513,57 @@ async function installPWA() {
     <div class="proof-item"><div class="proof-num">4.9★</div><div class="proof-label">Client Rating</div></div>
     <div class="proof-item"><div class="proof-num" id="proofNum2" data-target="12">12+</div><div class="proof-label">Years Experience</div></div>
     <div class="proof-item"><div class="proof-num">98%</div><div class="proof-label">Satisfaction Rate</div></div>
+  </div>
+
+  <!-- TRANSFORMATION SIMULATOR -->
+  <div class="simulator-wrap">
+    <div class="section">
+      <div class="section-center">
+        <div class="eyebrow">Live Estimate</div>
+        <h2 class="big-title">SEE YOUR 12-WEEK<br><span>TRANSFORMATION PLAN</span></h2>
+        <div class="divider-gold"></div>
+        <p class="body-text">Dial in your numbers and get an instant projection for calories, macro targets, expected fat-loss pace, and weekly check-in score goals.</p>
+      </div>
+      <div class="simulator-grid" style="margin-top:2rem;">
+        <div class="simulator-panel">
+          <div class="sim-input" style="margin-bottom:0.85rem">
+            <label for="simWeight">Current Weight (lbs)</label>
+            <input id="simWeight" type="number" value="185" min="90" max="500" step="1" oninput="updateTransformationSimulator()">
+          </div>
+          <div class="sim-input" style="margin-bottom:0.85rem">
+            <label for="simGoalWeight">Goal Weight (lbs)</label>
+            <input id="simGoalWeight" type="number" value="175" min="80" max="450" step="1" oninput="updateTransformationSimulator()">
+          </div>
+          <div class="sim-input" style="margin-bottom:0.85rem">
+            <label for="simSex">Profile</label>
+            <select id="simSex" onchange="updateTransformationSimulator()">
+              <option value="male">Male Physique Build</option>
+              <option value="female">Female Physique Build</option>
+            </select>
+          </div>
+          <div class="sim-input">
+            <label for="simActivity">Activity Level</label>
+            <select id="simActivity" onchange="updateTransformationSimulator()">
+              <option value="1.35">Office + Training 3x/week</option>
+              <option value="1.5" selected>Active + Training 5x/week</option>
+              <option value="1.65">Athletic + Training 6x/week</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="simulator-results">
+          <div class="sim-kpi"><div class="sim-kpi-label">Daily Calories</div><div class="sim-kpi-val" id="simCalories">2,260</div><div class="sim-kpi-sub">cut target</div></div>
+          <div class="sim-kpi"><div class="sim-kpi-label">Protein Target</div><div class="sim-kpi-val" id="simProtein">185g</div><div class="sim-kpi-sub">preserve muscle</div></div>
+          <div class="sim-kpi"><div class="sim-kpi-label">Carbs / Fat</div><div class="sim-kpi-val" id="simCarbFat">220 / 63</div><div class="sim-kpi-sub">grams per day</div></div>
+          <div class="sim-kpi"><div class="sim-kpi-label">Expected Pace</div><div class="sim-kpi-val" id="simPace">0.8 lb/wk</div><div class="sim-kpi-sub">sustainable rate</div></div>
+          <div class="sim-kpi"><div class="sim-kpi-label">12-Week Drop</div><div class="sim-kpi-val" id="simDrop">9.6 lbs</div><div class="sim-kpi-sub">if compliant</div></div>
+          <div class="sim-kpi"><div class="sim-kpi-label">Compliance Target</div><div class="sim-kpi-val" id="simCompliance">85%</div><div class="sim-kpi-sub">daily check score</div></div>
+          <div class="simulator-footer" id="simPlanSummary">
+            Stick to this target for 12 weeks and you're projected to land around <b style="color:var(--gold)">175.4 lbs</b>. Our coaching system auto-adjusts your calories every 10–14 days based on trend weight and training output.
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- TRANSFORMATION GOALS -->
@@ -15838,6 +15904,36 @@ function getWeekNumber(d) {
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
+function updateTransformationSimulator(){
+  const w = parseFloat(document.getElementById('simWeight')?.value || 0);
+  const gw = parseFloat(document.getElementById('simGoalWeight')?.value || 0);
+  const sex = document.getElementById('simSex')?.value || 'male';
+  const activity = parseFloat(document.getElementById('simActivity')?.value || 1.5);
+  if(!w || !gw || w < 80 || gw < 70) return;
+
+  const leanFactor = sex === 'female' ? 0.9 : 1.0;
+  const base = (10 * (w * 0.453592)) + (6.25 * (sex === 'female' ? 162 : 175)) - (5 * 30) + (sex === 'female' ? -161 : 5);
+  const tdee = Math.max(1600, base * activity);
+  const deficit = Math.min(650, Math.max(250, Math.abs(w - gw) * 28));
+  const cals = Math.round(tdee - deficit);
+  const protein = Math.round(w * (0.95 * leanFactor));
+  const fats = Math.round((cals * 0.25) / 9);
+  const carbs = Math.max(60, Math.round((cals - (protein * 4 + fats * 9)) / 4));
+  const pace = Math.max(0.4, Math.min(1.6, deficit / 500 * 0.9));
+  const twelveWeekDrop = +(pace * 12).toFixed(1);
+  const projected = +(w - twelveWeekDrop).toFixed(1);
+  const compliance = Math.min(95, Math.max(75, Math.round(80 + Math.abs(w - gw) * 0.5)));
+
+  const set = (id,val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('simCalories', cals.toLocaleString());
+  set('simProtein', protein + 'g');
+  set('simCarbFat', `${carbs} / ${fats}`);
+  set('simPace', pace.toFixed(1) + ' lb/wk');
+  set('simDrop', `${twelveWeekDrop} lbs`);
+  set('simCompliance', compliance + '%');
+  set('simPlanSummary', `Stick to this target for 12 weeks and you're projected to land around ${projected.toFixed(1)} lbs. Our coaching system auto-adjusts your calories every 10–14 days based on trend weight and training output.`);
+}
+
 async function init(){
   // Update loading status messages
   function setLoadStatus(msg) {
@@ -15854,6 +15950,7 @@ async function init(){
   try { await Promise.race([loadConfig(), new Promise(r=>setTimeout(r,2500))]); } catch(e) {}
   document.getElementById('faqContainer').innerHTML = faqHTML();
   initCounterAnimation();
+  updateTransformationSimulator();
 
   // Show loading screen briefly then reveal — never wait on network
   await new Promise(r=>setTimeout(r,300));
