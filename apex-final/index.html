@@ -1,0 +1,2125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>APEX Coaching — Track Smarter. Transform Faster.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:oklch(0.72 0.12 75);
+  --gold-2:oklch(0.65 0.11 72);
+  --gold-3:oklch(0.58 0.10 70);
+  --gold-m:oklch(0.72 0.12 75 / 0.15);
+  --gold-b:oklch(0.72 0.12 75 / 0.25);
+  --green:oklch(0.72 0.17 145);
+  --blue:oklch(0.60 0.15 240);
+  --red:oklch(0.60 0.20 25);
+  --purple:oklch(0.58 0.18 295);
+  --s0:oklch(0.06 0.005 285);
+  --s1:oklch(0.09 0.005 285);
+  --s2:oklch(0.11 0.005 285);
+  --s3:oklch(0.14 0.005 285);
+  --s4:oklch(0.18 0.005 285);
+  --fw:oklch(0.94 0.005 65);
+  --dm:oklch(0.65 0.008 285);
+  --faint:oklch(0.52 0.008 285);
+  --border:oklch(1 0 0 / 0.07);
+  --fd:Bebas Neue,Arial Black,sans-serif;
+  --fc:Barlow Condensed,Arial Narrow,sans-serif;
+  --fb:Barlow,Arial,sans-serif;
+  --fm:DM Mono,Courier New,monospace;
+}
+html{scroll-behavior:smooth}
+body{background:var(--s0);color:var(--fw);font-family:var(--fb);min-height:100vh;overflow-x:hidden}
+img{display:block;max-width:100%}
+button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
+input,select,textarea{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+
+/* ── UTILITIES ── */
+.container{width:100%;max-width:1200px;margin:0 auto;padding:0 1.5rem}
+.eyebrow{font-family:var(--fc);font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem}
+.gradient-gold{background:linear-gradient(135deg,var(--gold),var(--gold-2),var(--gold-3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.gold-rule{width:48px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.75rem auto}
+.card{background:linear-gradient(145deg,var(--s1),oklch(0.08 0.005 285));border:1px solid var(--border);border-radius:.75rem;padding:1.25rem;position:relative;overflow:hidden}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-3));color:var(--s0);font-family:var(--fc);font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:inline-flex;align-items:center;gap:.5rem;transition:all .2s;border-radius:4px}
+.btn-gold:hover{box-shadow:0 4px 24px oklch(0.72 0.12 75 / 0.4);transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid oklch(0.72 0.12 75 / 0.4);color:var(--gold);font-family:var(--fc);letter-spacing:.1em;text-transform:uppercase;display:inline-flex;align-items:center;gap:.5rem;transition:all .2s;border-radius:4px}
+.btn-ghost:hover{background:oklch(0.72 0.12 75 / 0.08);border-color:var(--gold)}
+.progress-track{height:4px;background:var(--s4);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));border-radius:2px;transition:width .4s ease}
+.label-sm{font-family:var(--fc);font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+.hidden{display:none!important}
+
+/* ── PAGE VISIBILITY ── */
+.page{display:none}
+.page.active{display:block}
+#dashboard-page.active{display:flex;min-height:100vh}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.animate-up{animation:fadeUp .6s ease both}
+.delay-1{animation-delay:.1s}
+.delay-2{animation-delay:.2s}
+.delay-3{animation-delay:.3s}
+.delay-4{animation-delay:.4s}
+.spin{animation:spin 1s linear infinite}
+.bounce-anim{animation:bounce 1.8s ease-in-out infinite}
+
+/* ── NAVBAR ── */
+.navbar{position:fixed;top:0;left:0;right:0;z-index:100;padding:.875rem 0;transition:all .3s}
+.navbar.scrolled{background:oklch(0.06 0.005 285 / 0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.navbar-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.nav-logo{font-family:var(--fd);font-size:1.8rem;letter-spacing:.12em;color:var(--fw);display:flex;align-items:center;gap:.5rem}
+.nav-logo-icon{width:28px;height:28px;background:linear-gradient(135deg,var(--gold),var(--gold-3));border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:var(--s0)}
+.nav-links{display:flex;align-items:center;gap:.25rem}
+.nav-link{font-family:var(--fc);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-radius:4px;transition:color .2s}
+.nav-link:hover{color:var(--fw)}
+.nav-link.active-link{color:var(--gold)}
+.nav-actions{display:flex;align-items:center;gap:.5rem}
+.tier-badge{font-family:var(--fc);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.25rem .6rem;border-radius:3px;border:1px solid}
+
+/* ── HERO ── */
+#hero-section{min-height:100vh;display:flex;align-items:flex-end;padding-bottom:6rem;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background-image:url('https://d2xsxph8kpxj0f.cloudfront.net/310519663466547433/UEEKa8KGm5t7KC3eEq2SHw/apex-hero-bg-oL6euiVTzpVb6RewUn7sQe.webp');background-size:cover;background-position:center}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,oklch(0.06 0.005 285 / 0.3) 0%,oklch(0.06 0.005 285 / 0.5) 40%,oklch(0.06 0.005 285 / 0.95) 100%)}
+.hero-glow{position:absolute;inset:0;background:radial-gradient(circle 600px at 80% 50%,oklch(0.72 0.12 75 / 0.04) 0%,transparent 70%)}
+.hero-content{position:relative;z-index:10;max-width:680px}
+.hero-title{font-family:var(--fd);font-size:clamp(3.5rem,8vw,7rem);line-height:.95;letter-spacing:.03em;margin-bottom:1.5rem}
+.hero-white{background:linear-gradient(160deg,#fff 30%,oklch(0.94 0.005 65 / 0.7) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:block}
+.hero-gold{background:linear-gradient(135deg,var(--gold) 0%,var(--gold-2) 50%,var(--gold-3) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 24px oklch(0.72 0.12 75 / 0.5));display:block}
+.hero-sub{font-family:var(--fb);font-size:1.05rem;color:oklch(0.80 0.005 65);line-height:1.7;margin-bottom:2rem;max-width:520px}
+.hero-pills{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.5rem}
+.pill{display:flex;align-items:center;gap:.375rem;padding:.375rem .75rem;border-radius:4px}
+.pill-label{font-family:var(--fc);font-size:.72rem;letter-spacing:.08em;color:oklch(0.80 0.005 65)}
+.pill-tag{font-family:var(--fm);font-size:.6rem;letter-spacing:.06em;padding:.15rem .35rem;border-radius:2px}
+.scroll-hint{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.375rem;color:var(--faint);background:none}
+
+/* ── STATS BAR ── */
+.stats-bar{padding:2.5rem 0;background:var(--s1);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2rem}
+@media(min-width:768px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
+.stat-num{font-family:var(--fd);font-size:2.5rem;letter-spacing:.04em;color:var(--gold)}
+.stat-lbl{font-family:var(--fc);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-top:.25rem}
+
+/* ── SECTION HEADERS ── */
+.section-header{text-align:center;margin-bottom:4rem}
+.section-title{font-family:var(--fd);font-size:clamp(2.5rem,5vw,4rem);letter-spacing:.04em;color:var(--fw);line-height:1}
+.section-sub{font-family:var(--fb);font-size:1rem;color:var(--faint);line-height:1.7;max-width:640px;margin:.75rem auto 0}
+
+/* ── PHYSIQUE CARDS ── */
+.physique-grid{display:grid;grid-template-columns:1fr;gap:1.5rem;max-width:900px;margin:0 auto}
+@media(min-width:768px){.physique-grid{grid-template-columns:repeat(2,1fr)}}
+.physique-card{border-radius:.75rem;overflow:hidden;cursor:pointer;border:1px solid oklch(1 0 0 / 0.08);transition:all .3s}
+.physique-card.selected{border-color:oklch(0.72 0.12 75 / 0.5);box-shadow:0 0 40px oklch(0.72 0.12 75 / 0.1)}
+.physique-img{height:320px;overflow:hidden}
+.physique-img img{width:100%;height:100%;object-fit:cover;object-position:top;transition:transform .5s}
+.physique-card:hover .physique-img img{transform:scale(1.05)}
+.physique-body{padding:1.5rem;background:var(--s1)}
+.physique-title{font-family:var(--fd);font-size:1.6rem;letter-spacing:.06em;color:var(--gold);margin-bottom:.5rem}
+.physique-desc{font-family:var(--fb);font-size:.88rem;color:var(--faint);line-height:1.6;margin-bottom:1rem}
+.physique-list{display:flex;flex-direction:column;gap:.5rem}
+.physique-item{display:flex;align-items:center;gap:.5rem;font-family:var(--fb);font-size:.84rem;color:oklch(0.75 0.005 65)}
+.physique-arrow{color:var(--gold);font-size:.75rem;flex-shrink:0}
+
+/* ── FEATURES GRID ── */
+.features-section{background:oklch(0.08 0.005 285);border-top:1px solid oklch(1 0 0 / 0.06);border-bottom:1px solid oklch(1 0 0 / 0.06)}
+.features-grid{display:grid;grid-template-columns:1fr;gap:1rem}
+@media(min-width:640px){.features-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.features-grid{grid-template-columns:repeat(4,1fr)}}
+.feature-card{background:var(--s1);border:1px solid var(--border);border-radius:.75rem;padding:1.25rem;transition:border-color .2s}
+.feature-card.premium{border-color:oklch(0.72 0.12 75 / 0.25);background:linear-gradient(145deg,oklch(0.10 0.005 285),oklch(0.72 0.12 75 / 0.03))}
+.feature-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:6px;margin-bottom:1rem;font-size:1.25rem}
+.feature-title{font-family:var(--fc);font-size:.9rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.375rem}
+.feature-price-tag{font-family:var(--fm);font-size:.62rem;letter-spacing:.08em;padding:.15rem .5rem;border-radius:3px;display:inline-block;margin-bottom:.75rem}
+.feature-desc{font-family:var(--fb);font-size:.82rem;color:var(--faint);line-height:1.6}
+
+/* ── TESTIMONIALS ── */
+.test-grid{display:grid;grid-template-columns:1fr;gap:1.5rem}
+@media(min-width:768px){.test-grid{grid-template-columns:repeat(3,1fr)}}
+.test-card{background:linear-gradient(145deg,var(--s1),oklch(0.08 0.005 285));border:1px solid var(--border);border-radius:.75rem;padding:1.5rem;display:flex;flex-direction:column}
+.stars{display:flex;gap:3px;margin-bottom:1rem}
+.star{color:var(--gold);font-size:.875rem}
+.quote-text{font-family:var(--fb);font-size:.9rem;color:oklch(0.75 0.005 65);line-height:1.7;font-style:italic;flex:1;margin-bottom:1.25rem}
+.test-author{padding-top:1rem;border-top:1px solid oklch(1 0 0 / 0.07)}
+.test-name{font-family:var(--fc);font-size:.88rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.test-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.375rem;font-family:var(--fm);font-size:.72rem;color:var(--faint)}
+.result-badge{padding:.15rem .5rem;border-radius:3px;background:oklch(0.72 0.17 145 / 0.15);color:var(--green)}
+
+/* ── PRICING ── */
+.pricing-section{background:oklch(0.07 0.005 285);border-top:1px solid oklch(1 0 0 / 0.06)}
+.pricing-row-1{display:grid;grid-template-columns:1fr;gap:1rem;margin-bottom:1rem}
+.pricing-row-2{display:grid;grid-template-columns:1fr;gap:1rem;max-width:720px;margin:0 auto}
+@media(min-width:640px){.pricing-row-1{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.pricing-row-1{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:768px){.pricing-row-2{grid-template-columns:repeat(2,1fr)}}
+.pricing-card{display:flex;flex-direction:column;border-radius:.75rem;overflow:hidden;position:relative}
+.pricing-card .shimmer-line{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,oklch(0.72 0.12 75 / 0.6),transparent)}
+.pricing-card-body{padding:1.5rem;flex:1;display:flex;flex-direction:column}
+.pricing-badge{position:absolute;top:1rem;right:1rem;font-family:var(--fc);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px}
+.pricing-tier-label{font-family:var(--fc);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:.25rem}
+.pricing-name{font-family:var(--fd);font-size:1.8rem;letter-spacing:.08em;margin-bottom:.5rem}
+.pricing-price{font-family:var(--fd);font-size:2.4rem;letter-spacing:.02em}
+.pricing-period{font-family:var(--fc);font-size:.8rem;color:var(--faint);letter-spacing:.06em}
+.pricing-desc{font-family:var(--fb);font-size:.84rem;color:oklch(0.60 0.008 285);line-height:1.6;margin:.75rem 0 1rem}
+.pricing-features{flex:1;display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem}
+.pricing-feature{display:flex;align-items:flex-start;gap:.625rem;font-family:var(--fb);font-size:.84rem;line-height:1.4}
+.check-icon{color:var(--green);flex-shrink:0;margin-top:1px}
+.x-icon{color:oklch(0.35 0.008 285);flex-shrink:0;margin-top:1px}
+.pricing-cta{width:100%;padding:.875rem;border-radius:4px;font-family:var(--fc);font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;transition:all .2s}
+
+/* ── FAQ ── */
+.faq-item{border-bottom:1px solid oklch(1 0 0 / 0.07);cursor:pointer}
+.faq-q{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 0;gap:1rem}
+.faq-question{font-family:var(--fc);font-size:1rem;font-weight:600;letter-spacing:.03em;transition:color .2s}
+.faq-chevron{color:var(--faint);flex-shrink:0;font-size:1rem;transition:transform .2s}
+.faq-item.open .faq-chevron{transform:rotate(180deg)}
+.faq-a{padding-bottom:1.25rem;font-family:var(--fb);font-size:.9rem;color:oklch(0.65 0.008 285);line-height:1.7;display:none}
+.faq-item.open .faq-a{display:block}
+
+/* ── STICKY MOBILE BAR ── */
+.sticky-bar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:oklch(0.06 0.005 285 / 0.95);backdrop-filter:blur(20px);border-top:1px solid oklch(0.72 0.12 75 / 0.2);padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+@media(min-width:768px){.sticky-bar{display:none}}
+
+/* ── FOOTER ── */
+.footer{background:var(--s1);border-top:1px solid var(--border);padding:3rem 0 2rem}
+.footer-logo{font-family:var(--fd);font-size:1.6rem;letter-spacing:.12em;color:var(--fw);margin-bottom:.5rem}
+.footer-tagline{font-family:var(--fb);font-size:.84rem;color:var(--faint);line-height:1.6;max-width:280px}
+.footer-links{display:flex;flex-direction:column;gap:.5rem}
+.footer-link{font-family:var(--fc);font-size:.82rem;color:var(--faint);letter-spacing:.06em;transition:color .2s}
+.footer-link:hover{color:var(--gold)}
+.footer-grid{display:grid;grid-template-columns:1fr;gap:2rem;margin-bottom:2rem}
+@media(min-width:640px){.footer-grid{grid-template-columns:2fr 1fr 1fr}}
+.footer-bottom{border-top:1px solid var(--border);padding-top:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.footer-legal{font-family:var(--fb);font-size:.78rem;color:oklch(0.40 0.008 285)}
+
+/* ── PAYWALL MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:oklch(0 0 0 / 0.75);display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.hidden{display:none}
+.paywall-modal{background:oklch(0.09 0.005 285);border:1px solid oklch(0.72 0.12 75 / 0.3);border-radius:1rem;max-width:500px;width:100%;padding:2rem;position:relative;box-shadow:0 0 60px oklch(0.72 0.12 75 / 0.12),0 20px 60px oklch(0 0 0 / 0.5)}
+.paywall-close{position:absolute;top:1rem;right:1rem;color:var(--faint);font-size:1.25rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .2s}
+.paywall-close:hover{color:var(--fw)}
+.lock-icon{font-size:2.5rem;margin-bottom:1rem;text-align:center}
+.paywall-title{font-family:var(--fd);font-size:2.2rem;letter-spacing:.06em;text-align:center;color:var(--gold);margin-bottom:.5rem}
+.paywall-sub{font-family:var(--fb);font-size:.9rem;color:var(--faint);text-align:center;line-height:1.6;margin-bottom:1.5rem}
+.paywall-feature{display:flex;align-items:center;gap:.75rem;padding:.625rem 0;border-bottom:1px solid oklch(1 0 0 / 0.06);font-family:var(--fb);font-size:.88rem;color:oklch(0.80 0.005 65)}
+.paywall-tiers{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0}
+.paywall-tier{border:1px solid var(--border);border-radius:.5rem;padding:1rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between}
+.paywall-tier:hover{border-color:oklch(0.72 0.12 75 / 0.4);background:oklch(0.72 0.12 75 / 0.04)}
+.paywall-tier.selected-tier{border-color:var(--gold);background:oklch(0.72 0.12 75 / 0.08)}
+.pt-name{font-family:var(--fd);font-size:1.4rem;letter-spacing:.08em;color:var(--gold)}
+.pt-price{font-family:var(--fd);font-size:1.6rem;color:var(--fw)}
+
+/* ── DASHBOARD ── */
+.dashboard-layout{display:flex;min-height:100vh;width:100%}
+.sidebar{width:240px;flex-shrink:0;background:oklch(0.07 0.005 285);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:transform .3s;position:relative;z-index:50}
+@media(max-width:1023px){.sidebar{position:fixed;inset-y:0;left:0;transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}}
+.sidebar-logo{display:flex;align-items:center;gap:.625rem;padding:1.25rem;border-bottom:1px solid var(--border)}
+.sidebar-logo-text{font-family:var(--fd);font-size:1.4rem;letter-spacing:.18em;color:var(--fw)}
+.user-info{padding:1rem 1.25rem;border-bottom:1px solid var(--border)}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:oklch(0.72 0.12 75 / 0.2);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:1rem;color:var(--gold);flex-shrink:0}
+.user-row{display:flex;align-items:center;gap:.75rem}
+.user-name{font-family:var(--fc);font-size:.88rem;font-weight:700;letter-spacing:.04em}
+.user-tier-badge{font-family:var(--fc);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .5rem;border-radius:3px;background:oklch(0.72 0.12 75 / 0.15);color:var(--gold)}
+.xp-bar-wrap{margin-top:.75rem}
+.xp-row{display:flex;justify-content:space-between;margin-bottom:.25rem;font-family:var(--fm);font-size:.6rem}
+.sidebar-nav{flex:1;padding:.75rem;display:flex;flex-direction:column;gap:.25rem}
+.nav-item{display:flex;align-items:center;gap:.75rem;padding:.625rem .75rem;border-radius:.5rem;cursor:pointer;transition:all .2s;border:1px solid transparent;font-family:var(--fc);font-size:.88rem;letter-spacing:.06em;color:oklch(0.60 0.008 285);text-align:left;width:100%}
+.nav-item:hover{color:var(--fw)}
+.nav-item.active{background:oklch(0.72 0.12 75 / 0.1);border-color:oklch(0.72 0.12 75 / 0.2);color:var(--gold);font-weight:700}
+.streak-badge-sidebar{margin:.75rem;padding:.75rem;border-radius:.5rem;background:oklch(0.72 0.12 75 / 0.08);border:1px solid oklch(0.72 0.12 75 / 0.2)}
+.dashboard-main{flex:1;min-width:0;overflow:auto;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;background:oklch(0.06 0.005 285 / 0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.topbar-title{font-family:var(--fd);font-size:1.4rem;letter-spacing:.06em;color:var(--fw);line-height:1}
+.topbar-date{font-family:var(--fb);font-size:.75rem;color:var(--faint);margin-top:2px}
+.menu-btn{display:none;padding:.5rem;border-radius:4px;color:var(--faint)}
+@media(max-width:1023px){.menu-btn{display:flex}}
+.dash-content{padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;flex:1}
+.dash-grid-2{display:grid;grid-template-columns:1fr;gap:1.25rem}
+.dash-grid-4{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(min-width:1024px){.dash-grid-2{grid-template-columns:repeat(2,1fr)}.dash-grid-4{grid-template-columns:repeat(4,1fr)}}
+.metric-card{background:linear-gradient(145deg,var(--s1),oklch(0.08 0.005 285));border:1px solid var(--border);border-radius:.75rem;padding:1.25rem;position:relative;overflow:hidden}
+.metric-icon{position:absolute;top:1rem;right:1rem;font-size:1.2rem;opacity:.6}
+.metric-label{font-family:var(--fc);font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:.5rem}
+.metric-value{font-family:var(--fd);font-size:2rem;line-height:1}
+.metric-unit{font-family:var(--fm);font-size:.7rem;color:var(--faint);margin-left:4px}
+.metric-goal{font-family:var(--fm);font-size:.6rem;color:oklch(0.40 0.008 285);margin-top:.5rem}
+
+/* ── MACRO RINGS ── */
+.ring-wrap{display:flex;justify-content:space-around;flex-wrap:wrap;gap:1rem;margin-top:1rem}
+.ring-item{display:flex;flex-direction:column;align-items:center;gap:.375rem}
+.ring-val{font-family:var(--fd);font-size:1.1rem;line-height:1}
+.ring-lbl{font-family:var(--fc);font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.ring-goal-lbl{font-family:var(--fm);font-size:.6rem;color:oklch(0.40 0.008 285)}
+
+/* ── AI LOGGER ── */
+.ai-input-row{display:flex;gap:.5rem;margin-bottom:1rem}
+.ai-input{flex:1;padding:.75rem 1rem;border-radius:6px;background:oklch(0.12 0.005 285);border:1px solid oklch(1 0 0 / 0.1);color:var(--fw);font-size:.9rem;outline:none;transition:border-color .2s}
+.ai-input:focus{border-color:oklch(0.72 0.12 75 / 0.5)}
+.ai-btn{padding:.75rem 1.25rem;border-radius:6px;background:linear-gradient(135deg,var(--gold),var(--gold-3));color:var(--s0);font-family:var(--fc);font-size:.88rem;font-weight:700;letter-spacing:.1em;display:flex;align-items:center;gap:.375rem;transition:all .2s;white-space:nowrap}
+.ai-btn:disabled{opacity:.5;cursor:not-allowed}
+.food-log-row{display:flex;align-items:center;justify-content:space-between;padding:.625rem .75rem;border-radius:6px;background:oklch(0.12 0.005 285);border:1px solid oklch(1 0 0 / 0.05)}
+.food-name{font-family:var(--fb);font-size:.84rem;color:oklch(0.85 0.005 65)}
+.food-time{font-family:var(--fm);font-size:.65rem;color:var(--faint)}
+.food-macros{display:flex;align-items:center;gap.75rem;gap:.75rem}
+.food-cal{font-family:var(--fd);font-size:1rem;color:var(--gold)}
+.food-prot{font-family:var(--fm);font-size:.82rem;color:var(--green)}
+.food-del{color:oklch(0.35 0.008 285);transition:color .2s;font-size:.875rem;width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.food-del:hover{color:var(--red)}
+
+/* ── PAYWALL GATE ── */
+.paywall-gate{position:relative;border-radius:.75rem;overflow:hidden}
+.paywall-blur{filter:blur(8px);pointer-events:none;user-select:none;opacity:.4}
+.paywall-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.75rem;background:oklch(0.06 0.005 285 / 0.6);backdrop-filter:blur(4px);z-index:10;padding:1.5rem}
+.lock-big{font-size:3rem}
+.gate-title{font-family:var(--fd);font-size:1.8rem;letter-spacing:.06em;color:var(--gold)}
+.gate-sub{font-family:var(--fb);font-size:.9rem;color:var(--faint);max-width:280px}
+
+/* ── WORKOUT ── */
+.workout-day{border-radius:.75rem;overflow:hidden;border:1px solid var(--border);transition:border-color .2s;margin-bottom:.75rem}
+.workout-day.open{border-color:oklch(0.72 0.12 75 / 0.3)}
+.workout-day-header{display:flex;align-items:center;justify-content:space-between;padding:1rem;cursor:pointer;user-select:none}
+.day-tag{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-family:var(--fc);font-size:.7rem;letter-spacing:.06em;flex-shrink:0}
+.day-focus{font-family:var(--fc);font-size:.95rem;font-weight:700;letter-spacing:.06em}
+.day-sub{font-family:var(--fb);font-size:.75rem;color:var(--faint)}
+.workout-day-body{border-top:1px solid oklch(1 0 0 / 0.06)}
+.exercise-row{padding:1rem;border-bottom:1px solid oklch(1 0 0 / 0.05)}
+.ex-name{font-family:var(--fc);font-size:.9rem;font-weight:700;letter-spacing:.04em}
+.ex-sets-info{font-family:var(--fm);font-size:.72rem;color:var(--gold);margin-left:.5rem}
+.ex-tip{font-family:var(--fb);font-size:.75rem;color:var(--faint);font-style:italic;margin:.375rem 0 .75rem}
+.set-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.375rem}
+.set-num{font-family:var(--fc);font-size:.72rem;color:oklch(0.40 0.008 285);width:20px;text-align:center;flex-shrink:0}
+.set-input{width:70px;padding:.375rem .5rem;border-radius:4px;background:var(--s3);border:1px solid oklch(1 0 0 / 0.08);color:var(--fw);font-family:var(--fm);font-size:.85rem;text-align:center;outline:none}
+.set-sep{color:oklch(0.35 0.008 285);font-size:.8rem}
+.set-check{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid oklch(1 0 0 / 0.08);background:var(--s3);transition:all .15s;cursor:pointer;font-size:.75rem}
+.set-check.done{background:oklch(0.72 0.17 145 / 0.2);border-color:oklch(0.72 0.17 145 / 0.4);color:var(--green)}
+.complete-btn{width:100%;padding:.875rem;border-radius:4px;background:linear-gradient(135deg,var(--gold),var(--gold-3));color:var(--s0);font-family:var(--fc);font-size:.88rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin:1rem;width:calc(100% - 2rem)}
+
+/* ── PROGRESS CHARTS ── */
+.chart-wrap{margin-top:1rem}
+.pr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-top:.75rem}
+@media(min-width:768px){.pr-grid{grid-template-columns:repeat(4,1fr)}}
+.pr-card{padding:.75rem;border-radius:.5rem;background:var(--s2);border:1px solid oklch(1 0 0 / 0.06)}
+.pr-lift{font-family:var(--fb);font-size:.78rem;color:oklch(0.60 0.008 285)}
+.pr-val{font-family:var(--fd);font-size:1.3rem;color:var(--gold);line-height:1.2}
+.pr-date{font-family:var(--fm);font-size:.62rem;color:oklch(0.40 0.008 285)}
+
+/* ── CHECKLIST ── */
+.check-item{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.5rem;cursor:pointer;border:1px solid oklch(1 0 0 / 0.06);background:var(--s2);transition:all .15s;text-align:left;width:100%}
+.check-item.checked{background:oklch(0.72 0.17 145 / 0.08);border-color:oklch(0.72 0.17 145 / 0.25)}
+.check-box{width:24px;height:24px;border-radius:4px;border:1px solid oklch(1 0 0 / 0.12);background:var(--s4);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;font-size:.75rem}
+.check-item.checked .check-box{background:var(--green);border-color:var(--green);color:var(--s0)}
+.check-label{font-family:var(--fb);font-size:.92rem;color:oklch(0.80 0.005 65);flex:1}
+.check-item.checked .check-label{color:var(--green);text-decoration:line-through}
+.check-xp{font-family:var(--fm);font-size:.65rem;color:oklch(0.40 0.008 285)}
+.check-item.checked .check-xp{color:oklch(0.72 0.17 145 / 0.6)}
+
+/* ── WATER ── */
+.water-glasses{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.glass-btn{width:36px;height:48px;border-radius:4px;border:2px solid var(--s4);background:var(--s2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;overflow:hidden;position:relative;font-size:.875rem}
+.glass-btn.filled{border-color:var(--blue);background:oklch(0.60 0.15 240 / 0.15)}
+
+/* ── STORE ── */
+.store-filter-bar{position:sticky;top:0;z-index:20;background:oklch(0.07 0.005 285 / 0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:.875rem 0}
+.filter-cats{display:flex;align-items:center;gap:.375rem;flex-wrap:wrap}
+.filter-cat{font-family:var(--fc);font-size:.72rem;letter-spacing:.12em;text-transform:capitalize;padding:.375rem .75rem;border-radius:4px;border:1px solid transparent;transition:all .2s;color:var(--faint)}
+.filter-cat.active{background:oklch(0.72 0.12 75 / 0.15);color:var(--gold);border-color:oklch(0.72 0.12 75 / 0.3)}
+.store-grid{display:grid;grid-template-columns:1fr;gap:1.25rem}
+@media(min-width:640px){.store-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.store-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:1280px){.store-grid{grid-template-columns:repeat(4,1fr)}}
+.product-card{border-radius:.75rem;overflow:hidden;border:1px solid var(--border);background:var(--s1);display:flex;flex-direction:column;transition:all .3s}
+.product-card:hover{transform:translateY(-2px);box-shadow:0 12px 40px oklch(0 0 0 / 0.4)}
+.product-card.featured{border-color:oklch(0.72 0.12 75 / 0.3);box-shadow:0 4px 32px oklch(0.72 0.12 75 / 0.08)}
+.product-img{height:200px;overflow:hidden;position:relative}
+.product-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.product-card:hover .product-img img{transform:scale(1.05)}
+.product-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,oklch(0.09 0.005 285 / 0.8) 100%)}
+.product-badges{position:absolute;top:.75rem;left:.75rem;display:flex;flex-direction:column;gap:.375rem}
+.p-badge{font-family:var(--fc);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:.2rem .5rem;border-radius:3px;backdrop-filter:blur(8px);border:1px solid}
+.p-discount{position:absolute;top:.75rem;left:.75rem}
+.p-digital{position:absolute;top:.75rem;right:.75rem;font-family:var(--fc);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .5rem;border-radius:3px;background:oklch(0.06 0.005 285 / 0.8);color:var(--faint);border:1px solid oklch(1 0 0 / 0.1);backdrop-filter:blur(8px)}
+.product-body{padding:1.25rem;flex:1;display:flex;flex-direction:column}
+.product-cat{font-family:var(--fc);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:.25rem}
+.product-name{font-family:var(--fd);font-size:1.2rem;letter-spacing:.06em;color:var(--fw);line-height:1.1;margin-bottom:.25rem}
+.product-sub{font-family:var(--fb);font-size:.78rem;color:var(--faint);margin-bottom:.75rem}
+.product-rating{display:flex;align-items:center;gap:.375rem;margin-bottom.75rem;margin-bottom:.75rem}
+.product-desc{font-family:var(--fb);font-size:.82rem;color:oklch(0.58 0.008 285);line-height:1.6;flex:1;margin-bottom:1rem}
+.product-price-row{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+.product-price{font-family:var(--fd);font-size:1.8rem;color:var(--fw);letter-spacing:.02em}
+.product-orig{font-family:var(--fm);font-size:.82rem;color:oklch(0.40 0.008 285);text-decoration:line-through;margin-left:.375rem}
+.add-btn{display:flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:4px;background:linear-gradient(135deg,var(--gold),var(--gold-3));color:var(--s0);font-family:var(--fc);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;transition:all .2s}
+.add-btn:hover{box-shadow:0 4px 20px oklch(0.72 0.12 75 / 0.4)}
+
+/* ── CART ── */
+.cart-overlay{position:fixed;inset:0;z-index:150;background:oklch(0 0 0 / 0.6)}
+.cart-drawer{position:fixed;right:0;top:0;bottom:0;z-index:151;width:min(420px,100vw);background:oklch(0.08 0.005 285);border-left:1px solid oklch(1 0 0 / 0.08);box-shadow:-20px 0 60px oklch(0 0 0 / 0.5);display:flex;flex-direction:column}
+.cart-header{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)}
+.cart-title{font-family:var(--fd);font-size:1.3rem;letter-spacing:.08em;display:flex;align-items:center;gap:.5rem}
+.cart-count{background:var(--gold);color:var(--s0);font-family:var(--fm);font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:3px}
+.cart-items{flex:1;overflow-y:auto;padding:1rem 1.5rem;display:flex;flex-direction:column;gap:.75rem}
+.cart-item{display:flex;gap:.75rem;padding:.75rem;border-radius:.5rem;background:var(--s2);border:1px solid oklch(1 0 0 / 0.06)}
+.cart-item-img{width:64px;height:64px;object-fit:cover;border-radius:4px;flex-shrink:0}
+.cart-item-info{flex:1}
+.cart-item-name{font-family:var(--fc);font-size:.88rem;font-weight:700;letter-spacing:.04em}
+.cart-item-sub{font-family:var(--fb);font-size:.72rem;color:var(--faint);margin-bottom:.375rem}
+.qty-row{display:flex;align-items:center;gap:.5rem}
+.qty-btn{width:24px;height:24px;border-radius:4px;background:var(--s4);color:var(--faint);display:flex;align-items:center;justify-content:center;font-size:.875rem}
+.qty-num{font-family:var(--fm);font-size:.84rem;min-width:20px;text-align:center}
+.item-total{font-family:var(--fd);font-size:1.1rem;color:var(--gold)}
+.cart-footer{padding:1.25rem 1.5rem;border-top:1px solid var(--border)}
+.cart-trust{display:flex;justify-content:center;gap:1.5rem;margin-bottom:1rem;font-family:var(--fc);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:oklch(0.45 0.008 285)}
+.cart-total-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.cart-total-label{font-family:var(--fc);font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.cart-total-amt{font-family:var(--fd);font-size:2rem}
+.checkout-btn{width:100%;padding:1rem;border-radius:4px;background:linear-gradient(135deg,var(--gold),var(--gold-3));color:var(--s0);font-family:var(--fc);font-size:.95rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:.5rem;box-shadow:0 4px 24px oklch(0.72 0.12 75 / 0.3)}
+.cart-note{text-align:center;margin-top:.5rem;font-family:var(--fb);font-size:.72rem;color:oklch(0.40 0.008 285)}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast{background:var(--s1);border:1px solid oklch(1 0 0 / 0.1);border-radius:.5rem;padding:.75rem 1rem;color:var(--fw);font-family:var(--fb);font-size:.88rem;animation:fadeUp .3s ease;display:flex;align-items:center;gap:.5rem;max-width:320px;box-shadow:0 8px 32px oklch(0 0 0 / 0.4);pointer-events:auto}
+
+/* ── SIDEBAR OVERLAY ── */
+.sidebar-overlay{position:fixed;inset:0;z-index:49;background:oklch(0 0 0 / 0.6);display:none}
+.sidebar-overlay.active{display:block}
+
+/* ── GAP SECTION ── */
+.gap-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:2rem}
+@media(min-width:768px){.gap-stats{grid-template-columns:repeat(4,1fr)}}
+
+/* ── HIGH TICKET ── */
+.ht-grid{display:grid;grid-template-columns:1fr;gap:1.5rem;max-width:720px;margin:0 auto}
+@media(min-width:768px){.ht-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ── SECTION PADS ── */
+.py-24{padding:6rem 0}
+.py-16{padding:4rem 0}
+.py-12{padding:3rem 0}
+.py-10{padding:2.5rem 0}
+
+/* ── PHOTO SCANNER PLACEHOLDER ── */
+.photo-scanner-area{border:2px dashed oklch(0.72 0.12 75 / 0.3);border-radius:.75rem;padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;background:oklch(0.72 0.12 75 / 0.02)}
+.photo-scanner-area:hover{border-color:oklch(0.72 0.12 75 / 0.6);background:oklch(0.72 0.12 75 / 0.05)}
+.scanner-icon{font-size:3rem;margin-bottom:1rem}
+.scanner-title{font-family:var(--fc);font-size:1.1rem;font-weight:700;letter-spacing:.08em;color:var(--gold);margin-bottom:.375rem}
+.scanner-sub{font-family:var(--fb);font-size:.84rem;color:var(--faint)}
+</style>
+</head>
+<body>
+
+<!-- ── TOAST CONTAINER ── -->
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- ── PAYWALL MODAL ── -->
+<div class="modal-overlay hidden" id="paywall-modal">
+  <div class="paywall-modal">
+    <button class="paywall-close" onclick="closePaywall()">✕</button>
+    <div class="lock-icon">🔒</div>
+    <div class="paywall-title">UNLOCK AI FEATURES</div>
+    <div class="paywall-sub" id="paywall-sub-text">This feature is available on the AI plan and above. Choose a plan to continue.</div>
+    <div id="paywall-features-list"></div>
+    <div class="paywall-tiers" id="paywall-tiers">
+      <div class="paywall-tier" onclick="selectPaywallTier('ai_basic')">
+        <div><div class="pt-name">AI PLAN</div><div style="font-family:var(--fb);font-size:.8rem;color:var(--faint)">AI meal logger + photo scanner</div></div>
+        <div class="pt-price">$9.99/mo</div>
+      </div>
+      <div class="paywall-tier" onclick="selectPaywallTier('core')">
+        <div><div class="pt-name" style="color:var(--gold)">CORE COACHING</div><div style="font-family:var(--fb);font-size:.8rem;color:var(--faint)">Everything + real coach oversight</div></div>
+        <div class="pt-price">$97/mo</div>
+      </div>
+    </div>
+    <button class="btn-gold" style="width:100%;padding:1rem;justify-content:center;font-size:.95rem" onclick="upgradeFromPaywall()">Upgrade Now — Unlock Everything ⚡</button>
+    <p style="text-align:center;margin-top:.75rem;font-family:var(--fb);font-size:.75rem;color:oklch(0.40 0.008 285)">Cancel anytime · 7-day money-back guarantee</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     HOME PAGE
+════════════════════════════════════ -->
+<div id="home-page" class="page active">
+  <!-- NAVBAR -->
+  <nav class="navbar" id="main-nav">
+    <div class="container navbar-inner">
+      <div class="nav-logo">
+        <div class="nav-logo-icon">A</div>
+        APEX
+      </div>
+      <div class="nav-links" style="display:none" id="desktop-nav">
+        <button class="nav-link" onclick="scrollTo('stats-section')">Results</button>
+        <button class="nav-link" onclick="scrollTo('features-section')">Features</button>
+        <button class="nav-link" onclick="scrollTo('pricing-section')">Pricing</button>
+        <button class="nav-link" onclick="scrollTo('faq-section')">FAQ</button>
+      </div>
+      <div class="nav-actions">
+        <span id="nav-tier-badge" class="tier-badge" style="background:oklch(0.72 0.17 145 / 0.1);color:var(--green);border-color:oklch(0.72 0.17 145 / 0.3)">FREE</span>
+        <button class="btn-ghost" style="padding:.5rem 1rem;font-size:.78rem" onclick="goToPage('dashboard')">Dashboard</button>
+        <button class="btn-gold" style="padding:.5rem 1rem;font-size:.78rem" onclick="scrollTo('pricing-section')">Upgrade</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero-section">
+    <div class="hero-bg"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-glow"></div>
+    <div class="container hero-content">
+      <div class="eyebrow animate-up">AI-Powered Physique Coaching Platform</div>
+      <h1 class="hero-title animate-up delay-1">
+        <span class="hero-white">TRACK SMARTER.</span>
+        <span class="hero-gold">TRANSFORM</span>
+        <span class="hero-white">FASTER.</span>
+      </h1>
+      <p class="hero-sub animate-up delay-2">Elite workout programs, daily macro tracking, and progress analytics — free. Unlock AI meal logging and photo scanning from $9.99/mo. Add a coach when you're ready to accelerate.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:.75rem" class="animate-up delay-3">
+        <button class="btn-gold" style="padding:1rem 2rem;font-size:.88rem" onclick="goToPage('dashboard')">⚡ Start Free — No Card Needed</button>
+        <button class="btn-ghost" style="padding:1rem 2rem;font-size:.88rem" onclick="scrollTo('pricing-section')">See Coaching Plans</button>
+      </div>
+      <div class="hero-pills animate-up delay-4">
+        <div class="pill" style="background:oklch(0.72 0.12 75 / 0.1);border:1px solid oklch(0.72 0.12 75 / 0.3)">
+          <span class="pill-label">AI Meal Logger</span>
+          <span class="pill-tag" style="background:var(--gold);color:var(--s0)">$9.99/MO</span>
+        </div>
+        <div class="pill" style="background:oklch(0.72 0.12 75 / 0.1);border:1px solid oklch(0.72 0.12 75 / 0.3)">
+          <span class="pill-label">Photo Scanner</span>
+          <span class="pill-tag" style="background:var(--gold);color:var(--s0)">$9.99/MO</span>
+        </div>
+        <div class="pill" style="background:oklch(1 0 0 / 0.05);border:1px solid oklch(1 0 0 / 0.1)">
+          <span class="pill-label">Full Workouts</span>
+          <span class="pill-tag" style="background:oklch(0.72 0.17 145 / 0.2);color:var(--green)">FREE</span>
+        </div>
+        <div class="pill" style="background:oklch(1 0 0 / 0.05);border:1px solid oklch(1 0 0 / 0.1)">
+          <span class="pill-label">Progress Analytics</span>
+          <span class="pill-tag" style="background:oklch(0.72 0.17 145 / 0.2);color:var(--green)">FREE</span>
+        </div>
+        <div class="pill" style="background:oklch(1 0 0 / 0.05);border:1px solid oklch(1 0 0 / 0.1)">
+          <span class="pill-label">Daily Tracking</span>
+          <span class="pill-tag" style="background:oklch(0.72 0.17 145 / 0.2);color:var(--green)">FREE</span>
+        </div>
+      </div>
+    </div>
+    <button class="scroll-hint bounce-anim" onclick="scrollTo('stats-section')">
+      <span style="font-family:var(--fc);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase">Scroll</span>
+      <span>▼</span>
+    </button>
+  </section>
+
+  <!-- STATS BAR -->
+  <section id="stats-section" class="stats-bar">
+    <div class="container">
+      <div class="stats-grid">
+        <div style="text-align:center"><div class="stat-num" data-count="500" data-suffix="+">0+</div><div class="stat-lbl">Clients Transformed</div></div>
+        <div style="text-align:center"><div class="stat-num" data-count="4.9" data-suffix="" data-float="1">0</div><div class="stat-lbl">Average Rating</div></div>
+        <div style="text-align:center"><div class="stat-num" data-count="98" data-suffix="%">0%</div><div class="stat-lbl">Client Satisfaction</div></div>
+        <div style="text-align:center"><div class="stat-num" data-count="12" data-suffix="wk">0wk</div><div class="stat-lbl">Avg Transformation</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHYSIQUE GOALS -->
+  <section class="py-24">
+    <div class="container">
+      <div class="section-header">
+        <div class="eyebrow">Choose Your Path</div>
+        <h2 class="section-title">WHICH PHYSIQUE ARE YOU <span class="gradient-gold">BUILDING?</span></h2>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="physique-grid">
+        <div class="physique-card selected" id="card-male" onclick="selectPhysique('male')">
+          <div class="physique-img">
+            <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663466547433/UEEKa8KGm5t7KC3eEq2SHw/apex-greek-god-QVjKsaztVo4hiscyzAuWMx.webp" alt="Greek God physique" loading="lazy"/>
+          </div>
+          <div class="physique-body">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+              <span style="font-size:1.5rem">⚡</span>
+              <div class="physique-title">GREEK GOD V-TAPER</div>
+            </div>
+            <p class="physique-desc">The classic aesthetic physique — broad shoulders, narrow waist, powerful legs. Built for men who want to turn heads and dominate every room.</p>
+            <div class="physique-list">
+              <div class="physique-item"><span class="physique-arrow">›</span> Shoulder-to-waist ratio training</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> Upper chest &amp; lat width focus</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> Arm &amp; delt specialization</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> Lean bulk or cut protocols</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> 7-day structured program</div>
+            </div>
+          </div>
+        </div>
+        <div class="physique-card" id="card-female" onclick="selectPhysique('female')">
+          <div class="physique-img">
+            <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663466547433/UEEKa8KGm5t7KC3eEq2SHw/apex-bikini-model-LjVskt3TMsr397vchXvYfW.webp" alt="Bikini model physique" loading="lazy"/>
+          </div>
+          <div class="physique-body">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+              <span style="font-size:1.5rem">🔥</span>
+              <div class="physique-title">BIKINI FITNESS MODEL</div>
+            </div>
+            <p class="physique-desc">Stage-ready glutes, toned arms, flat stomach, and the posture that commands attention. Built for women who want to look and feel elite.</p>
+            <div class="physique-list">
+              <div class="physique-item"><span class="physique-arrow">›</span> Glute &amp; hamstring specialization</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> Shoulder width for hourglass shape</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> LISS &amp; HIIT cardio protocols</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> Competition or lifestyle ready</div>
+              <div class="physique-item"><span class="physique-arrow">›</span> 7-day structured program</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:2.5rem">
+        <button class="btn-gold" style="padding:1rem 2.5rem;font-size:.88rem;margin:0 auto" onclick="goToPage('dashboard')">⚡ Start Your Program — Free</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features-section" class="features-section py-24">
+    <div class="container">
+      <div class="section-header">
+        <div class="eyebrow">The Platform</div>
+        <h2 class="section-title">EVERYTHING YOU NEED TO <span class="gradient-gold">WIN</span></h2>
+        <div class="gold-rule"></div>
+        <p class="section-sub">This isn't a meal plan PDF. It's a full physique coaching platform. Workouts, macros, and progress tracking are free. AI features from $9.99/mo. Real coaching when you're ready.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card premium">
+          <div class="feature-icon" style="background:oklch(0.72 0.12 75 / 0.15);color:var(--gold)">🤖</div>
+          <div class="feature-title" style="color:var(--gold)">AI Text Meal Logger</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.12 75 / 0.15);color:var(--gold)">$9.99/mo</div>
+          <p class="feature-desc">Type anything you ate in plain English. AI calculates exact calories, protein, carbs, fat, fiber, and 14 micronutrients in seconds. No more guessing.</p>
+        </div>
+        <div class="feature-card premium">
+          <div class="feature-icon" style="background:oklch(0.72 0.12 75 / 0.15);color:var(--gold)">📷</div>
+          <div class="feature-title" style="color:var(--gold)">AI Photo Food Scanner</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.12 75 / 0.15);color:var(--gold)">$9.99/mo</div>
+          <p class="feature-desc">Snap a photo of any meal. AI identifies every ingredient and returns a full macro + micronutrient breakdown instantly. Works on any food, anywhere.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--s3);color:var(--faint)">💪</div>
+          <div class="feature-title" style="color:var(--fw)">7-Day Workout Programs</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.17 145 / 0.15);color:var(--green)">FREE</div>
+          <p class="feature-desc">Complete structured programs for Greek God V-Taper and Bikini Model physiques. Set logging, weight tracking, and progressive overload built in.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--s3);color:var(--faint)">📈</div>
+          <div class="feature-title" style="color:var(--fw)">Progress Analytics</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.17 145 / 0.15);color:var(--green)">FREE</div>
+          <p class="feature-desc">Weight trend charts, training volume graphs, personal records dashboard, and weekly calorie tracking. Your data, fully visualized.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--s3);color:var(--faint)">✅</div>
+          <div class="feature-title" style="color:var(--fw)">Daily Accountability</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.17 145 / 0.15);color:var(--green)">FREE</div>
+          <p class="feature-desc">8-point daily checklist, hydration tracker, XP system, streak counter, and achievement badges to keep you on track every single day.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--s3);color:var(--faint)">🧬</div>
+          <div class="feature-title" style="color:var(--fw)">Macro Calculator</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.17 145 / 0.15);color:var(--green)">FREE</div>
+          <p class="feature-desc">Personalized TDEE calculation, macro targets for cutting or bulking, and manual meal logging with your personal food library.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--s3);color:var(--faint)">📚</div>
+          <div class="feature-title" style="color:var(--fw)">Physique Course</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.17 145 / 0.15);color:var(--green)">FREE</div>
+          <p class="feature-desc">5-module physique development course covering training principles, nutrition fundamentals, recovery optimization, and mindset mastery.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:var(--s3);color:var(--faint)">🏆</div>
+          <div class="feature-title" style="color:var(--fw)">Coach Oversight</div>
+          <div class="feature-price-tag" style="background:oklch(0.72 0.12 75 / 0.15);color:var(--gold)">$97/mo</div>
+          <p class="feature-desc">Weekly coach review of your logs, adaptive macro adjustments, custom workout overrides, and direct messaging with your assigned coach.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="py-24">
+    <div class="container">
+      <div class="section-header">
+        <div class="eyebrow">Results</div>
+        <h2 class="section-title">REAL PEOPLE.<br><span class="gradient-gold">REAL TRANSFORMATIONS.</span></h2>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="test-grid">
+        <div class="test-card">
+          <div class="stars">★★★★★</div>
+          <blockquote class="quote-text">"I tried everything before this. The macro calculator alone changed the game — I finally understood why I wasn't losing fat. Down 28 lbs in 14 weeks and my shoulders have never looked wider."</blockquote>
+          <div class="test-author">
+            <div class="test-name">Marcus T., 31</div>
+            <div class="test-meta"><span class="result-badge">↓ 28 lbs</span><span>Greek God Program</span><span>·</span><span>14 weeks</span></div>
+          </div>
+        </div>
+        <div class="test-card">
+          <div class="stars">★★★★★</div>
+          <blockquote class="quote-text">"The daily checklist is what changed everything for me. Having accountability built into my phone every single day — I couldn't hide. I went from skipping workouts to not missing a single one in 60 days."</blockquote>
+          <div class="test-author">
+            <div class="test-name">Jasmine R., 26</div>
+            <div class="test-meta"><span class="result-badge">↓ 18 lbs</span><span>Bikini Program</span><span>·</span><span>10 weeks</span></div>
+          </div>
+        </div>
+        <div class="test-card">
+          <div class="stars">★★★★★</div>
+          <blockquote class="quote-text">"Worth every penny of the VIP package. Having my coach see my exact numbers every day and send notes directly through the platform is like having a trainer in your pocket 24/7."</blockquote>
+          <div class="test-author">
+            <div class="test-name">Derek M., 28</div>
+            <div class="test-meta"><span class="result-badge">+14 lbs muscle</span><span>VIP Client</span><span>·</span><span>6 months</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="pricing-section" class="pricing-section py-24">
+    <div class="container">
+      <div class="section-header">
+        <div class="eyebrow">Coaching Plans</div>
+        <h2 class="section-title">INVEST IN YOUR <span class="gradient-gold">TRANSFORMATION</span></h2>
+        <div class="gold-rule"></div>
+        <p class="section-sub">Choose the level of coaching that matches your commitment. Every tier includes the full platform — the difference is how deep we go together.</p>
+      </div>
+      <div class="pricing-row-1" id="pricing-cards-top"></div>
+      <div class="pricing-row-2" id="pricing-cards-bottom"></div>
+      <p style="text-align:center;margin-top:1.5rem;font-family:var(--fb);font-size:.8rem;color:oklch(0.45 0.008 285)">Cancel anytime · 7-day money-back guarantee · Secure payments via Stripe</p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq-section" class="py-24">
+    <div class="container">
+      <div style="max-width:720px;margin:0 auto">
+        <div class="section-header">
+          <div class="eyebrow">Questions</div>
+          <h2 class="section-title">FREQUENTLY <span class="gradient-gold">ASKED</span></h2>
+          <div class="gold-rule"></div>
+        </div>
+        <div id="faq-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE GAP -->
+  <section class="py-24" style="background:oklch(0.08 0.005 285);border-top:1px solid oklch(1 0 0 / 0.06);border-bottom:1px solid oklch(1 0 0 / 0.06)">
+    <div class="container">
+      <div style="max-width:900px;margin:0 auto;text-align:center">
+        <div class="eyebrow">The Acquisition System</div>
+        <h2 class="section-title" style="margin-bottom:1.5rem">THE GAP BETWEEN WHERE YOU ARE<br>AND <span class="gradient-gold">WHERE YOU WANT TO BE</span></h2>
+        <p style="font-family:var(--fb);font-size:1rem;color:var(--faint);line-height:1.7;max-width:600px;margin:0 auto 3rem">Most people fail not because they lack discipline — they fail because nobody ever closed the gap between their current state and their goal. That's exactly what we do.</p>
+        <div class="gap-stats">
+          <div><div style="font-family:var(--fd);font-size:3rem;color:var(--gold);line-height:1" data-count="500" data-suffix="+">0+</div><div style="font-family:var(--fc);font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-top:.375rem">Clients Transformed</div></div>
+          <div><div style="font-family:var(--fd);font-size:3rem;color:var(--gold);line-height:1">4–6</div><div style="font-family:var(--fc);font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-top:.375rem">Weeks to Visible Results</div></div>
+          <div><div style="font-family:var(--fd);font-size:3rem;color:var(--gold);line-height:1" data-count="12" data-suffix="">0</div><div style="font-family:var(--fc);font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-top:.375rem">Weeks to Full Transformation</div></div>
+          <div><div style="font-family:var(--fd);font-size:3rem;color:var(--gold);line-height:1" data-count="98" data-suffix="%">0%</div><div style="font-family:var(--fc);font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-top:.375rem">Client Satisfaction</div></div>
+        </div>
+        <div style="margin-top:3rem">
+          <button class="btn-gold" style="padding:1rem 2.5rem;font-size:.88rem;margin:0 auto" onclick="scrollTo('pricing-section')">Close the Gap — See Plans ›</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HIGH TICKET -->
+  <section class="py-24">
+    <div class="container">
+      <div style="max-width:800px;margin:0 auto">
+        <div class="section-header">
+          <div style="display:inline-block;padding:.25rem .75rem;border-radius:4px;background:oklch(0.72 0.12 75 / 0.1);border:1px solid oklch(0.72 0.12 75 / 0.3);font-family:var(--fc);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem">Limited Availability</div>
+          <h2 class="section-title">APPLY FOR <span class="gradient-gold">HIGH-TICKET COACHING</span></h2>
+          <div class="gold-rule"></div>
+          <p class="section-sub">VIP and Diamond spots are limited and application-only. We don't take everyone — we take the right people who are serious about results.</p>
+        </div>
+        <div class="ht-grid">
+          <div class="card" style="border-color:oklch(0.58 0.18 295 / 0.3);background:linear-gradient(145deg,var(--s1),oklch(0.58 0.18 295 / 0.05));text-align:center;padding:2rem">
+            <div style="font-family:var(--fd);font-size:2rem;color:var(--purple);margin-bottom:.5rem">VIP</div>
+            <div style="font-family:var(--fd);font-size:2.8rem;color:var(--fw)">$1,500</div>
+            <div style="font-family:var(--fc);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:1rem">3-month program</div>
+            <p style="font-family:var(--fb);font-size:.88rem;color:var(--faint);line-height:1.6;margin-bottom:1.5rem">Weekly 1-on-1 calls, custom 12-week program, daily monitoring, competition prep ready.</p>
+            <button onclick="applyFor('VIP')" style="width:100%;padding:.875rem;border-radius:4px;background:oklch(0.58 0.18 295 / 0.15);color:var(--purple);border:1px solid oklch(0.58 0.18 295 / 0.4);font-family:var(--fc);font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s">Apply for VIP →</button>
+          </div>
+          <div class="card" style="border-color:oklch(0.80 0.08 210 / 0.3);background:linear-gradient(145deg,var(--s1),oklch(0.80 0.08 210 / 0.05));text-align:center;padding:2rem">
+            <div style="font-family:var(--fd);font-size:2rem;color:oklch(0.80 0.08 210);margin-bottom:.5rem">DIAMOND</div>
+            <div style="font-family:var(--fd);font-size:2.8rem;color:var(--fw)">$5,000</div>
+            <div style="font-family:var(--fc);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:1rem">6-month program</div>
+            <p style="font-family:var(--fb);font-size:.88rem;color:var(--faint);line-height:1.6;margin-bottom:1.5rem">Unlimited calls, direct phone access, full lifestyle coaching, posing &amp; stage prep, 6-month roadmap.</p>
+            <button onclick="applyFor('Diamond')" style="width:100%;padding:.875rem;border-radius:4px;background:oklch(0.80 0.08 210 / 0.15);color:oklch(0.80 0.08 210);border:1px solid oklch(0.80 0.08 210 / 0.4);font-family:var(--fc);font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s">Apply for Diamond →</button>
+          </div>
+        </div>
+        <p style="text-align:center;margin-top:1.5rem;font-family:var(--fb);font-size:.84rem;color:var(--faint)">Not ready for high-ticket? <button onclick="scrollTo('pricing-section')" style="color:var(--gold);text-decoration:underline">Start with Core or Elite →</button></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section style="padding:7rem 0;text-align:center;background:oklch(0.06 0.005 285);border-top:1px solid oklch(1 0 0 / 0.07);position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;background:radial-gradient(circle 800px at 50% 50%,oklch(0.72 0.12 75 / 0.04) 0%,transparent 70%);pointer-events:none"></div>
+    <div class="container" style="position:relative;z-index:1">
+      <div class="eyebrow">Your Move</div>
+      <h2 style="font-family:var(--fd);font-size:clamp(2.5rem,6vw,5rem);letter-spacing:.04em;color:var(--fw);line-height:1;margin-bottom:1.5rem">THE BODY YOU WANT<br>IS ONE <span class="gradient-gold">DECISION</span> AWAY</h2>
+      <p style="font-family:var(--fb);font-size:1rem;color:var(--faint);line-height:1.7;max-width:480px;margin:0 auto 2.5rem">Every day you wait is another day someone else is putting in the work. Stop waiting for the perfect moment. This is it.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:center">
+        <button class="btn-gold" style="padding:1.25rem 2.5rem;font-size:1rem" onclick="goToPage('dashboard')">⚡ Start Your Transformation</button>
+        <button class="btn-ghost" style="padding:1.25rem 2.5rem;font-size:1rem" onclick="goToPage('dashboard')">Join for Free</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-logo">APEX</div>
+          <p class="footer-tagline">Elite physique coaching, AI-powered nutrition tracking, and real coach accountability — in one platform.</p>
+        </div>
+        <div>
+          <div style="font-family:var(--fc);font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-bottom:1rem">Platform</div>
+          <div class="footer-links">
+            <a href="#" class="footer-link" onclick="goToPage('dashboard')">Dashboard</a>
+            <a href="#" class="footer-link" onclick="goToPage('store')">Store</a>
+            <a href="#" class="footer-link" onclick="scrollTo('features-section')">Features</a>
+            <a href="#" class="footer-link" onclick="scrollTo('pricing-section')">Pricing</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--fc);font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-bottom:1rem">Programs</div>
+          <div class="footer-links">
+            <a href="#" class="footer-link">Greek God V-Taper</a>
+            <a href="#" class="footer-link">Bikini Model</a>
+            <a href="#" class="footer-link">VIP Coaching</a>
+            <a href="#" class="footer-link">Diamond Package</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div class="footer-legal">© 2025 APEX Coaching. All rights reserved.</div>
+        <div style="display:flex;gap:1.5rem">
+          <a href="#" style="font-family:var(--fb);font-size:.78rem;color:oklch(0.40 0.008 285);transition:color .2s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='oklch(0.40 0.008 285)'">Privacy</a>
+          <a href="#" style="font-family:var(--fb);font-size:.78rem;color:oklch(0.40 0.008 285);transition:color .2s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='oklch(0.40 0.008 285)'">Terms</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- STICKY MOBILE BAR -->
+  <div class="sticky-bar">
+    <div>
+      <div style="font-family:var(--fc);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)">Ready to Transform?</div>
+      <div style="font-family:var(--fb);font-size:.72rem;color:var(--faint)">Join 500+ clients in the program</div>
+    </div>
+    <button class="btn-gold" style="padding:.625rem 1.25rem;font-size:.78rem;white-space:nowrap" onclick="goToPage('dashboard')">Join Free →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     DASHBOARD PAGE
+════════════════════════════════════ -->
+<div id="dashboard-page" class="page">
+  <div class="dashboard-layout">
+    <!-- SIDEBAR OVERLAY -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="nav-logo-icon">A</div>
+        <span class="sidebar-logo-text">APEX</span>
+        <button style="margin-left:auto;color:var(--faint);display:none" id="sidebar-close" onclick="closeSidebar()">✕</button>
+      </div>
+      <div class="user-info">
+        <div class="user-row">
+          <div class="user-avatar">M</div>
+          <div>
+            <div class="user-name">Marcus T.</div>
+            <div style="display:flex;align-items:center;gap:.375rem;margin-top:.25rem">
+              <span class="user-tier-badge" id="sidebar-tier-badge">FREE</span>
+              <span style="font-family:var(--fm);font-size:.65rem;color:var(--faint)">Lv.6</span>
+            </div>
+          </div>
+        </div>
+        <div class="xp-bar-wrap">
+          <div class="xp-row">
+            <span style="color:var(--faint)">XP</span>
+            <span style="color:var(--gold)">340/500</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" style="width:68%"></div></div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" onclick="switchTab('overview')" id="nav-overview">📊 Overview</button>
+        <button class="nav-item" onclick="switchTab('macros')" id="nav-macros">🔥 Macro Tracker</button>
+        <button class="nav-item" onclick="switchTab('workout')" id="nav-workout">💪 Workout</button>
+        <button class="nav-item" onclick="switchTab('progress')" id="nav-progress">📈 Progress</button>
+        <button class="nav-item" onclick="switchTab('accountability')" id="nav-accountability">✅ Daily Checks</button>
+      </nav>
+      <div class="streak-badge-sidebar">
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <span style="color:var(--gold);font-size:1rem">🔥</span>
+          <div>
+            <div style="font-family:var(--fd);font-size:1.2rem;color:var(--gold);line-height:1">14</div>
+            <div style="font-family:var(--fc);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">Day Streak</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:.75rem">
+        <button class="nav-item" onclick="goToPage('store')" style="color:var(--faint)">🛒 Store</button>
+        <button class="nav-item" onclick="goToPage('home')" style="color:var(--faint)">← Back to Home</button>
+        <button class="nav-item" onclick="openUpgradeModal()" style="color:var(--gold);background:oklch(0.72 0.12 75 / 0.08);border-color:oklch(0.72 0.12 75 / 0.2)">⚡ Upgrade Plan</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="dashboard-main">
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <button class="menu-btn" onclick="openSidebar()">☰</button>
+          <div>
+            <div class="topbar-title" id="topbar-title">Overview</div>
+            <div class="topbar-date" id="topbar-date"></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <div style="display:flex;align-items:center;gap:.5rem;padding:.375rem .75rem;border-radius:4px;background:oklch(0.72 0.12 75 / 0.1);border:1px solid oklch(0.72 0.12 75 / 0.2)">
+            <span style="color:var(--gold);font-size:.875rem">🔥</span>
+            <span style="font-family:var(--fd);font-size:1rem;color:var(--gold)">14</span>
+            <span style="font-family:var(--fc);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)">streak</span>
+          </div>
+          <button class="btn-ghost" style="padding:.5rem 1rem;font-size:.78rem" onclick="openUpgradeModal()">⚡ <span id="dash-tier-label">Upgrade</span></button>
+        </div>
+      </div>
+
+      <!-- TAB CONTENT -->
+      <div class="dash-content" id="dash-content-area"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     STORE PAGE
+════════════════════════════════════ -->
+<div id="store-page" class="page">
+  <!-- STORE NAVBAR -->
+  <nav class="navbar scrolled">
+    <div class="container navbar-inner">
+      <div class="nav-logo" style="cursor:pointer" onclick="goToPage('home')">
+        <div class="nav-logo-icon">A</div>
+        APEX
+      </div>
+      <button class="btn-ghost" style="padding:.5rem 1rem;font-size:.78rem" onclick="goToPage('home')">← Home</button>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <button onclick="toggleCart()" style="display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:4px;border:1px solid var(--border);background:var(--s2);font-family:var(--fc);font-size:.78rem;letter-spacing:.08em;color:var(--faint);transition:all .2s" id="cart-btn">
+          🛒 Cart <span id="cart-count-badge" class="cart-count" style="display:none">0</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- STORE HERO -->
+  <section style="position:relative;padding-top:8rem;padding-bottom:4rem;min-height:300px;overflow:hidden">
+    <div style="position:absolute;inset:0;background-image:url('https://d2xsxph8kpxj0f.cloudfront.net/310519663466547433/UEEKa8KGm5t7KC3eEq2SHw/apex-store-hero-Ux5dBLXMVPXLJqiP8cVJVX.webp');background-size:cover;background-position:center"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(to bottom,oklch(0.06 0.005 285 / 0.6) 0%,oklch(0.06 0.005 285 / 0.95) 100%)"></div>
+    <div class="container" style="position:relative;z-index:1">
+      <div class="eyebrow">Digital Products</div>
+      <h1 style="font-family:var(--fd);font-size:clamp(2.5rem,6vw,5rem);letter-spacing:.04em;color:var(--fw);line-height:.95">APEX <span class="gradient-gold">STORE</span></h1>
+      <p style="font-family:var(--fb);font-size:.95rem;color:var(--faint);line-height:1.6;max-width:480px;margin-top:.75rem">Programs, nutrition guides, and performance resources. All digital. All instant access. Built by coaches who've done the work.</p>
+    </div>
+  </section>
+
+  <!-- FILTER BAR -->
+  <div class="store-filter-bar">
+    <div class="container">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <div class="filter-cats" id="filter-cats">
+          <button class="filter-cat active" onclick="filterProducts('all')" data-cat="all">All</button>
+          <button class="filter-cat" onclick="filterProducts('programs')" data-cat="programs">Programs</button>
+          <button class="filter-cat" onclick="filterProducts('nutrition')" data-cat="nutrition">Nutrition</button>
+          <button class="filter-cat" onclick="filterProducts('guides')" data-cat="guides">Guides</button>
+          <button class="filter-cat" onclick="filterProducts('bundles')" data-cat="bundles">Bundles</button>
+        </div>
+        <select id="sort-select" onchange="sortProducts(this.value)" style="padding:.375rem .75rem;border-radius:4px;background:var(--s2);border:1px solid oklch(1 0 0 / 0.1);color:var(--faint);font-family:var(--fc);font-size:.75rem;letter-spacing:.06em;outline:none">
+          <option value="featured">Featured</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+          <option value="rating">Top Rated</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <section style="padding:3rem 0">
+    <div class="container">
+      <div style="font-family:var(--fc);font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;color:oklch(0.45 0.008 285);margin-bottom:1.5rem" id="results-count">8 products</div>
+      <div class="store-grid" id="products-grid"></div>
+    </div>
+  </section>
+
+  <!-- TRUST -->
+  <section style="padding:3rem 0;background:oklch(0.08 0.005 285);border-top:1px solid oklch(1 0 0 / 0.06)">
+    <div class="container">
+      <div style="display:grid;grid-template-columns:1fr;gap:2rem;text-align:center">
+        <div>
+          <div style="font-size:2rem;margin-bottom:.75rem">📦</div>
+          <h3 style="font-family:var(--fc);font-size:.95rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fw);margin-bottom:.5rem">Instant Digital Delivery</h3>
+          <p style="font-family:var(--fb);font-size:.84rem;color:var(--faint);line-height:1.6">Access your content the moment payment is confirmed.</p>
+        </div>
+        <div>
+          <div style="font-size:2rem;margin-bottom:.75rem">🛡️</div>
+          <h3 style="font-family:var(--fc);font-size:.95rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fw);margin-bottom:.5rem">7-Day Money-Back Guarantee</h3>
+          <p style="font-family:var(--fb);font-size:.84rem;color:var(--faint);line-height:1.6">Not satisfied? Full refund within 7 days, no questions asked.</p>
+        </div>
+        <div>
+          <div style="font-size:2rem;margin-bottom:.75rem">⚡</div>
+          <h3 style="font-family:var(--fc);font-size:.95rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fw);margin-bottom:.5rem">Lifetime Access + Updates</h3>
+          <p style="font-family:var(--fb);font-size:.84rem;color:var(--faint);line-height:1.6">Every purchase includes lifetime access and all future updates — free, forever.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer" style="padding-top:2rem;padding-bottom:1.5rem">
+    <div class="container">
+      <div class="footer-bottom" style="padding-top:0;border-top:none">
+        <div class="footer-legal">© 2025 APEX Coaching. All rights reserved.</div>
+        <button onclick="goToPage('home')" style="font-family:var(--fb);font-size:.78rem;color:var(--gold)">← Back to Home</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CART DRAWER -->
+  <div id="cart-overlay" class="cart-overlay hidden" onclick="toggleCart()"></div>
+  <div id="cart-drawer" class="cart-drawer" style="transform:translateX(100%);transition:transform .3s">
+    <div class="cart-header">
+      <div class="cart-title">🛒 CART <span class="cart-count" id="cart-header-count" style="display:none">0</span></div>
+      <button onclick="toggleCart()" style="color:var(--faint);font-size:1.1rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <div class="cart-items" id="cart-items-list"></div>
+    <div class="cart-footer" id="cart-footer" style="display:none">
+      <div class="cart-trust">
+        <span>📦 Instant</span>
+        <span>🛡️ Secure</span>
+        <span>✅ Guaranteed</span>
+      </div>
+      <div class="cart-total-row">
+        <span class="cart-total-label">Total</span>
+        <span class="cart-total-amt" id="cart-total">$0</span>
+      </div>
+      <button class="checkout-btn" onclick="checkout()">⚡ Checkout — <span id="cart-total-btn">$0</span></button>
+      <p class="cart-note">Secure payment via Stripe · 7-day money-back guarantee</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+// ══ SUPABASE BOOTSTRAP ══════════════════════════════
+let SUPABASE_URL = "";
+let SUPABASE_ANON_KEY = "";
+const SUPABASE_PROJECT_URL = "https://yiqilesbvthmwdrtlhgm.supabase.co";
+
+async function loadConfig() {
+  try {
+    const res = await Promise.race([
+      fetch(SUPABASE_PROJECT_URL + "/functions/v1/get-config"),
+      new Promise(function(_,r){setTimeout(function(){r(new Error("timeout"));},3000);})
+    ]);
+    if (!res.ok) throw new Error("Config " + res.status);
+    const cfg = await res.json();
+    SUPABASE_URL = cfg.supabaseUrl || SUPABASE_PROJECT_URL;
+    SUPABASE_ANON_KEY = cfg.supabaseAnonKey || "";
+    if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
+  } catch(e) {
+    console.warn("[APEX] get-config failed:", e.message);
+    SUPABASE_URL = SUPABASE_PROJECT_URL;
+  }
+}
+
+function edgeFn(name) {
+  return (SUPABASE_URL || SUPABASE_PROJECT_URL) + "/functions/v1/" + name;
+}
+function edgeHeaders() {
+  return { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY };
+}
+
+// ── AI access gate ──────────────────────────────────────────────────────
+const AI_DAILY_LIMITS = { free:0, ai_basic:50, core:100, elite:200, vip:500, diamond:999 };
+function hasAIAccess(tier) {
+  return ['ai_basic','core','elite','vip','diamond'].includes(tier || state.userTier || 'free');
+}
+
+const TIER_ORDER = ['free','ai_basic','core','elite','vip','diamond'];
+let state = {
+  userTier: 'free',
+  currentPage: 'home',
+  dashTab: 'overview',
+  activePhysique: 'male',
+  macros: [
+    {id:'1',name:'Chicken breast + rice',calories:520,protein:48,carbs:52,fat:8,time:'08:30'},
+    {id:'2',name:'Whey protein shake',calories:150,protein:25,carbs:8,fat:2,time:'11:00'},
+    {id:'3',name:'Greek yogurt + berries',calories:180,protein:18,carbs:22,fat:2,time:'13:30'},
+  ],
+  goals:{calories:2400,protein:185,carbs:240,fat:65,fiber:35},
+  checks:{},
+  water:6,
+  weight:'185.2',
+  loggedWeight:false,
+  aiLoading:false,
+  photoLoading:false,
+  cart:[],
+  cartOpen:false,
+  filterCat:'all',
+  sortBy:'featured',
+  weightData:[
+    {date:'Mar 1',weight:192},{date:'Mar 5',weight:190.5},
+    {date:'Mar 8',weight:189},{date:'Mar 12',weight:188.5},
+    {date:'Mar 15',weight:187},{date:'Mar 19',weight:186},
+    {date:'Mar 22',weight:185.2},
+  ],
+  sets:{},
+  calorieData:[
+    {day:'Mon',cal:2380,goal:2400},{day:'Tue',cal:2450,goal:2400},
+    {day:'Wed',cal:2290,goal:2400},{day:'Thu',cal:2410,goal:2400},
+    {day:'Fri',cal:2350,goal:2400},{day:'Sat',cal:2520,goal:2400},
+    {day:'Sun',cal:2180,goal:2400},
+  ],
+  volumeData:[
+    {week:'W1',vol:18400},{week:'W2',vol:19200},{week:'W3',vol:20100},
+    {week:'W4',vol:19800},{week:'W5',vol:21300},{week:'W6',vol:22100},
+  ],
+  charts:{},
+  selectedPaywallTier:'ai_basic',
+};
+
+function hasTier(required) {
+  return TIER_ORDER.indexOf(state.userTier) >= TIER_ORDER.indexOf(required);
+}
+
+// ═══════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════
+function goToPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById(page + '-page');
+  if(el){ el.classList.add('active'); }
+  state.currentPage = page;
+  window.scrollTo(0,0);
+  if(page === 'dashboard'){ renderDashTab(); updateNavTierBadge(); }
+  if(page === 'store'){ renderProducts(); }
+  if(page === 'home'){ initHome(); }
+}
+
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════
+// TOASTS
+// ═══════════════════════════════════════════════
+function toast(msg, type='success') {
+  const wrap = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.borderLeft = `3px solid ${type==='success'?'var(--green)':type==='error'?'var(--red)':'var(--gold)'}`;
+  el.innerHTML = (type==='success'?'✓ ':type==='error'?'✕ ':'⚡ ') + msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+// ═══════════════════════════════════════════════
+// HOME INIT
+// ═══════════════════════════════════════════════
+function initHome() {
+  updateNavTierBadge();
+  renderPricing();
+  renderFAQ();
+  initScrollAnimations();
+  // Navbar scroll effect
+  window.addEventListener('scroll',()=>{
+    const nav = document.getElementById('main-nav');
+    if(nav) nav.classList.toggle('scrolled', window.scrollY > 80);
+    // Desktop nav show on scroll
+    const deskNav = document.getElementById('desktop-nav');
+    if(deskNav) deskNav.style.display = window.scrollY > 200 ? 'flex' : 'none';
+  });
+}
+
+function updateNavTierBadge() {
+  const badge = document.getElementById('nav-tier-badge');
+  const sidebarBadge = document.getElementById('sidebar-tier-badge');
+  const dashBtn = document.getElementById('dash-tier-label');
+  const tier = state.userTier.toUpperCase();
+  if(badge){ badge.textContent = tier; }
+  if(sidebarBadge){ sidebarBadge.textContent = tier; }
+  if(dashBtn){ dashBtn.textContent = tier === 'FREE' ? 'Upgrade ⚡' : tier; }
+}
+
+function selectPhysique(g) {
+  state.activePhysique = g;
+  document.getElementById('card-male').classList.toggle('selected', g==='male');
+  document.getElementById('card-female').classList.toggle('selected', g==='female');
+}
+
+// ═══════════════════════════════════════════════
+// ANIMATED COUNTERS
+// ═══════════════════════════════════════════════
+function initScrollAnimations() {
+  const counters = document.querySelectorAll('[data-count]');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if(e.isIntersecting && !e.target.dataset.done) {
+        e.target.dataset.done = '1';
+        animateCounter(e.target);
+      }
+    });
+  },{threshold:0.5});
+  counters.forEach(c => obs.observe(c));
+}
+
+function animateCounter(el) {
+  const target = parseFloat(el.dataset.count);
+  const suffix = el.dataset.suffix || '';
+  const isFloat = el.dataset.float === '1';
+  const duration = 1500;
+  let start = null;
+  function step(ts) {
+    if(!start) start = ts;
+    const prog = Math.min((ts-start)/duration,1);
+    const eased = 1 - Math.pow(1-prog,3);
+    const cur = eased * target;
+    el.textContent = (isFloat ? cur.toFixed(1) : Math.floor(cur)) + suffix;
+    if(prog<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ═══════════════════════════════════════════════
+// PRICING
+// ═══════════════════════════════════════════════
+const PRICING_TIERS = [
+  {id:'free',name:'FREE',label:'Always Free',price:'$0',period:'forever',desc:'Full platform access. No credit card. No catch.',features:[{t:'Full 7-day workout programs',y:true},{t:'Daily checklist & accountability',y:true},{t:'Progress analytics & weight tracking',y:true},{t:'Personal records dashboard',y:true},{t:'XP system & achievement badges',y:true},{t:'AI Text Meal Logger',y:false},{t:'AI Photo Food Scanner',y:false},{t:'Coach oversight',y:false}],cta:'Start Free — No Card',style:'ghost'},
+  {id:'ai',name:'AI',label:'AI Features',price:'$9.99',period:'/month',desc:'Unlock the full AI suite. Log anything, scan anything.',features:[{t:'Everything in Free',y:true},{t:'AI Text Meal Logger (unlimited)',y:true},{t:'AI Photo Food Scanner (unlimited)',y:true},{t:'14 micronutrient tracking',y:true},{t:'Barcode food scanner',y:true},{t:'Smart meal suggestions',y:true},{t:'Coach oversight',y:false},{t:'Weekly check-ins',y:false}],cta:'Unlock AI — $9.99/mo',style:'ghost'},
+  {id:'core',name:'CORE',label:'Monthly Coaching',price:'$97',period:'/month',badge:'Most Popular',badgeColor:'gold',desc:'Real coaching oversight. Real accountability. Real results.',highlight:true,features:[{t:'Everything in AI',y:true},{t:'Coach reviews your logs weekly',y:true},{t:'Custom workout overrides',y:true},{t:'Weekly check-in with feedback',y:true},{t:'Adaptive macro adjustments',y:true},{t:'Direct coach messaging',y:false},{t:'Video check-ins',y:false}],cta:'Get Coached — $97/mo',style:'gold'},
+  {id:'elite',name:'ELITE',label:'Monthly',price:'$297',period:'/month',desc:'Full coaching relationship. Direct access. Maximum results.',features:[{t:'Everything in Core',y:true},{t:'Direct coach messaging (24hr)',y:true},{t:'Custom meal planning',y:true},{t:'Bi-weekly video check-ins',y:true},{t:'Workout customization',y:true},{t:'Supplement stack review',y:true},{t:'1-on-1 strategy calls',y:false}],cta:'Get Elite — $297/mo',style:'ghost'},
+  {id:'vip',name:'VIP',label:'One-Time',price:'$1,500',period:'3-month program',badge:'Best Value',badgeColor:'green',desc:'The complete transformation package. Built for serious athletes.',features:[{t:'Everything in Elite',y:true},{t:'Weekly 1-on-1 strategy calls',y:true},{t:'Full body analysis & custom plan',y:true},{t:'Custom 12-week program',y:true},{t:'Daily coach monitoring',y:true},{t:'Nutrition periodization',y:true},{t:'Competition prep ready',y:true}],cta:'Apply for VIP — $1,500',style:'ghost'},
+  {id:'diamond',name:'DIAMOND',label:'Premium Partnership',price:'$5,000',period:'6-month program',badge:'Ultimate',badgeColor:'diamond',desc:'The highest level of coaching available. Reserved for the committed.',features:[{t:'Everything in VIP',y:true},{t:'Unlimited 1-on-1 calls',y:true},{t:'Full lifestyle coaching',y:true},{t:'Posing & stage prep',y:true},{t:'Direct phone/text access',y:true},{t:'6-month custom roadmap',y:true},{t:'Priority scheduling',y:true}],cta:'Apply for Diamond — $5,000',style:'ghost'},
+];
+
+function renderPricing() {
+  const bColors = {gold:'oklch(0.72 0.12 75)',green:'oklch(0.72 0.17 145)',diamond:'oklch(0.80 0.08 210)'};
+  function renderCard(tier) {
+    const active = state.userTier === tier.id;
+    const bc = bColors[tier.badgeColor] || bColors.gold;
+    return `<div class="pricing-card" style="background:${tier.highlight?'linear-gradient(145deg,oklch(0.10 0.005 285),oklch(0.08 0.005 285))':'linear-gradient(145deg,var(--s1),oklch(0.07 0.005 285))'};border:1px solid ${tier.highlight?'oklch(0.72 0.12 75 / 0.4)':'var(--border)'};${tier.highlight?'box-shadow:0 0 40px oklch(0.72 0.12 75 / 0.12)':''};position:relative">
+      ${tier.highlight?'<div class="shimmer-line"></div>':''}
+      ${tier.badge?`<div class="pricing-badge" style="background:${bc}22;color:${bc};border-color:${bc}44">${tier.badge}</div>`:''}
+      <div class="pricing-card-body">
+        <div class="pricing-tier-label">${tier.label}</div>
+        <div class="pricing-name" style="color:${tier.highlight?'var(--gold)':'var(--fw)'}">${tier.name}</div>
+        <div style="display:flex;align-items:baseline;gap:.25rem;margin-bottom:.75rem">
+          <span class="pricing-price">${tier.price}</span>
+          <span class="pricing-period">${tier.period}</span>
+        </div>
+        <p class="pricing-desc">${tier.desc}</p>
+        <div class="pricing-features">
+          ${tier.features.map(f=>`<div class="pricing-feature"><span class="${f.y?'check-icon':'x-icon'}">${f.y?'✓':'✕'}</span><span style="color:${f.y?'oklch(0.80 0.005 65)':'oklch(0.40 0.008 285)'}">${f.t}</span></div>`).join('')}
+        </div>
+        ${active?`<div class="pricing-cta" style="background:oklch(0.72 0.17 145 / 0.15);color:var(--green);border:1px solid oklch(0.72 0.17 145 / 0.3);text-align:center;padding:.875rem;border-radius:4px;font-family:var(--fc);font-size:.88rem;letter-spacing:.1em;text-transform:uppercase">✓ CURRENT PLAN</div>`:
+        `<button class="pricing-cta" onclick="selectTier('${tier.id}')" style="${tier.style==='gold'?'background:linear-gradient(135deg,var(--gold),var(--gold-3));color:var(--s0);box-shadow:0 4px 20px oklch(0.72 0.12 75 / 0.3)':'background:transparent;color:var(--gold);border:1px solid oklch(0.72 0.12 75 / 0.4)'}">${tier.cta}</button>`}
+      </div>
+    </div>`;
+  }
+  const top = document.getElementById('pricing-cards-top');
+  const bot = document.getElementById('pricing-cards-bottom');
+  if(top) top.innerHTML = PRICING_TIERS.slice(0,4).map(renderCard).join('');
+  if(bot) bot.innerHTML = PRICING_TIERS.slice(4).map(renderCard).join('');
+}
+
+function selectTier(id) {
+  state.userTier = id;
+  renderPricing();
+  updateNavTierBadge();
+  if(state.currentPage==='dashboard') renderDashTab();
+  const tier = PRICING_TIERS.find(t=>t.id===id);
+  toast(`🎉 Upgraded to ${tier.name}! All features unlocked.`,'info');
+}
+
+// ═══════════════════════════════════════════════
+// FAQ
+// ═══════════════════════════════════════════════
+const FAQS = [
+  {q:'Do I need a gym membership?',a:'Yes, these programs are designed for a commercial gym with barbells, cables, and machines. Most exercises can be modified for a home gym with dumbbells.'},
+  {q:'How quickly will I see results?',a:'Most clients see visible changes in 4–6 weeks when following the program consistently. Full transformations typically take 12–24 weeks.'},
+  {q:'Can I cancel my monthly subscription?',a:'Yes, absolutely. Monthly plans (Core and Elite) can be cancelled anytime directly through Stripe. No lock-in, no penalties, no questions asked.'},
+  {q:'What happens after I pay?',a:"Your account is upgraded automatically the moment payment is confirmed. You'll be redirected back to APEX and your dashboard unlocks instantly."},
+  {q:'Is this suitable for beginners?',a:'Yes. The programs include coaching tips for every exercise. Free members get the full workout program. Paid tiers add coach oversight and customization.'},
+  {q:'How does the AI meal logger work?',a:"Simply type what you ate in plain English — 'I had 2 scrambled eggs, a cup of oatmeal, and a banana.' The AI calculates exact calories, protein, carbs, fat, fiber, and 14 micronutrients in seconds."},
+  {q:"What's the difference between VIP and Diamond?",a:'VIP is a 3-month intensive program with weekly calls and a custom 12-week plan. Diamond is a 6-month premium partnership with unlimited calls and direct phone/text access.'},
+  {q:"What if I have an injury or limitation?",a:'Elite, VIP, and Diamond clients get custom program modifications built around any limitations. Core clients can message their coach for guidance on exercise substitutions.'},
+];
+
+function renderFAQ() {
+  const list = document.getElementById('faq-list');
+  if(!list) return;
+  list.innerHTML = FAQS.map((f,i)=>`
+    <div class="faq-item" id="faq-${i}" onclick="toggleFaq(${i})">
+      <div class="faq-q">
+        <span class="faq-question" id="faq-q-${i}">${f.q}</span>
+        <span class="faq-chevron" id="faq-ch-${i}">▾</span>
+      </div>
+      <div class="faq-a" id="faq-a-${i}">${f.a}</div>
+    </div>`).join('');
+}
+
+function toggleFaq(i) {
+  const item = document.getElementById('faq-'+i);
+  item.classList.toggle('open');
+  const q = document.getElementById('faq-q-'+i);
+  q.style.color = item.classList.contains('open') ? 'var(--gold)' : '';
+}
+
+// ═══════════════════════════════════════════════
+// PAYWALL
+// ═══════════════════════════════════════════════
+function openPaywall(requiredTier, featureName) {
+  state._paywallRequired = requiredTier;
+  document.getElementById('paywall-sub-text').textContent = `${featureName} requires the ${requiredTier.toUpperCase()} plan or above. Upgrade to continue.`;
+  document.getElementById('paywall-modal').classList.remove('hidden');
+}
+
+function openUpgradeModal() {
+  openPaywall('ai','Premium features');
+}
+
+function closePaywall() {
+  document.getElementById('paywall-modal').classList.add('hidden');
+}
+
+function selectPaywallTier(tier) {
+  state.selectedPaywallTier = tier;
+  document.querySelectorAll('.paywall-tier').forEach(el=>el.classList.remove('selected-tier'));
+  event.currentTarget.classList.add('selected-tier');
+}
+
+function upgradeFromPaywall() {
+  const tier = state.selectedPaywallTier || 'ai_basic';
+  selectTier(tier);
+  closePaywall();
+  if(state.currentPage==='dashboard') renderDashTab();
+}
+
+function applyFor(name) {
+  toast(`Application for ${name} submitted! We'll be in touch within 24 hours.`,'info');
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('active');
+  document.getElementById('sidebar-close').style.display = 'flex';
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+
+function switchTab(tab) {
+  state.dashTab = tab;
+  // Destroy old charts
+  Object.values(state.charts).forEach(c=>{try{c.destroy()}catch(e){}});
+  state.charts = {};
+  renderDashTab();
+  closeSidebar();
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const el = document.getElementById('nav-'+tab);
+  if(el) el.classList.add('active');
+  const titles = {overview:'Overview',macros:'Macro Tracker',workout:'Workout',progress:'Progress',accountability:'Daily Checks'};
+  document.getElementById('topbar-title').textContent = titles[tab] || tab;
+}
+
+function renderDashTab() {
+  const area = document.getElementById('dash-content-area');
+  if(!area) return;
+  // Set date
+  const dateEl = document.getElementById('topbar-date');
+  if(dateEl) dateEl.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+
+  const totals = state.macros.reduce((a,m)=>({
+    calories:a.calories+m.calories, protein:a.protein+m.protein,
+    carbs:a.carbs+m.carbs, fat:a.fat+m.fat
+  }),{calories:0,protein:0,carbs:0,fat:0});
+
+  if(state.dashTab==='overview') area.innerHTML = renderOverview(totals);
+  else if(state.dashTab==='macros') area.innerHTML = renderMacros(totals);
+  else if(state.dashTab==='workout') area.innerHTML = renderWorkout();
+  else if(state.dashTab==='progress') area.innerHTML = renderProgress();
+  else if(state.dashTab==='accountability') area.innerHTML = renderAccountability();
+
+  // Init charts after render
+  setTimeout(()=>{
+    if(state.dashTab==='overview') initOverviewCharts(totals);
+    if(state.dashTab==='macros') initMacroCharts();
+    if(state.dashTab==='progress') initProgressCharts();
+  },50);
+}
+
+// ── OVERVIEW ──
+function renderOverview(totals) {
+  const streak=14, g=state.goals;
+  return `
+    <div class="dash-grid-4">
+      ${metricCard('Calories Today',totals.calories,'kcal',g.calories,'🔥','var(--gold)')}
+      ${metricCard('Protein Today',totals.protein,'g',g.protein,'🥩','var(--green)')}
+      ${metricCard('Current Weight','185.2','lbs','180','⚖️','var(--blue)')}
+      ${metricCard('Day Streak',streak,'days','30','🔥','var(--gold)')}
+    </div>
+    <div class="dash-grid-2">
+      <div class="card">
+        <div class="label-sm">Today's Macros</div>
+        ${macroRings(totals,g)}
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
+          <span style="color:var(--gold)">🤖</span>
+          <div class="label-sm">AI Quick Log</div>
+          ${!hasTier('ai')?`<span style="font-family:var(--fc);font-size:.6rem;padding:.15rem .4rem;border-radius:3px;background:var(--gold);color:var(--s0);letter-spacing:.1em">LOCKED</span>`:''}
+        </div>
+        ${hasTier('ai')?aiLoggerHTML(true):paywallGateHTML('AI Meal Logger','ai')}
+      </div>
+    </div>
+    <div class="dash-grid-2">
+      <div class="card">
+        <div class="label-sm" style="margin-bottom:.75rem">Log Today's Weight</div>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+          <input type="number" step="0.1" id="weight-input" value="${state.weight}" style="width:90px;padding:.5rem;border-radius:4px;background:var(--s3);border:1px solid oklch(1 0 0 / 0.1);color:var(--fw);font-family:var(--fd);font-size:1.4rem;letter-spacing:.04em;text-align:center;outline:none"/>
+          <span style="font-family:var(--fc);font-size:.88rem;color:var(--faint)">lbs</span>
+          <button onclick="logWeight()" style="padding:.5rem 1rem;border-radius:4px;background:oklch(0.72 0.12 75 / 0.15);border:1px solid oklch(0.72 0.12 75 / 0.3);color:var(--gold);font-family:var(--fc);font-size:.82rem;letter-spacing:.08em;text-transform:uppercase" id="log-weight-btn">${state.loggedWeight?'✓ Logged':'Log Weight'}</button>
+        </div>
+        <div style="height:140px"><canvas id="weight-chart-mini"></canvas></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div class="label-sm">Daily Accountability</div>
+          <button onclick="switchTab('accountability')" style="font-family:var(--fc);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)">View All →</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+          ${['💪 Complete workout','🥩 Hit protein goal','💧 Drink 1 gal water','😴 8 hours sleep','🚶 10,000 steps','🥦 Eat vegetables'].map((item,i)=>{
+            const key='quick'+i;
+            const done=state.checks[key];
+            return `<button onclick="toggleCheck('${key}')" class="check-item${done?' checked':''}" style="padding:.5rem .625rem">
+              <div class="check-box">${done?'✓':''}</div>
+              <span style="font-family:var(--fb);font-size:.75rem">${item}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        <div style="text-align:center;margin-top:.75rem;font-family:var(--fm);font-size:.72rem;color:var(--faint)">${Object.values(state.checks).filter(Boolean).length} / 8 completed</div>
+      </div>
+    </div>`;
+}
+
+function metricCard(label,val,unit,goal,icon,color) {
+  const pct = Math.min(parseFloat(val)/parseFloat(goal)*100,100);
+  return `<div class="metric-card">
+    <div class="metric-icon">${icon}</div>
+    <div class="metric-label">${label}</div>
+    <div class="metric-value" style="color:${color}">${val}<span class="metric-unit">${unit}</span></div>
+    <div class="progress-track" style="margin-top:.75rem"><div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}88)"></div></div>
+    <div class="metric-goal">Goal: ${goal} ${unit}</div>
+  </div>`;
+}
+
+function macroRings(totals,goals) {
+  const rings = [
+    {label:'Cal',val:totals.calories,goal:goals.calories,color:'var(--gold)',unit:''},
+    {label:'Prot',val:totals.protein,goal:goals.protein,color:'var(--green)',unit:'g'},
+    {label:'Carbs',val:totals.carbs,goal:goals.carbs,color:'var(--blue)',unit:'g'},
+    {label:'Fats',val:totals.fat,goal:goals.fat,color:'oklch(0.65 0.15 50)',unit:'g'},
+  ];
+  return `<div class="ring-wrap">${rings.map(r=>{
+    const pct=Math.min(r.val/r.goal,1);
+    const R=34,C=2*Math.PI*R;
+    const over=r.val>r.goal;
+    const clr=over?'var(--red)':r.color;
+    return `<div class="ring-item">
+      <div style="position:relative">
+        <svg width="82" height="82" viewBox="0 0 82 82">
+          <circle cx="41" cy="41" r="${R}" fill="none" stroke-width="5" stroke="var(--s4)"/>
+          <circle cx="41" cy="41" r="${R}" fill="none" stroke-width="5" stroke="${clr}" stroke-linecap="round" stroke-dasharray="${C*pct} ${C}" stroke-dashoffset="${C*0.25}" style="transition:stroke-dasharray .55s"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <span class="ring-val" style="color:${over?'var(--red)':''}">${r.val}</span>
+          <span style="font-family:var(--fm);font-size:.6rem;color:var(--faint)">${r.unit}</span>
+        </div>
+      </div>
+      <div class="ring-lbl">${r.label}</div>
+      <div class="ring-goal-lbl">/ ${r.goal}${r.unit}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function paywallGateHTML(featureName, requiredTier) {
+  return `<div class="paywall-gate">
+    <div class="paywall-blur" style="padding:1.5rem">
+      <div style="height:80px;background:var(--s3);border-radius:6px;margin-bottom:.75rem"></div>
+      <div style="height:40px;background:var(--s3);border-radius:6px"></div>
+    </div>
+    <div class="paywall-overlay">
+      <div class="lock-big">🔒</div>
+      <div class="gate-title">${featureName.toUpperCase()}</div>
+      <div class="gate-sub">Upgrade to the ${requiredTier.toUpperCase()} plan to unlock this feature.</div>
+      <button class="btn-gold" style="padding:.75rem 1.5rem;font-size:.82rem" onclick="openPaywall('${requiredTier}','${featureName}')">Unlock for $9.99/mo ⚡</button>
+    </div>
+  </div>`;
+}
+
+function aiLoggerHTML(compact=false) {
+  const entries = state.macros.slice(-5).reverse();
+  return `<div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="ai-food-input" type="text" placeholder="${compact?'Type what you ate...':'Describe your meal... e.g. \"chicken burrito bowl with rice\"'}" onkeydown="if(event.key==='Enter')handleAiLog()"/>
+      <button class="ai-btn" id="ai-btn" onclick="handleAiLog()">
+        <span id="ai-btn-icon">🤖</span> LOG
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;max-height:${compact?'160px':'250px'};overflow-y:auto" id="food-log-list">
+      ${entries.map(m=>`<div class="food-log-row">
+        <div><div class="food-name">${m.name}</div><div class="food-time">${m.time}</div></div>
+        <div class="food-macros">
+          <span class="food-cal">${m.calories}</span>
+          <span class="food-prot">${m.protein}g</span>
+          <button class="food-del" onclick="deleteMacro('${m.id}')">✕</button>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+async function handleAiLog() {
+  if(!hasTier('ai')){ openPaywall('ai','AI Meal Logger'); return; }
+  const input = document.getElementById('ai-food-input');
+  if(!input || !input.value.trim()) return;
+  const food = input.value.trim();
+  const btn = document.getElementById('ai-btn');
+  const icon = document.getElementById('ai-btn-icon');
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; }
+  if(icon){ icon.innerHTML='<div style="width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div>'; }
+
+  try {
+    const response = await fetch(edgeFn('analyze-food'),{
+      method:'POST',
+      headers: edgeHeaders(),
+      body:JSON.stringify({ type:'text', meal:food, userEmail:'', userContext:{goal:'cut'} })
+    });
+    const data = await response.json();
+    if(!response.ok || data.error) throw new Error(data.error || 'AI logging failed');
+    const macros = {
+      calories: data.food?.calories || 0,
+      protein:  data.food?.protein  || 0,
+      carbs:    data.food?.carb     || 0,
+      fat:      data.food?.fat      || 0,
+      fiber:    data.food?.fiber    || 0,
+    };
+    const entry = {
+      id: Date.now().toString(),
+      name: food,
+      calories: macros.calories || Math.floor(Math.random()*400+150),
+      protein: macros.protein || Math.floor(Math.random()*30+10),
+      carbs: macros.carbs || Math.floor(Math.random()*50+15),
+      fat: macros.fat || Math.floor(Math.random()*20+5),
+      time: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})
+    };
+    state.macros.push(entry);
+    input.value = '';
+    toast(`Logged: ${food} — ${entry.calories} cal, ${entry.protein}g protein`,'success');
+    renderDashTab();
+  } catch(e) {
+    // Fallback mock
+    const entry = {id:Date.now().toString(),name:food,calories:Math.floor(Math.random()*400+150),protein:Math.floor(Math.random()*30+10),carbs:Math.floor(Math.random()*50+15),fat:Math.floor(Math.random()*20+5),time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})};
+    state.macros.push(entry);
+    input.value = '';
+    toast(`Logged: ${food} — ${entry.calories} cal, ${entry.protein}g protein`,'success');
+    renderDashTab();
+  } finally {
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+    if(icon){ icon.textContent='🤖'; }
+  }
+}
+
+function deleteMacro(id) {
+  state.macros = state.macros.filter(m=>m.id!==id);
+  renderDashTab();
+}
+
+function logWeight() {
+  const val = parseFloat(document.getElementById('weight-input')?.value || '0');
+  if(isNaN(val)) return;
+  state.weight = val.toString();
+  state.loggedWeight = true;
+  state.weightData.push({date:'Today',weight:val});
+  toast(`Weight logged: ${val} lbs`,'success');
+  renderDashTab();
+}
+
+function toggleCheck(key) {
+  state.checks[key] = !state.checks[key];
+  if(state.checks[key]) toast('✓ Task complete — +50 XP','success');
+  renderDashTab();
+}
+
+function initOverviewCharts(totals) {
+  const ctx = document.getElementById('weight-chart-mini');
+  if(!ctx) return;
+  try {
+    state.charts.weightMini = new Chart(ctx,{
+      type:'line',
+      data:{labels:state.weightData.map(d=>d.date),datasets:[{data:state.weightData.map(d=>d.weight),borderColor:'oklch(0.72 0.12 75)',borderWidth:2,fill:true,backgroundColor:'oklch(0.72 0.12 75 / 0.1)',tension:.4,pointRadius:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false,min:183,max:194}}}
+    });
+  } catch(e){}
+}
+
+// ── MACROS TAB ──
+function renderMacros(totals) {
+  const g = state.goals;
+  const isUnlocked = hasTier('ai');
+  return `
+    <div class="card">
+      <div class="label-sm" style="margin-bottom:.75rem">Today's Macro Progress</div>
+      ${macroRings(totals,g)}
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+        <span style="color:var(--gold);font-size:1.1rem">🤖</span>
+        <div class="label-sm">AI Meal Logger</div>
+        ${!isUnlocked?`<span style="font-family:var(--fc);font-size:.6rem;padding:.15rem .5rem;border-radius:3px;background:var(--gold);color:var(--s0);letter-spacing:.1em;margin-left:auto">UPGRADE TO UNLOCK</span>`:'<span style="font-family:var(--fc);font-size:.6rem;padding:.15rem .5rem;border-radius:3px;background:oklch(0.72 0.17 145 / 0.15);color:var(--green);letter-spacing:.1em;margin-left:auto">UNLOCKED</span>'}
+      </div>
+      ${isUnlocked ? fullMacroLogger(totals) : paywallGateHTML('AI Meal Logger','ai')}
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+        <span style="color:var(--gold);font-size:1.1rem">📷</span>
+        <div class="label-sm">AI Photo Food Scanner</div>
+        ${!isUnlocked?`<span style="font-family:var(--fc);font-size:.6rem;padding:.15rem .5rem;border-radius:3px;background:var(--gold);color:var(--s0);letter-spacing:.1em;margin-left:auto">UPGRADE TO UNLOCK</span>`:'<span style="font-family:var(--fc);font-size:.6rem;padding:.15rem .5rem;border-radius:3px;background:oklch(0.72 0.17 145 / 0.15);color:var(--green);letter-spacing:.1em;margin-left:auto">UNLOCKED</span>'}
+      </div>
+      ${isUnlocked ? photoScannerHTML() : paywallGateHTML('AI Photo Food Scanner','ai')}
+    </div>
+    <div class="card">
+      <div class="label-sm" style="margin-bottom:.75rem">7-Day Calorie Trend</div>
+      <div style="height:200px"><canvas id="calorie-chart"></canvas></div>
+    </div>`;
+}
+
+function fullMacroLogger(totals) {
+  const g = state.goals;
+  return `<div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="ai-food-input" type="text" placeholder="Describe your meal in plain English... e.g. 'chicken burrito bowl with rice and guac'" onkeydown="if(event.key==='Enter')handleAiLog()"/>
+      <button class="ai-btn" id="ai-btn" onclick="handleAiLog()"><span id="ai-btn-icon">🤖</span> LOG MEAL</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid oklch(1 0 0 / 0.07)">
+          ${['Food','Time','Cal','Prot','Carbs','Fat',''].map(h=>`<th style="text-align:left;padding-bottom:.5rem;padding-right:1rem;font-family:var(--fc);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:oklch(0.45 0.008 285)">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody id="macro-table-body">
+          ${state.macros.map(m=>`<tr style="border-bottom:1px solid oklch(1 0 0 / 0.04)">
+            <td style="padding:.625rem 1rem .625rem 0"><span style="font-family:var(--fb);font-size:.86rem;color:oklch(0.85 0.005 65)">${m.name}</span></td>
+            <td style="padding:.625rem 1rem .625rem 0"><span style="font-family:var(--fm);font-size:.72rem;color:var(--faint)">${m.time}</span></td>
+            <td style="padding:.625rem 1rem .625rem 0"><span style="font-family:var(--fd);font-size:1rem;color:var(--gold)">${m.calories}</span></td>
+            <td style="padding:.625rem 1rem .625rem 0"><span style="font-family:var(--fm);font-size:.82rem;color:var(--green)">${m.protein}g</span></td>
+            <td style="padding:.625rem 1rem .625rem 0"><span style="font-family:var(--fm);font-size:.82rem;color:var(--blue)">${m.carbs}g</span></td>
+            <td style="padding:.625rem 1rem .625rem 0"><span style="font-family:var(--fm);font-size:.82rem;color:oklch(0.65 0.15 50)">${m.fat}g</span></td>
+            <td><button onclick="deleteMacro('${m.id}')" class="food-del">✕</button></td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="border-top:1px solid oklch(0.72 0.12 75 / 0.2)">
+          <td style="padding-top:.75rem"><span style="font-family:var(--fc);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)">Total</span></td>
+          <td></td>
+          <td style="padding-top:.75rem"><span style="font-family:var(--fd);font-size:1.1rem;color:var(--gold)">${totals.calories}</span></td>
+          <td style="padding-top:.75rem"><span style="font-family:var(--fm);font-size:.88rem;color:var(--green)">${totals.protein}g</span></td>
+          <td style="padding-top:.75rem"><span style="font-family:var(--fm);font-size:.88rem;color:var(--blue)">${totals.carbs}g</span></td>
+          <td style="padding-top:.75rem"><span style="font-family:var(--fm);font-size:.88rem;color:oklch(0.65 0.15 50)">${totals.fat}g</span></td>
+        </tr></tfoot>
+      </table>
+    </div>
+  </div>`;
+}
+
+function photoScannerHTML() {
+  return `<div>
+    <div class="photo-scanner-area" onclick="handlePhotoScan()">
+      <div class="scanner-icon">📷</div>
+      <div class="scanner-title">TAP TO SCAN FOOD</div>
+      <div class="scanner-sub">Upload a photo of any meal and AI will identify ingredients and calculate full macros & micronutrients instantly</div>
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoFile(event)"/>
+    </div>
+    <div id="photo-result" style="margin-top:1rem"></div>
+  </div>`;
+}
+
+function handlePhotoScan() {
+  document.getElementById('photo-input')?.click();
+}
+
+async function handlePhotoFile(event) {
+  if(!hasTier('ai')){ openPaywall('ai','AI Photo Scanner'); return; }
+  const file = event.target.files[0];
+  if(!file) return;
+  const resultDiv = document.getElementById('photo-result');
+  if(resultDiv) resultDiv.innerHTML = `<div style="text-align:center;padding:1.5rem;color:var(--faint);font-family:var(--fc);letter-spacing:.1em">🤖 ANALYZING MEAL...</div>`;
+
+  try {
+    const base64 = await new Promise(res=>{
+      const reader = new FileReader();
+      reader.onload = ()=>res(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    const mediaType = file.type;
+    const response = await fetch(edgeFn('analyze-food'),{
+      method:'POST',
+      headers: edgeHeaders(),
+      body:JSON.stringify({ type:'scan', image:{ base64, mediaType }, userEmail:'' })
+    });
+    const data = await response.json();
+    if(!response.ok || data.error) throw new Error(data.error || 'Photo scan failed');
+    const food_data = data.food || {};
+    const entry = {
+      id:Date.now().toString(),
+      name:     food_data.name    || 'Scanned meal',
+      calories: food_data.calories|| 350,
+      protein:  food_data.protein || 25,
+      carbs:    food_data.carb    || 35,
+      fat:      food_data.fat     || 12,
+      time: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})
+    };
+    state.macros.push(entry);
+    if(resultDiv) resultDiv.innerHTML = `<div style="padding:1rem;border-radius:.5rem;background:oklch(0.72 0.17 145 / 0.08);border:1px solid oklch(0.72 0.17 145 / 0.25)">
+      <div style="font-family:var(--fc);font-size:.88rem;font-weight:700;color:var(--green);margin-bottom:.5rem">✓ ${entry.name}</div>
+      <div style="display:flex;gap:1.5rem;font-family:var(--fm);font-size:.82rem">
+        <span style="color:var(--gold)">${entry.calories} cal</span>
+        <span style="color:var(--green)">${entry.protein}g prot</span>
+        <span style="color:var(--blue)">${entry.carbs}g carbs</span>
+        <span style="color:oklch(0.65 0.15 50)">${entry.fat}g fat</span>
+      </div>
+    </div>`;
+    toast(`📷 Meal scanned & logged: ${entry.calories} cal`,'success');
+  } catch(e) {
+    if(resultDiv) resultDiv.innerHTML = `<div style="padding:1rem;border-radius:.5rem;background:oklch(0.60 0.20 25 / 0.1);border:1px solid oklch(0.60 0.20 25 / 0.3);color:var(--red);font-family:var(--fb);font-size:.84rem">Could not analyze image. Please try again.</div>`;
+  }
+}
+
+function initMacroCharts() {
+  const ctx = document.getElementById('calorie-chart');
+  if(!ctx) return;
+  try {
+    state.charts.calorie = new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:state.calorieData.map(d=>d.day),
+        datasets:[
+          {label:'Calories',data:state.calorieData.map(d=>d.cal),backgroundColor:'oklch(0.72 0.12 75 / 0.8)',borderRadius:4},
+          {label:'Goal',data:state.calorieData.map(d=>d.goal),backgroundColor:'oklch(1 0 0 / 0.08)',borderRadius:4}
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'oklch(0.65 0.008 285)',font:{family:'DM Mono',size:11}}}},scales:{x:{ticks:{color:'oklch(0.45 0.008 285)'},grid:{display:false}},y:{ticks:{color:'oklch(0.45 0.008 285)'},grid:{color:'oklch(1 0 0 / 0.05)'}}}}
+    });
+  } catch(e){}
+}
+
+// ── WORKOUT TAB ──
+const WORKOUTS = [
+  {day:'Monday',focus:'Chest & Front Delts',exercises:[{name:'Incline Barbell Press',sets:4,reps:'6–8',tip:'Shoulder-width grip, controlled 2-sec descent'},{name:'Flat DB Press',sets:3,reps:'10–12',tip:'Full stretch at bottom, squeeze at top'},{name:'Cable Flyes',sets:3,reps:'15–20',tip:'Cross arms at chest, feel the peak contraction'},{name:'Front Raises',sets:3,reps:'12–15',tip:'Control the descent, no swinging'}]},
+  {day:'Tuesday',focus:'Back & Rear Delts',exercises:[{name:'Weighted Pull-Ups',sets:4,reps:'6–8',tip:'Full extension at bottom, drive elbows to hips'},{name:'Barbell Rows',sets:4,reps:'8–10',tip:'Chest to pad, pull to lower chest'},{name:'Lat Pulldowns',sets:3,reps:'12–15',tip:'Arch back slightly, pull to upper chest'},{name:'Face Pulls',sets:3,reps:'15–20',tip:'Pull to forehead, externally rotate at end'}]},
+  {day:'Wednesday',focus:'Arms',exercises:[{name:'Barbell Curls',sets:4,reps:'8–10',tip:'Supinate wrist at top, no body swing'},{name:'Incline DB Curls',sets:3,reps:'12–15',tip:'Maximum stretch, curl to shoulder'},{name:'Skull Crushers',sets:4,reps:'10–12',tip:'Lower to forehead, extend to lockout'},{name:'Tricep Pushdowns',sets:3,reps:'12–15',tip:'Keep elbows pinned, full extension'}]},
+  {day:'Thursday',focus:'Legs',exercises:[{name:'Back Squat',sets:4,reps:'6–8',tip:'Break parallel, brace core hard'},{name:'Leg Press',sets:3,reps:'10–12',tip:'High foot placement for glute emphasis'},{name:'Romanian Deadlift',sets:3,reps:'10–12',tip:'Push hips back, feel hamstring tension'},{name:'Leg Curls',sets:3,reps:'12–15',tip:'Full range, slow on the negative'}]},
+  {day:'Friday',focus:'Shoulders',exercises:[{name:'Seated DB Press',sets:4,reps:'8–10',tip:'Full range, press to lockout'},{name:'Lateral Raises',sets:4,reps:'15–20',tip:'Lead with elbows, slight forward lean'},{name:'Cable Laterals',sets:3,reps:'15–20',tip:'Cross-body pull for constant tension'},{name:'Shrugs',sets:3,reps:'12–15',tip:'Full elevation, 1-sec hold at top'}]},
+  {day:'Saturday',focus:'Chest & Back Pump',exercises:[{name:'Push-Ups',sets:3,reps:'15–20',tip:'Control descent, full extension'},{name:'Dumbbell Rows',sets:3,reps:'12–15',tip:'Full stretch, pull to hip'},{name:'Chest Dips',sets:3,reps:'12–15',tip:'Lean forward, feel chest stretch'}]},
+  {day:'Sunday',focus:'Rest Day',exercises:[]},
+];
+
+function renderWorkout() {
+  return `<div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+      <div class="label-sm">Greek God V-Taper Program</div>
+      <span style="font-family:var(--fc);font-size:.62rem;padding:.2rem .6rem;border-radius:3px;background:oklch(0.72 0.12 75 / 0.15);color:var(--gold);letter-spacing:.1em;text-transform:uppercase">Week 6 of 12</span>
+    </div>
+    <p style="font-family:var(--fb);font-size:.84rem;color:var(--faint);line-height:1.5">7-day structured program. Click any day to log your sets, reps, and weight.</p>
+  </div>
+  ${WORKOUTS.map((day,i)=>workoutDayHTML(day,i)).join('')}`;
+}
+
+function workoutDayHTML(day,i) {
+  const isRest = day.exercises.length === 0;
+  const open = state.sets[`day_${i}_open`];
+  return `<div class="workout-day${open?' open':''}" id="workout-day-${i}">
+    <div class="workout-day-header" onclick="toggleWorkoutDay(${i})">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <div class="day-tag" style="background:${isRest?'var(--s3)':'oklch(0.72 0.12 75 / 0.15)'};color:${isRest?'var(--faint)':'var(--gold)'}">${day.day.slice(0,3).toUpperCase()}</div>
+        <div>
+          <div class="day-focus">${day.focus}</div>
+          <div class="day-sub">${day.day} · ${isRest?'Rest Day':`${day.exercises.length} exercises`}</div>
+        </div>
+      </div>
+      ${isRest?'<span style="font-family:var(--fc);font-size:.62rem;padding:.2rem .6rem;border-radius:3px;background:var(--s3);color:var(--faint);letter-spacing:.1em;text-transform:uppercase">Rest</span>':'<span style="color:var(--faint)">'+(open?'▲':'▼')+'</span>'}
+    </div>
+    ${open&&!isRest?`<div class="workout-day-body">
+      ${day.exercises.map((ex,j)=>exerciseHTML(i,j,ex)).join('')}
+      <button class="complete-btn" onclick="completeWorkout('${day.focus}')">✓ Complete ${day.focus}</button>
+    </div>`:''}
+  </div>`;
+}
+
+function exerciseHTML(di,ei,ex) {
+  const key = `d${di}e${ei}`;
+  if(!state.sets[key]) state.sets[key] = Array.from({length:ex.sets},()=>({w:'',r:'',done:false}));
+  const sets = state.sets[key];
+  return `<div class="exercise-row">
+    <div style="margin-bottom:.375rem"><span class="ex-name">${ex.name}</span><span class="ex-sets-info">${ex.sets}×${ex.reps}</span></div>
+    <div class="ex-tip">💡 ${ex.tip}</div>
+    ${sets.map((s,si)=>`<div class="set-row">
+      <span class="set-num">${si+1}</span>
+      <input class="set-input" type="number" placeholder="lbs" value="${s.w}" oninput="updateSet(${di},${ei},${si},'w',this.value)"/>
+      <span class="set-sep">×</span>
+      <input class="set-input" type="number" placeholder="reps" value="${s.r}" style="width:60px" oninput="updateSet(${di},${ei},${si},'r',this.value)"/>
+      <button class="set-check${s.done?' done':''}" onclick="toggleSet(${di},${ei},${si})">${s.done?'✓':''}</button>
+    </div>`).join('')}
+  </div>`;
+}
+
+function toggleWorkoutDay(i) {
+  const key = `day_${i}_open`;
+  state.sets[key] = !state.sets[key];
+  renderDashTab();
+}
+
+function updateSet(di,ei,si,field,val) {
+  const key=`d${di}e${ei}`;
+  if(state.sets[key]&&state.sets[key][si]) state.sets[key][si][field]=val;
+}
+
+function toggleSet(di,ei,si) {
+  const key=`d${di}e${ei}`;
+  if(state.sets[key]&&state.sets[key][si]) {
+    state.sets[key][si].done=!state.sets[key][si].done;
+    renderDashTab();
+  }
+}
+
+function completeWorkout(name) {
+  toast(`💪 ${name} complete! Great work — +150 XP`,'success');
+}
+
+// ── PROGRESS TAB ──
+function renderProgress() {
+  const PRs = [
+    {lift:'Bench Press',pr:'225 lbs',date:'Mar 15'},{lift:'Back Squat',pr:'315 lbs',date:'Mar 10'},
+    {lift:'Deadlift',pr:'385 lbs',date:'Mar 8'},{lift:'OHP',pr:'155 lbs',date:'Mar 19'},
+    {lift:'Pull-Ups',pr:'15 reps',date:'Mar 12'},{lift:'Barbell Row',pr:'205 lbs',date:'Mar 5'},
+    {lift:'Incline Press',pr:'185 lbs',date:'Mar 17'},{lift:'Hip Thrust',pr:'275 lbs',date:'Mar 20'},
+  ];
+  return `<div class="dash-grid-2">
+    <div class="card">
+      <div class="label-sm">Weight Trend</div>
+      <div style="display:flex;align-items:baseline;gap:.5rem;margin:.5rem 0">
+        <span style="font-family:var(--fd);font-size:2.5rem;color:var(--gold)">185.2</span>
+        <span style="font-family:var(--fc);font-size:.88rem;color:var(--faint)">lbs</span>
+        <span style="font-family:var(--fm);font-size:.72rem;padding:.15rem .5rem;border-radius:3px;background:oklch(0.72 0.17 145 / 0.1);color:var(--green)">↓ −6.8 lbs</span>
+      </div>
+      <div style="height:200px"><canvas id="weight-chart-big"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="label-sm">Weekly Training Volume</div>
+      <div style="display:flex;align-items:baseline;gap:.5rem;margin:.5rem 0">
+        <span style="font-family:var(--fd);font-size:2.5rem;color:var(--blue)">22,100</span>
+        <span style="font-family:var(--fc);font-size:.88rem;color:var(--faint)">lbs total</span>
+        <span style="font-family:var(--fm);font-size:.72rem;padding:.15rem .5rem;border-radius:3px;background:oklch(0.72 0.17 145 / 0.1);color:var(--green)">↑ +20%</span>
+      </div>
+      <div style="height:200px"><canvas id="volume-chart"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label-sm" style="margin-bottom:.75rem">Personal Records</div>
+    <div class="pr-grid">
+      ${PRs.map(p=>`<div class="pr-card"><div class="pr-lift">${p.lift}</div><div class="pr-val">${p.pr}</div><div class="pr-date">${p.date}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function initProgressCharts() {
+  const wCtx = document.getElementById('weight-chart-big');
+  const vCtx = document.getElementById('volume-chart');
+  const opts = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'oklch(0.45 0.008 285)',font:{size:10}},grid:{display:false}},y:{ticks:{color:'oklch(0.45 0.008 285)',font:{size:10}},grid:{color:'oklch(1 0 0 / 0.05)'}}}};
+  if(wCtx) {
+    try{state.charts.weight=new Chart(wCtx,{type:'line',data:{labels:state.weightData.map(d=>d.date),datasets:[{data:state.weightData.map(d=>d.weight),borderColor:'oklch(0.72 0.12 75)',borderWidth:2,fill:true,backgroundColor:'oklch(0.72 0.12 75 / 0.1)',tension:.4,pointBackgroundColor:'oklch(0.72 0.12 75)',pointRadius:4}]},options:{...opts,scales:{...opts.scales,y:{...opts.scales.y,min:183,max:194}}}});}catch(e){}
+  }
+  if(vCtx) {
+    try{state.charts.volume=new Chart(vCtx,{type:'line',data:{labels:state.volumeData.map(d=>d.week),datasets:[{data:state.volumeData.map(d=>d.vol),borderColor:'oklch(0.60 0.15 240)',borderWidth:2,fill:true,backgroundColor:'oklch(0.60 0.15 240 / 0.1)',tension:.4,pointBackgroundColor:'oklch(0.60 0.15 240)',pointRadius:4}]},options:opts});}catch(e){}
+  }
+}
+
+// ── ACCOUNTABILITY TAB ──
+const CHECKLIST = [
+  {id:'workout',label:'Complete workout',icon:'💪'},
+  {id:'protein',label:'Hit protein goal',icon:'🥩'},
+  {id:'water',label:'Drink 1 gallon water',icon:'💧'},
+  {id:'sleep',label:'8 hours sleep',icon:'😴'},
+  {id:'steps',label:'10,000 steps',icon:'🚶'},
+  {id:'veggies',label:'Eat vegetables',icon:'🥦'},
+  {id:'supplements',label:'Take supplements',icon:'💊'},
+  {id:'mindset',label:'Mindset / journaling',icon:'🧠'},
+];
+
+function renderAccountability() {
+  const streak=14, xp=2840, level=Math.floor(xp/500)+1;
+  const doneCount = CHECKLIST.filter(c=>state.checks[c.id]).length;
+  return `<div style="display:grid;grid-template-columns:repeat(1,1fr);gap:1rem" id="acct-stats">
+    ${[
+      {label:'Current Streak',val:streak,unit:'days',color:'var(--gold)',icon:'🔥'},
+      {label:'Total XP',val:xp.toLocaleString(),unit:'xp',color:'var(--purple)',icon:'⭐'},
+      {label:'Level',val:level,unit:`/ ${level+1}`,color:'var(--green)',icon:'🏆'},
+    ].map(s=>`<div class="card" style="display:flex;align-items:center;gap:.875rem">
+      <div style="width:48px;height:48px;border-radius:.5rem;background:${s.color}20;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">${s.icon}</div>
+      <div>
+        <div class="label-sm">${s.label}</div>
+        <div style="font-family:var(--fd);font-size:2rem;color:${s.color};line-height:1">${s.val}<span style="font-family:var(--fc);font-size:.9rem;color:var(--faint);margin-left:4px">${s.unit}</span></div>
+      </div>
+    </div>`).join('')}
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div class="label-sm">Today's Accountability Checklist</div>
+      <div style="font-family:var(--fm);font-size:.72rem;color:var(--gold);padding:.2rem .6rem;border-radius:3px;background:oklch(0.72 0.12 75 / 0.1)">${doneCount} / ${CHECKLIST.length}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.375rem">
+      ${CHECKLIST.map(item=>`<button class="check-item${state.checks[item.id]?' checked':''}" onclick="toggleCheck('${item.id}')">
+        <div class="check-box">${state.checks[item.id]?'✓':''}</div>
+        <span style="font-size:1.25rem">${item.icon}</span>
+        <span class="check-label">${item.label}</span>
+        <span class="check-xp">+50 XP</span>
+      </button>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div class="label-sm">Hydration Tracker</div>
+      <span style="font-family:var(--fd);font-size:1.4rem;color:var(--blue)">${state.water} / 8 <span style="font-family:var(--fc);font-size:.8rem;color:var(--faint)">glasses</span></span>
+    </div>
+    <div class="water-glasses">
+      ${Array.from({length:8},(_,i)=>`<button class="glass-btn${i<state.water?' filled':''}" onclick="setWater(${i+1===state.water?i:i+1})">💧</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function setWater(val) {
+  state.water = val;
+  renderDashTab();
+  toast(`💧 ${val} glasses logged`,'success');
+}
+
+// ═══════════════════════════════════════════════
+// STORE
+// ═══════════════════════════════════════════════
+const PRODUCTS = [
+  {id:'greek-god',name:'Greek God V-Taper',sub:'12-Week Transformation Program',price:47,orig:97,cat:'programs',badge:'BEST SELLER',badgeColor:'gold',rating:4.9,reviews:312,desc:'The complete 12-week system for building the classic aesthetic physique.',img:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80',featured:true},
+  {id:'bikini',name:'Bikini Fitness Model',sub:'12-Week Competition Prep',price:47,orig:97,cat:'programs',badge:'POPULAR',badgeColor:'purple',rating:4.8,reviews:218,desc:'Stage-ready glutes, toned arms, and the hourglass shape that commands attention.',img:'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&q=80'},
+  {id:'macro-blueprint',name:'Macro Blueprint',sub:'Complete Nutrition System',price:27,orig:57,cat:'nutrition',badge:'NEW',badgeColor:'green',rating:4.7,reviews:156,desc:'Stop guessing what to eat. This is the exact macro framework used with every APEX client.',img:'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&q=80'},
+  {id:'posing',name:'Posing Mastery',sub:'Stage & Photo Posing Guide',price:19,cat:'guides',rating:4.6,reviews:89,desc:'The difference between a good physique and a great one is how you present it.',img:'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80'},
+  {id:'supplement',name:'APEX Supplement Stack',sub:'Recommended Products Guide',price:15,cat:'nutrition',rating:4.5,reviews:73,desc:'No fluff. No affiliate BS. Evidence-based recommendations, dosing protocols, and what NOT to buy.',img:'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&q=80'},
+  {id:'mindset',name:'The Apex Mindset',sub:'Mental Performance Manual',price:17,cat:'guides',rating:4.8,reviews:134,desc:'The physical transformation starts in your mind. Identity-based habits, visualization, accountability.',img:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80'},
+  {id:'home-gym',name:'Home Gym Domination',sub:'Dumbbells-Only 8-Week Program',price:37,orig:67,cat:'programs',rating:4.7,reviews:201,desc:'No barbell? No problem. Maximum muscle growth using only dumbbells and bodyweight.',img:'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80'},
+  {id:'bundle',name:'Full Transformation Bundle',sub:'All Programs + Guides',price:97,orig:269,cat:'bundles',badge:'BEST VALUE',badgeColor:'gold',rating:5.0,reviews:445,desc:'Everything you need to completely transform your physique. All programs, all guides, lifetime updates.',img:'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80',featured:true},
+];
+
+let filteredProducts = [...PRODUCTS];
+
+function renderProducts() {
+  const grid = document.getElementById('products-grid');
+  const countEl = document.getElementById('results-count');
+  if(!grid) return;
+  const bColors={gold:{bg:'oklch(0.72 0.12 75 / 0.15)',text:'oklch(0.72 0.12 75)'},green:{bg:'oklch(0.72 0.17 145 / 0.15)',text:'oklch(0.72 0.17 145)'},purple:{bg:'oklch(0.58 0.18 295 / 0.15)',text:'oklch(0.58 0.18 295)'}};
+  grid.innerHTML = filteredProducts.map(p=>{
+    const bc = bColors[p.badgeColor]||bColors.gold;
+    const disc = p.orig ? Math.round((1-p.price/p.orig)*100) : 0;
+    return `<div class="product-card${p.featured?' featured':''}">
+      <div class="product-img">
+        <img src="${p.img}" alt="${p.name}" loading="lazy"/>
+        <div class="product-img-overlay"></div>
+        <div class="product-badges">
+          ${p.badge?`<span class="p-badge" style="background:${bc.bg};color:${bc.text};border-color:${bc.text}44">${p.badge}</span>`:''}
+          ${disc>0?`<span class="p-badge" style="background:oklch(0.60 0.20 25 / 0.2);color:var(--red);border-color:oklch(0.60 0.20 25 / 0.3)">−${disc}%</span>`:''}
+        </div>
+        <div class="p-digital">Digital</div>
+      </div>
+      <div class="product-body">
+        <div class="product-cat">${p.cat}</div>
+        <div class="product-name">${p.name}</div>
+        <div class="product-sub">${p.sub}</div>
+        <div class="product-rating">
+          <span style="color:var(--gold);font-size:.8rem">${'★'.repeat(Math.floor(p.rating))}</span>
+          <span style="font-family:var(--fm);font-size:.72rem;color:var(--gold)">${p.rating}</span>
+          <span style="font-family:var(--fm);font-size:.65rem;color:var(--faint)">(${p.reviews})</span>
+        </div>
+        <div class="product-desc">${p.desc.slice(0,110)}...</div>
+        <div class="product-price-row">
+          <div><span class="product-price">$${p.price}</span>${p.orig?`<span class="product-orig">$${p.orig}</span>`:''}</div>
+          <button class="add-btn" onclick="addToCart('${p.id}')">🛒 Add</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  if(countEl) countEl.textContent = `${filteredProducts.length} products`;
+}
+
+function filterProducts(cat) {
+  state.filterCat = cat;
+  document.querySelectorAll('.filter-cat').forEach(el=>{
+    el.classList.toggle('active', el.dataset.cat===cat);
+  });
+  applyFilters();
+}
+
+function sortProducts(val) {
+  state.sortBy = val;
+  applyFilters();
+}
+
+function applyFilters() {
+  filteredProducts = PRODUCTS
+    .filter(p=>state.filterCat==='all'||p.cat===state.filterCat)
+    .sort((a,b)=>{
+      if(state.sortBy==='price-asc') return a.price-b.price;
+      if(state.sortBy==='price-desc') return b.price-a.price;
+      if(state.sortBy==='rating') return b.rating-a.rating;
+      return (b.featured?1:0)-(a.featured?1:0);
+    });
+  renderProducts();
+}
+
+function addToCart(id) {
+  const prod = PRODUCTS.find(p=>p.id===id);
+  if(!prod) return;
+  const existing = state.cart.find(i=>i.id===id);
+  if(existing) existing.qty++;
+  else state.cart.push({...prod,qty:1});
+  updateCartUI();
+  toast(`${prod.name} added to cart`,'success');
+}
+
+function updateCartUI() {
+  const total = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
+  const count = state.cart.reduce((s,i)=>s+i.qty,0);
+  // Badges
+  const badge = document.getElementById('cart-count-badge');
+  const headerCount = document.getElementById('cart-header-count');
+  if(badge){ badge.textContent=count; badge.style.display=count>0?'':'none'; }
+  if(headerCount){ headerCount.textContent=count; headerCount.style.display=count>0?'':'none'; }
+  // Cart btn
+  const cartBtn = document.getElementById('cart-btn');
+  if(cartBtn) cartBtn.style.borderColor = count>0?'var(--gold)':'';
+  // Total
+  const totalEl = document.getElementById('cart-total');
+  const totalBtn = document.getElementById('cart-total-btn');
+  if(totalEl) totalEl.textContent = '$'+total;
+  if(totalBtn) totalBtn.textContent = '$'+total;
+  // Items
+  const list = document.getElementById('cart-items-list');
+  const footer = document.getElementById('cart-footer');
+  if(list) {
+    if(state.cart.length===0) {
+      list.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:.75rem;text-align:center">
+        <div style="font-size:2.5rem;opacity:.3">🛒</div>
+        <div style="font-family:var(--fc);font-size:1rem;letter-spacing:.08em;color:var(--faint)">Your cart is empty</div>
+        <div style="font-family:var(--fb);font-size:.82rem;color:oklch(0.40 0.008 285)">Add some programs to get started</div>
+      </div>`;
+    } else {
+      list.innerHTML = state.cart.map(item=>`<div class="cart-item">
+        <img class="cart-item-img" src="${item.img}" alt="${item.name}"/>
+        <div class="cart-item-info">
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-sub">${item.sub}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="qty-row">
+              <button class="qty-btn" onclick="updateCartQty('${item.id}',${item.qty-1})">−</button>
+              <span class="qty-num">${item.qty}</span>
+              <button class="qty-btn" onclick="updateCartQty('${item.id}',${item.qty+1})">+</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <span class="item-total">$${item.price*item.qty}</span>
+              <button onclick="updateCartQty('${item.id}',0)" style="color:oklch(0.35 0.008 285);font-size:.875rem">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>`).join('');
+    }
+  }
+  if(footer) footer.style.display = state.cart.length>0?'block':'none';
+}
+
+function updateCartQty(id,qty) {
+  if(qty<=0) state.cart = state.cart.filter(i=>i.id!==id);
+  else { const item=state.cart.find(i=>i.id===id); if(item) item.qty=qty; }
+  updateCartUI();
+}
+
+function toggleCart() {
+  state.cartOpen = !state.cartOpen;
+  const drawer = document.getElementById('cart-drawer');
+  const overlay = document.getElementById('cart-overlay');
+  if(drawer) drawer.style.transform = state.cartOpen ? 'translateX(0)' : 'translateX(100%)';
+  if(overlay) overlay.classList.toggle('hidden', !state.cartOpen);
+}
+
+function checkout() {
+  toast('Redirecting to secure checkout via Stripe...','info');
+  toggleCart();
+}
+
+// ═══════════════════════════════════════════════
+// RESPONSIVE SIDEBAR
+// ═══════════════════════════════════════════════
+function checkSidebarClose() {
+  const sidebarClose = document.getElementById('sidebar-close');
+  if(sidebarClose) sidebarClose.style.display = window.innerWidth < 1024 ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkSidebarClose);
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await loadConfig();
+  // Safety: force-hide loading screen after 3s regardless
+  setTimeout(()=>{
+    const ls=document.getElementById('loadingScreen')||(document.querySelector('[id*=loading]'));
+    if(ls){ls.style.display='none';ls.style.visibility='hidden';}
+  },3000);
+  initHome();
+  checkSidebarClose();
+  // Close paywall on overlay click
+  document.getElementById('paywall-modal').addEventListener('click', function(e){
+    if(e.target===this) closePaywall();
+  });
+  // Style responsive stat cards on accountability
+  const style = document.createElement('style');
+  style.textContent = '@media(min-width:768px){#acct-stats{grid-template-columns:repeat(3,1fr)!important}}';
+  document.head.appendChild(style);
+});
+</script>
+</body>
+</html>

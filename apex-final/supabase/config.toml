@@ -1,0 +1,34 @@
+[functions.get-config]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-config/index.ts"
+
+[functions.analyze-food]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/analyze-food/index.ts"
+
+[functions.anthropic-proxy]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/anthropic-proxy/index.ts"
+
+[functions.program-builder]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/program-builder/index.ts"
+
+[functions.weekly-analyst]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/weekly-analyst/index.ts"
+
+[functions.coach-copilot]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/coach-copilot/index.ts"
+
+[functions.smart-onboard]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/smart-onboard/index.ts"
