@@ -6865,10 +6865,11 @@ function dbToUser(r) {
     goalWeight:r.goal_weight, goal:r.goal, activity:r.activity,
     diet:r.diet, transform:r.transform,
     startWeight:r.start_weight, joinDate:r.join_date,
-    tier: r.tier||'free',           // backward compat — existing users get 'free' tier
+    tier: r.tier||'free',
     tierExpires: r.tier_expires,
     stripeSessionId: r.stripe_session_id,
-    coachId: r.coach_id || APP_CONFIG.defaultCoachId
+    coachId: r.coach_id || APP_CONFIG.defaultCoachId,
+    emailVerified: r.email_verified === true || r.email_verified === 'true' || r.email_verified === 1
   };
 }
 
@@ -8971,9 +8972,11 @@ async function checkEmailVerification() {
 function isEmailVerified(user) {
   if (!user) return false;
   if (user.emailVerified === true) return true;
-  // 48-hour grace period for existing accounts (migration window)
+  // If emailVerified is null/undefined (legacy accounts before verification was added), let them in
+  if (user.emailVerified === null || user.emailVerified === undefined) return true;
+  // 30-day grace period for existing accounts
   const joined = user.joinDate ? new Date(user.joinDate).getTime() : 0;
-  const gracePeriod = 48 * 60 * 60 * 1000;
+  const gracePeriod = 30 * 24 * 60 * 60 * 1000;
   if (Date.now() - joined < gracePeriod) return true;
   return false;
 }
