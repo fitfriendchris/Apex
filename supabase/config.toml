@@ -1,4 +1,14 @@
 
+[functions.coach-ai]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/coach-ai/index.ts"
+
+[functions.analyze-food]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/analyze-food/index.ts"
+
 [functions.get-config]
 enabled = true
 verify_jwt = true
