@@ -8,7 +8,7 @@
      For production, also set these as actual HTTP response headers
      in your Netlify _headers file or Supabase Edge Function.
      ═══════════════════════════════════════════════════════════ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://browser.sentry-cdn.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://yiqilesbvthmwdrtlhgm.supabase.co; connect-src 'self' https://yiqilesbvthmwdrtlhgm.supabase.co https://o4511076164829184.ingest.us.sentry.io https://api.anthropic.com; worker-src blob:; frame-ancestors 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://browser.sentry-cdn.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://yiqilesbvthmwdrtlhgm.supabase.co; connect-src 'self' https://yiqilesbvthmwdrtlhgm.supabase.co https://o4511076164829184.ingest.us.sentry.io; worker-src blob:; frame-ancestors 'none';">
 <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -3942,6 +3942,21 @@ async function installPWA() {
   </div>
 </div>
 
+<!-- SET NEW PASSWORD (password-reset flow) -->
+<div class="modal-overlay" id="resetPasswordModal" role="dialog" aria-modal="true" aria-labelledby="modal-title-resetPasswordModal">
+  <div class="modal">
+    <div class="modal-title">Set New Password</div>
+    <p style="color:var(--muted);font-size:0.84rem;margin-bottom:1rem;line-height:1.5">Choose a strong new password for your APEX account.</p>
+    <div class="form-group"><label>New Password</label><input id="resetNewPass" type="password" placeholder="At least 6 characters" autocomplete="new-password"></div>
+    <div class="form-group"><label>Confirm Password</label><input id="resetConfirmPass" type="password" placeholder="Repeat your new password" autocomplete="new-password"></div>
+    <div class="form-error" id="resetPassError"></div>
+    <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+      <button class="btn btn-gold" id="resetPassSubmitBtn" onclick="doResetPassword()">Set New Password</button>
+      <button class="btn btn-outline" onclick="closeModal('resetPasswordModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- COACH LOGIN -->
 <div class="modal-overlay" id="coachLoginModal" role="dialog" aria-modal="true" aria-labelledby="modal-title-coachLoginModal">
   <div class="modal">
@@ -5423,6 +5438,7 @@ const EMAIL_TEMPLATES = {
   coachNote:       'coach-note',
   applicationRcvd: 'application-received',
   emailVerify:     'email-verify',
+  passwordReset:   'password-reset',
 };
 
 // Send email via Supabase Edge Function (keeps API key server-side)
@@ -6020,17 +6036,27 @@ Write a 3-paragraph report:
 Tone: direct, expert, like a coach who genuinely cares. No fluff. Max 180 words total.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/coach-ai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }]
+        type: 'weekly-report',
+        payload: {
+          clientName: user.firstName + ' ' + user.lastName,
+          weekData,
+          avgCal,
+          avgProtein,
+          trainDays,
+          goalCal: macros.calories,
+          goalProtein: macros.protein
+        }
       })
     });
     const data = await res.json();
-    const report = data.content?.[0]?.text || 'Could not generate report.';
+    const report = data.report || 'Could not generate report.';
 
     // Save report
     const reports = lf.get('ai_reports_' + clientEmail) || [];
@@ -7926,9 +7952,6 @@ function isEmailVerified(user) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 async function doForgot(){
-  // SECURITY FIX: Password reset now requires a server-side email token.
-  // The old flow (enter email + new password directly) allowed unauthenticated
-  // account takeover for any registered email address. This is now blocked.
   const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
   const errEl = document.getElementById('forgotError');
   const succEl = document.getElementById('forgotSuccess');
@@ -7936,19 +7959,86 @@ async function doForgot(){
   if(!email || !email.includes('@')){ errEl.textContent = 'Please enter a valid email address.'; return; }
   setBtn('forgotBtn', true, 'Sending...');
 
-  // Always show the same message regardless of whether email exists (prevents user enumeration)
+  // Always show success regardless of whether email exists — prevents user enumeration
   try {
     const user = await getUser(email);
     if(user) {
-      await sendVerificationEmail(email, user.firstName || '');
+      // Generate a dedicated password-reset token (separate from email-verify token)
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,'0')).join('');
+      const expires = Date.now() + 3600000; // 1 hour
+      await updateUser(email, { passwordResetToken: token, passwordResetExpires: expires });
+      const resetUrl = window.location.origin + window.location.pathname + '?resetPassword=' + encodeURIComponent(email) + '&token=' + token;
+      await sendEmail(EMAIL_TEMPLATES.passwordReset, email, user.firstName || '', {
+        firstName: user.firstName || '',
+        resetUrl,
+        subject: 'Reset your APEX password'
+      });
     }
   } catch(e) {}
 
-  succEl.textContent = '✅ If that email is registered, a reset link has been sent. Check your inbox.';
-  // Hide the new-password field — it is no longer used in this flow
-  const npField = document.getElementById('forgotNewPass');
-  if(npField) npField.closest('.form-group') && (npField.closest('.form-group').style.display='none');
+  succEl.textContent = '✅ If that email is registered, a reset link has been sent. Check your inbox (and spam folder).';
   setBtn('forgotBtn', false, 'Send Reset Link');
+}
+
+async function handlePasswordReset() {
+  const params = new URLSearchParams(window.location.search);
+  const resetEmail = params.get('resetPassword');
+  const resetToken = params.get('token');
+  if (!resetEmail || !resetToken) return;
+
+  // Clean URL immediately so token isn't visible in address bar
+  window.history.replaceState({}, '', window.location.pathname);
+
+  const user = await getUser(resetEmail);
+  if (!user) { showToast('Reset link is invalid or has expired.', 'error', 6000); return; }
+
+  const now = Date.now();
+  if (user.passwordResetToken !== resetToken || !user.passwordResetExpires || now > user.passwordResetExpires) {
+    showToast('Reset link has expired. Please request a new one.', 'error', 6000);
+    setTimeout(() => openModal('forgotModal'), 1200);
+    return;
+  }
+
+  // Token valid — show the set-new-password modal
+  const modal = document.getElementById('resetPasswordModal');
+  if (modal) {
+    modal.dataset.resetEmail = resetEmail;
+    modal.dataset.resetToken = resetToken;
+    openModal('resetPasswordModal');
+  }
+}
+
+async function doResetPassword() {
+  const modal = document.getElementById('resetPasswordModal');
+  const email = modal?.dataset.resetEmail;
+  const token = modal?.dataset.resetToken;
+  const np = document.getElementById('resetNewPass').value;
+  const cp = document.getElementById('resetConfirmPass').value;
+  const errEl = document.getElementById('resetPassError');
+  errEl.textContent = '';
+
+  if (!np || np.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (np !== cp) { errEl.textContent = 'Passwords do not match.'; return; }
+  if (!email || !token) { errEl.textContent = 'Invalid reset session. Please start over.'; return; }
+
+  setBtn('resetPassSubmitBtn', true, 'Saving...');
+
+  try {
+    const user = await getUser(email);
+    if (!user || user.passwordResetToken !== token || Date.now() > user.passwordResetExpires) {
+      errEl.textContent = 'Reset link has expired. Please request a new one.';
+      setBtn('resetPassSubmitBtn', false, 'Set New Password');
+      return;
+    }
+    const hashed = await hashPassword(np);
+    await updateUser(email, { password: hashed, passwordResetToken: null, passwordResetExpires: null });
+    closeModal('resetPasswordModal');
+    showToast('✅ Password updated! You can now log in.', 'gold', 5000);
+    setTimeout(() => openModal('loginModal'), 800);
+  } catch(e) {
+    errEl.textContent = 'Something went wrong. Please try again.';
+    setBtn('resetPassSubmitBtn', false, 'Set New Password');
+  }
 }
 async function doCoachLogin(){
   const now=Date.now();
@@ -8038,6 +8128,7 @@ async function launchApp(){
 
   if (!isCoach && currentUser && !window._previewMode) await checkStripeUpgrade();
   await checkEmailVerification();
+  await handlePasswordReset();
   if (!isCoach && currentUser) checkTierExpiry(currentUser);
   buildNav();
   buildMobileNav();
@@ -9583,6 +9674,12 @@ async function renderNutrition(action, arg, tab){
       <div class="settings-tab ${activeTab==='log'?'active':''}" id="nut-tab-btn-log" onclick="switchNutTab('log',this)">📋 Today's Log</div>
       <div class="settings-tab ${activeTab==='calendar'?'active':''}" id="nut-tab-btn-calendar" onclick="switchNutTab('calendar',this)">📅 Calendar</div>
       <div class="settings-tab ${activeTab==='targets'?'active':''}" id="nut-tab-btn-targets" onclick="switchNutTab('targets',this)">🎯 Targets</div>
+      <div class="settings-tab ${activeTab==='mealplan'?'active':''}" id="nut-tab-btn-mealplan" onclick="switchNutTab('mealplan',this)" style="color:${activeTab==='mealplan'?'var(--purple)':''}">🥗 Meal Plan</div>
+    </div>
+
+    <!-- TAB: MEAL PLAN -->
+    <div id="nut-tab-mealplan" class="settings-panel ${activeTab==='mealplan'?'active':''}">
+      ${renderClientMealPlanTab(user, macros)}
     </div>
 
     <!-- TAB: TODAY'S LOG -->
@@ -9650,7 +9747,7 @@ async function renderNutrition(action, arg, tab){
 
       ${hasMicros?`<div class="card">
         <div class="card-title">🧬 Micronutrients Today</div>
-        microSummaryHTML(foods,sex)}
+        ${_microSummaryHTML1}
       </div>`:''}
 
       <!-- Quick add chips at bottom of log -->
@@ -10010,6 +10107,125 @@ Restaurant orders, home cooking, recipes — anything works"
     try { showToast('renderNutrition failed to load. Please refresh.', 'error', 5000); } catch(_) {}
   }
   enforceAIPaywall();
+}
+
+// ─── CLIENT MEAL PLAN TAB ────────────────────────────────────────────────────
+function renderClientMealPlanTab(user, macros) {
+  const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const MEAL_SLOTS = ['Breakfast','Lunch','Dinner','Snack'];
+  const plan = lf.get('meal_plan_' + user.email) || null;
+  const canGenerate = isCoach || tierLevel(currentUser?.tier||'free') >= tierLevel('elite');
+
+  if (!plan) {
+    return `<div class="card" style="text-align:center;padding:2.5rem 1rem">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;opacity:0.3">🥗</div>
+      <div style="font-family:var(--font-display);font-size:1rem;letter-spacing:0.04em;color:var(--muted);margin-bottom:0.5rem">NO MEAL PLAN YET</div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1.5rem;max-width:300px;margin-left:auto;margin-right:auto;line-height:1.6">
+        Your coach will build a custom 7-day meal plan for you here.${canGenerate ? ' Or generate one instantly with AI.' : ''}
+      </div>
+      ${canGenerate
+        ? `<button class="btn btn-gold" onclick="clientGenerateMealPlan()" id="clientMpGenBtn">🤖 Generate My Plan</button>`
+        : `<button class="btn btn-outline" onclick="openModal('upgradeModal')">Upgrade to Elite for AI Meal Plans →</button>`}
+    </div>`;
+  }
+
+  // Build 7-day grid
+  const rows = DAYS.map(day => {
+    const meals = MEAL_SLOTS.map(slot => {
+      const key = day + '_' + slot;
+      const val = plan[key] || '—';
+      return `<div style="padding:0.5rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div style="font-family:var(--font-cond);font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold2);margin-bottom:0.2rem">${slot}</div>
+        <div style="font-size:0.82rem;color:rgba(240,237,232,0.85);line-height:1.4">${val}</div>
+      </div>`;
+    }).join('');
+    return `<div style="background:var(--dark2);border:1px solid var(--dark4);border-radius:var(--radius);overflow:hidden;margin-bottom:0.75rem">
+      <div style="background:rgba(201,168,76,0.07);border-bottom:1px solid var(--dark4);padding:0.5rem 0.75rem;font-family:var(--font-cond);font-size:0.78rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)">${day}</div>
+      ${meals}
+    </div>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem">
+      <div>
+        <div class="section-title" style="margin-bottom:0.1rem">Your 7-Day Meal Plan</div>
+        <div style="font-size:0.8rem;color:var(--muted)">Targeting ${macros.calories} kcal · ${macros.protein}g protein/day</div>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="showMealPlanShoppingList()" style="border-color:rgba(74,202,120,0.4);color:var(--green)">🛒 Shopping List</button>
+        ${canGenerate
+          ? `<button class="btn btn-outline btn-sm" onclick="clientGenerateMealPlan()" id="clientMpGenBtn" style="border-color:rgba(155,111,224,0.4);color:var(--purple)">🤖 Regenerate</button>`
+          : ''}
+      </div>
+    </div>
+    ${rows}`;
+}
+
+async function clientGenerateMealPlan() {
+  const btn = document.getElementById('clientMpGenBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+  if (tierLevel(currentUser?.tier||'free') < tierLevel('elite') && !isCoach) { openModal('upgradeModal'); return; }
+
+  const quota = await checkAIQuota(currentUser.email, (currentUser.tier||'free').toLowerCase());
+  if (!quota.allowed) { showToast('Daily AI limit reached. Upgrade for more.', 'warning', 5000); if(btn){btn.disabled=false;btn.textContent='🤖 Generate';} return; }
+
+  const macros = calcMacros(currentUser);
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/coach-ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ type: 'meal-plan', payload: {
+        calories: macros.calories, protein: macros.protein,
+        carbs: macros.carb, fats: macros.fat,
+        goal: currentUser.goal || 'maintain',
+        name: currentUser.firstName || ''
+      }})
+    });
+    const data = await res.json();
+    if (!data.plan) throw new Error('No plan returned');
+    lf.set('meal_plan_' + currentUser.email, data.plan);
+    incrementAIUsage(currentUser.email, (currentUser.tier||'free').toLowerCase()).catch(()=>{});
+    showToast('✅ Meal plan generated!', 'success', 3000);
+    renderNutrition(null, null, 'mealplan');
+  } catch(e) {
+    showToast('Generation failed — try again shortly', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 Generate My Plan'; }
+  }
+}
+
+function showMealPlanShoppingList() {
+  const plan = lf.get('meal_plan_' + currentUser?.email) || {};
+  if (!Object.keys(plan).length) { showToast('No meal plan loaded yet', 'error'); return; }
+
+  // Aggregate all meal text into ingredient list
+  const allText = Object.values(plan).join('\n');
+  // Split on commas and common separators, clean up
+  const items = allText.split(/,|;|\n/)
+    .map(s => s.replace(/^\d+[\s.]*/,'').replace(/\b(cup|cups|oz|tbsp|tsp|g|lb|lbs|slice|slices|piece|pieces|serving|servings|scoop|scoops)\b.*/i,'').trim())
+    .filter(s => s.length > 2 && s.length < 60)
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase());
+
+  // Deduplicate
+  const unique = [...new Set(items)].sort();
+  const listHTML = unique.map(i => `<li style="padding:0.35rem 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88rem;display:flex;align-items:center;gap:0.5rem"><input type="checkbox" style="accent-color:var(--gold)"> ${i}</li>`).join('');
+
+  const container = document.getElementById('shoppingListModal');
+  if (!container) {
+    // Create modal on-the-fly if not in DOM
+    const m = document.createElement('div');
+    m.className = 'modal-overlay'; m.id = 'shoppingListModal'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true');
+    m.innerHTML = `<div class="modal" style="max-height:80vh;overflow-y:auto">
+      <div class="modal-title">🛒 Shopping List</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem">From your current 7-day meal plan</div>
+      <ul style="list-style:none;padding:0" id="shoppingListItems">${listHTML}</ul>
+      <div style="margin-top:1rem"><button class="btn btn-outline btn-full" onclick="closeModal('shoppingListModal')">Done</button></div>
+    </div>`;
+    document.body.appendChild(m);
+  } else {
+    const el = document.getElementById('shoppingListItems');
+    if (el) el.innerHTML = listHTML;
+  }
+  openModal('shoppingListModal');
 }
 
 function renderRecentBarcodes() {
@@ -12466,21 +12682,26 @@ Return ONLY a JSON object (no markdown, no explanation) with this exact structur
 Each meal: specific foods with portions (e.g. "6oz grilled chicken, 1 cup brown rice, 2 cups broccoli"). Keep it concise, no more than 15 words per meal.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/coach-ai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        messages: [{ role: 'user', content: prompt }]
+        type: 'meal-plan',
+        payload: {
+          calories: macros.calories,
+          protein: macros.protein,
+          carbs: macros.carb,
+          fats: macros.fat,
+          goal: goalDesc,
+          name: (client.firstName || '') + ' ' + (client.lastName || '')
+        }
       })
     });
     const data = await res.json();
-    const text = (data.content?.[0]?.text || '').trim();
-
-    // Parse JSON — strip any markdown fences if present
-    const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const plan = JSON.parse(clean);
+    const plan = data.plan;
 
     // Save and re-render
     lf.set('meal_plan_' + clientEmail, plan);

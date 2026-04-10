@@ -1,11 +1,21 @@
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
-const ALLOWED_ORIGIN = "https://apex-356.pages.dev";
-const cors = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = [
+  "https://apexcoaching.app",
+  "https://apex-356.pages.dev",
+  "https://fitfriendchris.github.io",
+  "http://localhost:8888",
+  "http://localhost:3000",
+];
+function getCors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 function extractJSON(raw) {
   let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   try { return JSON.parse(s); } catch (_) {}
@@ -65,6 +75,7 @@ async function analyzePhotoFallback(base64, mediaType) {
   return buildFoodObject(Array.isArray(items) ? items : [items], "Scanned meal");
 }
 Deno.serve(async (req) => {
+  const cors = getCors(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const body = await req.json();
