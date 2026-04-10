@@ -3314,6 +3314,692 @@ input:focus, select:focus, textarea:focus {
   margin-top: 1rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   APEX PREMIUM UI REDESIGN — Full App Design System Upgrade
+   Applied on top of existing styles to elevate every surface
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── CSS DESIGN TOKENS UPGRADE ── */
+:root {
+  --shadow-card:    0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
+  --shadow-hover:   0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-glow-gold:  0 0 30px rgba(201,168,76,0.18), 0 4px 20px rgba(0,0,0,0.4);
+  --shadow-glow-green: 0 0 24px rgba(74,202,120,0.15), 0 4px 20px rgba(0,0,0,0.4);
+  --shadow-glow-blue:  0 0 24px rgba(78,143,224,0.15), 0 4px 20px rgba(0,0,0,0.4);
+  --gradient-gold: linear-gradient(135deg, #C9A84C 0%, #E8C76A 50%, #C9A84C 100%);
+  --gradient-dark-card: linear-gradient(135deg, #0D0D10 0%, #111115 100%);
+  --radius-xl: 16px;
+}
+
+/* ── TOPBAR — Premium Command Bar ── */
+.topbar {
+  background: rgba(6,6,8,0.97) !important;
+  border-bottom: 1px solid rgba(201,168,76,0.15) !important;
+  box-shadow: 0 1px 0 rgba(201,168,76,0.06), 0 4px 24px rgba(0,0,0,0.5) !important;
+}
+.topbar-logo {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.7rem !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* ── SIDEBAR — Dark Command Panel ── */
+.sidebar {
+  background: linear-gradient(180deg, #060608 0%, #08080c 100%) !important;
+  border-right: 1px solid rgba(201,168,76,0.1) !important;
+}
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 1px; height: 100%;
+  background: linear-gradient(180deg, rgba(201,168,76,0.2), transparent, rgba(201,168,76,0.1));
+  pointer-events: none;
+}
+.nav-tab {
+  border-radius: 6px !important;
+  margin: 1px 6px !important;
+  transition: all 0.18s ease !important;
+  font-size: 0.78rem !important;
+  letter-spacing: 0.12em !important;
+}
+.nav-tab.active {
+  background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08)) !important;
+  border-left: 2px solid var(--gold) !important;
+  color: var(--gold2) !important;
+  box-shadow: 0 0 16px rgba(201,168,76,0.1) !important;
+}
+.nav-tab:not(.active):hover {
+  background: rgba(255,255,255,0.04) !important;
+  color: var(--light) !important;
+}
+
+/* ── CARDS — Premium Surface ── */
+.card {
+  background: linear-gradient(135deg, rgba(13,13,16,0.95) 0%, rgba(17,17,22,0.95) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  box-shadow: var(--shadow-card) !important;
+  border-radius: var(--radius-lg) !important;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease !important;
+}
+.card::before {
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent) !important;
+  height: 1px !important;
+}
+.card:hover {
+  border-color: rgba(201,168,76,0.18) !important;
+  box-shadow: var(--shadow-hover) !important;
+}
+.card-interactive:hover {
+  border-color: rgba(201,168,76,0.35) !important;
+  box-shadow: var(--shadow-glow-gold) !important;
+  transform: translateY(-2px) !important;
+}
+.card-title {
+  font-size: 1.1rem !important;
+  letter-spacing: 0.06em !important;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── SECTION TITLES — Hero Typography ── */
+.section-title {
+  font-size: 2rem !important;
+  letter-spacing: 0.06em !important;
+  background: linear-gradient(135deg, var(--gold2) 0%, var(--gold) 60%, var(--gold3) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem !important;
+}
+.section-sub {
+  font-family: var(--font-cond);
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── ANALYTICS STAT CARDS — Command Center Metrics ── */
+.analytics-grid {
+  gap: 0.875rem !important;
+}
+.analytics-stat {
+  background: linear-gradient(135deg, rgba(20,20,26,0.9) 0%, rgba(13,13,16,0.9) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 1.1rem !important;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.22s ease !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.analytics-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-gold);
+  opacity: 0.6;
+}
+.analytics-stat::after {
+  content: '';
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 60px; height: 60px;
+  background: radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.analytics-stat:hover {
+  border-color: rgba(201,168,76,0.25) !important;
+  box-shadow: var(--shadow-glow-gold) !important;
+  transform: translateY(-2px) !important;
+}
+.analytics-num {
+  font-size: 2.4rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  background: linear-gradient(135deg, var(--gold2) 0%, var(--gold3) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.35rem !important;
+}
+.analytics-label {
+  font-size: 0.62rem !important;
+  letter-spacing: 0.18em !important;
+  color: rgba(107,107,120,0.9) !important;
+  text-transform: uppercase !important;
+}
+
+/* ── STAT CARDS COLORED VARIANTS ── */
+.analytics-stat.stat-green::before { background: linear-gradient(90deg, var(--green), transparent); }
+.analytics-stat.stat-green .analytics-num { background: linear-gradient(135deg,#4ACA78,#7de3a8); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.analytics-stat.stat-green:hover { border-color: rgba(74,202,120,0.3) !important; box-shadow: var(--shadow-glow-green) !important; }
+
+.analytics-stat.stat-red::before { background: linear-gradient(90deg, var(--red), transparent); }
+.analytics-stat.stat-red .analytics-num { background: linear-gradient(135deg,#E05252,#f07878); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+
+.analytics-stat.stat-blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
+.analytics-stat.stat-blue .analytics-num { background: linear-gradient(135deg,#4E8FE0,#7aaff0); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.analytics-stat.stat-blue:hover { border-color: rgba(78,143,224,0.3) !important; box-shadow: var(--shadow-glow-blue) !important; }
+
+.analytics-stat.stat-purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
+.analytics-stat.stat-purple .analytics-num { background: linear-gradient(135deg,#9B6FE0,#bb99f0); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+
+/* ── QUICK ACTIONS — Elevated Action Grid ── */
+.quick-action-btn {
+  background: linear-gradient(135deg, rgba(20,20,26,0.9) 0%, rgba(13,13,16,0.9) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: all 0.22s cubic-bezier(0.34,1.4,0.64,1) !important;
+}
+.quick-action-btn:hover {
+  border-color: rgba(201,168,76,0.4) !important;
+  box-shadow: var(--shadow-glow-gold) !important;
+  transform: translateY(-3px) scale(1.02) !important;
+}
+.quick-action-icon { font-size: 1.8rem !important; margin-bottom: 0.5rem !important; }
+.quick-action-label { font-size: 0.68rem !important; letter-spacing: 0.14em !important; color: rgba(107,107,120,0.9) !important; }
+
+/* ── PROGRESS BARS — Elevated Tracking ── */
+.prog-bar {
+  height: 6px !important;
+  border-radius: 99px !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+.prog-fill {
+  border-radius: 99px !important;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ── COMPARE BARS — Week Analysis ── */
+.compare-bar {
+  padding: 0.6rem 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+.compare-track { height: 8px !important; border-radius: 99px !important; background: rgba(255,255,255,0.05) !important; }
+
+/* ── MINI STATS — Compact Metrics ── */
+.mini-stat {
+  background: linear-gradient(135deg, rgba(20,20,26,0.9) 0%, rgba(13,13,16,0.9) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+}
+.mini-stat-val {
+  font-size: 1.5rem !important;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.mini-stat-label { font-size: 0.58rem !important; letter-spacing: 0.14em !important; color: var(--muted) !important; }
+
+/* ── BUTTONS — Premium CTAs ── */
+.btn-gold {
+  background: var(--gradient-gold) !important;
+  color: #060608 !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(201,168,76,0.3), 0 1px 4px rgba(0,0,0,0.3) !important;
+  transition: all 0.22s ease !important;
+  letter-spacing: 0.06em !important;
+}
+.btn-gold:hover {
+  box-shadow: 0 6px 24px rgba(201,168,76,0.45), 0 2px 8px rgba(0,0,0,0.4) !important;
+  transform: translateY(-1px) !important;
+  opacity: 0.92 !important;
+}
+.btn-outline {
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  background: rgba(255,255,255,0.03) !important;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease !important;
+}
+.btn-outline:hover {
+  border-color: rgba(201,168,76,0.35) !important;
+  background: rgba(201,168,76,0.06) !important;
+  color: var(--gold2) !important;
+}
+
+/* ── DASHBOARD HERO HEADER ── */
+.dash-hero {
+  background: linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(201,168,76,0.02) 40%, transparent 100%);
+  border: 1px solid rgba(201,168,76,0.15);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.dash-hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-gold);
+}
+.dash-hero::after {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.dash-hero-name {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  letter-spacing: 0.06em;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+.dash-hero-sub {
+  font-family: var(--font-cond);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dash-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.dash-hero-stat {
+  text-align: center;
+  padding: 0.6rem;
+  background: rgba(0,0,0,0.25);
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.dash-hero-stat-val {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--gold2);
+}
+.dash-hero-stat-label {
+  font-family: var(--font-cond);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+/* ── MACRO RING CARDS ── */
+.macro-ring-card {
+  background: linear-gradient(135deg, rgba(201,168,76,0.06) 0%, rgba(13,13,16,0.95) 100%);
+  border: 1px solid rgba(201,168,76,0.18);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+/* ── COACH COMMAND CENTER ── */
+.coach-metric-card {
+  background: linear-gradient(135deg, rgba(20,20,26,0.95) 0%, rgba(13,13,16,0.95) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: all 0.22s ease;
+}
+.coach-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--gradient-gold);
+}
+.coach-metric-card:hover {
+  border-color: rgba(201,168,76,0.22);
+  box-shadow: var(--shadow-glow-gold);
+  transform: translateY(-2px);
+}
+.coach-metric-num {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.coach-metric-label {
+  font-family: var(--font-cond);
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+.coach-metric-sub {
+  font-size: 0.78rem;
+  color: rgba(240,237,232,0.55);
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+/* ── ALERT CARDS ── */
+.alert-card-danger {
+  background: linear-gradient(135deg, rgba(224,82,82,0.1), rgba(224,82,82,0.04));
+  border: 1px solid rgba(224,82,82,0.3);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+}
+.alert-card-danger:hover { border-color: rgba(224,82,82,0.5); transform: translateX(2px); }
+
+.alert-card-warning {
+  background: linear-gradient(135deg, rgba(224,176,82,0.1), rgba(224,176,82,0.04));
+  border: 1px solid rgba(224,176,82,0.3);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+/* ── DATA TABLES — Premium Grid ── */
+.food-table th {
+  background: rgba(201,168,76,0.05) !important;
+  color: rgba(201,168,76,0.7) !important;
+  letter-spacing: 0.16em !important;
+  font-size: 0.63rem !important;
+  border-bottom: 1px solid rgba(201,168,76,0.15) !important;
+  padding: 0.6rem 0.75rem !important;
+}
+.food-table td { padding: 0.55rem 0.75rem !important; }
+.food-table tr:hover td { background: rgba(201,168,76,0.04) !important; }
+
+/* ── SETTINGS TABS — Navigation Pills ── */
+.settings-tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-lg);
+  padding: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+.settings-tab {
+  font-family: var(--font-cond) !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.1em !important;
+  padding: 0.5rem 0.875rem !important;
+  border-radius: var(--radius) !important;
+  transition: all 0.18s ease !important;
+  color: var(--muted) !important;
+}
+.settings-tab.active {
+  background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.1)) !important;
+  color: var(--gold2) !important;
+  box-shadow: 0 0 12px rgba(201,168,76,0.12) !important;
+}
+.settings-tab:hover:not(.active) {
+  background: rgba(255,255,255,0.05) !important;
+  color: var(--light) !important;
+}
+
+/* ── PROGRESS HEATMAP CELLS ── */
+.heatmap-cell {
+  border-radius: 3px !important;
+  transition: all 0.15s ease !important;
+}
+.heatmap-cell:hover { transform: scale(1.3); box-shadow: 0 0 8px rgba(201,168,76,0.4) !important; }
+
+/* ── BADGE & TIER CHIPS ── */
+.tier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-cond);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 99px;
+  font-weight: 700;
+}
+
+/* ── MESSAGING — Chat Premium ── */
+.chat-header {
+  background: linear-gradient(135deg, rgba(20,20,26,0.98) 0%, rgba(13,13,16,0.98) 100%) !important;
+  border-bottom: 1px solid rgba(201,168,76,0.15) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+}
+.chat-bubble.sent {
+  background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.1)) !important;
+  border: 1px solid rgba(201,168,76,0.2) !important;
+}
+.chat-bubble.recv {
+  background: linear-gradient(135deg, rgba(30,30,36,0.95), rgba(20,20,26,0.95)) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+.chat-input-bar {
+  background: rgba(6,6,8,0.97) !important;
+  border-top: 1px solid rgba(201,168,76,0.12) !important;
+}
+.chat-input {
+  background: rgba(20,20,26,0.8) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: var(--radius) !important;
+  color: var(--light) !important;
+}
+.chat-input:focus { border-color: rgba(201,168,76,0.35) !important; outline: none !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.08) !important; }
+.chat-send-btn {
+  background: var(--gradient-gold) !important;
+  color: #060608 !important;
+  box-shadow: 0 2px 12px rgba(201,168,76,0.3) !important;
+}
+
+/* ── XP / STREAK BAR ── */
+.xp-bar-fill { background: var(--gradient-gold) !important; box-shadow: 0 0 12px rgba(201,168,76,0.4) !important; }
+
+/* ── LIVE DOT PULSE ── */
+.live-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(74,202,120,0.4);
+  animation: livePulse 2s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(74,202,120,0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(74,202,120,0); }
+  100% { box-shadow: 0 0 0 0 rgba(74,202,120,0); }
+}
+
+/* ── WORKOUT CARDS ── */
+.workout-day-card {
+  background: linear-gradient(135deg, rgba(20,20,26,0.95), rgba(13,13,16,0.95));
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.22s ease;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 0.75rem;
+}
+.workout-day-card:hover { border-color: rgba(201,168,76,0.25); box-shadow: var(--shadow-glow-gold); transform: translateY(-1px); }
+.workout-day-header {
+  padding: 0.875rem 1.1rem;
+  background: linear-gradient(135deg, rgba(201,168,76,0.1), rgba(201,168,76,0.03));
+  border-bottom: 1px solid rgba(201,168,76,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.workout-day-name {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  color: var(--gold2);
+}
+
+/* ── CHECK-IN WIZARD ── */
+.checkin-step-card {
+  background: linear-gradient(135deg, rgba(20,20,26,0.95), rgba(13,13,16,0.95));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.checkin-step-header {
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.02));
+  border-bottom: 1px solid rgba(201,168,76,0.12);
+}
+
+/* ── FORM INPUTS — Elevated UI ── */
+input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
+  background: rgba(20,20,26,0.8) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: var(--radius) !important;
+  color: var(--light) !important;
+  font-family: var(--font-body) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(201,168,76,0.4) !important;
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.08), 0 2px 12px rgba(0,0,0,0.3) !important;
+  outline: none !important;
+}
+
+/* ── MODALS — Glassmorphic ── */
+.modal {
+  background: linear-gradient(135deg, rgba(17,17,22,0.98) 0%, rgba(13,13,16,0.98) 100%) !important;
+  border: 1px solid rgba(201,168,76,0.18) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(201,168,76,0.1) !important;
+  border-radius: var(--radius-xl) !important;
+}
+.modal-title {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.5rem !important;
+  letter-spacing: 0.08em !important;
+}
+
+/* ── STORE PRODUCT CARDS ── */
+.product-card {
+  background: linear-gradient(135deg, rgba(20,20,26,0.95), rgba(13,13,16,0.95)) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: all 0.22s cubic-bezier(0.34,1.4,0.64,1) !important;
+  overflow: hidden !important;
+}
+.product-card:hover {
+  border-color: rgba(201,168,76,0.3) !important;
+  box-shadow: var(--shadow-glow-gold) !important;
+  transform: translateY(-3px) !important;
+}
+.product-price {
+  font-family: var(--font-display) !important;
+  font-size: 1.6rem !important;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── PRICING CARDS — Sales Page ── */
+.pricing-card {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: all 0.25s cubic-bezier(0.34,1.4,0.64,1) !important;
+}
+.pricing-card:hover { transform: translateY(-4px) !important; box-shadow: var(--shadow-hover) !important; }
+.pricing-card.featured {
+  box-shadow: var(--shadow-glow-gold), var(--shadow-hover) !important;
+}
+
+/* ── NUTRITION CALENDAR ── */
+.cal-day.hit { box-shadow: 0 0 8px rgba(74,202,120,0.3) !important; }
+.cal-day.over { box-shadow: 0 0 8px rgba(224,82,82,0.3) !important; }
+
+/* ── SPINNER ── */
+.spinner {
+  border: 2px solid rgba(201,168,76,0.15) !important;
+  border-top-color: var(--gold) !important;
+  box-shadow: 0 0 12px rgba(201,168,76,0.2) !important;
+}
+
+/* ── COACH PROFILE CARD ── */
+.coach-card-header {
+  background: linear-gradient(135deg, rgba(201,168,76,0.1), rgba(201,168,76,0.03));
+  border-bottom: 1px solid rgba(201,168,76,0.15);
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.coach-card-header::after {
+  content: '';
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 120px; height: 120px;
+  background: radial-gradient(circle, rgba(201,168,76,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── SMOOTH NUMBER ANIMATION ── */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.analytics-num, .coach-metric-num, .dash-hero-stat-val {
+  animation: countUp 0.5s ease both;
+}
+
+/* ── SCROLL REVEAL ── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+.card { animation: slideUp 0.4s ease both; }
+
+/* ── RESPONSIVE ENHANCEMENTS ── */
+@media (max-width: 600px) {
+  .dash-hero-stats { grid-template-columns: repeat(2, 1fr) !important; }
+  .analytics-num { font-size: 1.8rem !important; }
+  .coach-metric-num { font-size: 2rem !important; }
+  .section-title { font-size: 1.5rem !important; }
+}
+
 </style>
 
 <script>
@@ -9161,18 +9847,41 @@ async function renderClientDashboard(){
   const stallAlertHTML = await renderMacroStallAlert(user.email);
 
   set('mainContent',`
-    <!-- TOPBAR INFO -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 0.75rem;flex-wrap:wrap;gap:0.5rem">
-      <div>
-        <div style="font-family:var(--font-display);font-size:1.6rem;letter-spacing:0.04em;line-height:1">${dayName.toUpperCase()}</div>
-        <div style="font-size:0.8rem;color:var(--muted);margin-top:2px">
-          <span style="color:var(--gold)">${user.firstName}</span> · ${phaseLabel} · ${macros.calories} kcal target
+    <!-- PREMIUM DASHBOARD HERO HEADER -->
+    <div class="dash-hero">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.75rem">
+        <div style="position:relative;z-index:1">
+          <div style="font-family:var(--font-cond);font-size:0.68rem;letter-spacing:0.25em;text-transform:uppercase;color:rgba(201,168,76,0.7);margin-bottom:0.2rem">${dayName} · ${today.toLocaleDateString('en-US',{month:'long',day:'numeric'})}</div>
+          <div class="dash-hero-name">WELCOME BACK,<br>${(user.firstName||'').toUpperCase()}</div>
+          <div class="dash-hero-sub">${phaseLabel} · ${macros.calories} kcal target</div>
+        </div>
+        ${streak>=2?`<div style="display:flex;align-items:center;gap:0.5rem;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);border-radius:20px;padding:0.4rem 0.875rem;position:relative;z-index:1">
+          <span style="font-size:1.1rem">🔥</span>
+          <div>
+            <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--gold);line-height:1">${streak}</div>
+            <div style="font-family:var(--font-cond);font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted)">Day Streak</div>
+          </div>
+        </div>`:''}
+      </div>
+      <!-- Key daily stats row -->
+      <div class="dash-hero-stats">
+        <div class="dash-hero-stat">
+          <div class="dash-hero-stat-val" style="color:${calPct>=90?'var(--green)':calPct>=60?'var(--gold2)':'var(--muted)'}">${Math.round(totals.calories)}</div>
+          <div class="dash-hero-stat-label">kcal eaten</div>
+        </div>
+        <div class="dash-hero-stat">
+          <div class="dash-hero-stat-val" style="color:var(--green)">${Math.round(totals.protein)}g</div>
+          <div class="dash-hero-stat-label">protein</div>
+        </div>
+        <div class="dash-hero-stat">
+          <div class="dash-hero-stat-val" style="color:${checksDone>=6?'var(--green)':checksDone>=3?'var(--gold2)':'var(--muted)'}">${checksDone}/8</div>
+          <div class="dash-hero-stat-label">checks done</div>
+        </div>
+        <div class="dash-hero-stat">
+          <div class="dash-hero-stat-val" style="color:var(--blue)">${water}</div>
+          <div class="dash-hero-stat-label">cups water</div>
         </div>
       </div>
-      ${streak>=2?`<div style="display:flex;align-items:center;gap:0.4rem;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:20px;padding:0.3rem 0.75rem">
-        <span style="font-size:1rem">🔥</span>
-        <div style="font-family:var(--font-cond);font-size:0.75rem;font-weight:700;color:var(--gold)">${streak} DAY STREAK</div>
-      </div>`:''}
     </div>
 
     ${xpBarHTML}
@@ -11774,30 +12483,30 @@ async function renderProgress(){
     <div class="analytics-grid" style="margin-bottom:1.25rem">
       <div class="analytics-stat card-interactive" onclick="renderPRTracker()" style="cursor:pointer">
         <div class="analytics-num">${user.weight}</div>
-        <div class="analytics-label">Weight (lbs)</div>
+        <div class="analytics-label">Current Weight</div>
         <div style="font-size:0.7rem;color:${parseFloat(startDiff)>0?'var(--green)':'var(--muted)'}">
-          ${parseFloat(startDiff)>0?'↓ '+startDiff+' lost since start':'Starting weight'}
+          ${parseFloat(startDiff)>0?'↓ '+startDiff+' lbs lost':'Starting point'}
         </div>
       </div>
-      <div class="analytics-stat">
-        <div class="analytics-num" style="color:var(--gold)">${user.goalWeight}</div>
-        <div class="analytics-label">Goal</div>
+      <div class="analytics-stat" style="border-top-color:var(--gold)">
+        <div class="analytics-num" style="color:var(--gold2)">${user.goalWeight}</div>
+        <div class="analytics-label">Goal Weight</div>
         <div style="font-size:0.7rem;color:var(--muted)">${Math.abs(parseFloat(toGoal)).toFixed(1)} lbs to go</div>
       </div>
-      <div class="analytics-stat">
-        <div class="analytics-num" style="color:${compliancePct>=70?'var(--green)':compliancePct>=50?'var(--gold)':'var(--red)'}">${compliancePct}%</div>
+      <div class="analytics-stat ${compliancePct>=70?'stat-green':compliancePct>=50?'':'stat-red'}">
+        <div class="analytics-num">${compliancePct}%</div>
         <div class="analytics-label">7-Day Compliance</div>
-        <div class="${compliancePct>=70?'trend-up':'trend-down'}" style="font-size:0.7rem">${compliancePct>=70?'🔥 On track':'⚠️ Push harder'}</div>
+        <div style="font-size:0.7rem;margin-top:0.3rem;color:${compliancePct>=70?'var(--green)':compliancePct>=50?'var(--gold)':'var(--red)'}">${compliancePct>=70?'🔥 On track':compliancePct>=50?'📈 Keep pushing':'⚠️ Needs work'}</div>
       </div>
-      <div class="analytics-stat">
-        <div class="analytics-num" style="color:${monthCompliancePct>=70?'var(--green)':monthCompliancePct>=50?'var(--gold)':'var(--red)'}">${monthCompliancePct}%</div>
+      <div class="analytics-stat ${monthCompliancePct>=70?'stat-green':monthCompliancePct>=50?'':'stat-red'}">
+        <div class="analytics-num">${monthCompliancePct}%</div>
         <div class="analytics-label">30-Day Compliance</div>
       </div>
-      <div class="analytics-stat">
-        <div class="analytics-num" style="color:var(--blue)">${avgDailyCals||'—'}</div>
+      <div class="analytics-stat stat-blue">
+        <div class="analytics-num">${avgDailyCals||'—'}</div>
         <div class="analytics-label">Avg Cals/Day</div>
       </div>
-      <div class="analytics-stat">
+      <div class="analytics-stat stat-purple">
         <div class="analytics-num" style="color:var(--purple)">${monthDaysWithFood}</div>
         <div class="analytics-label">Days Tracked</div>
       </div>
@@ -12170,12 +12879,32 @@ async function renderCoachDashboard(){
       </div>
     </div>
 
-    <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
-      <div class="analytics-stat"><div class="analytics-num">${allUsers.length}</div><div class="analytics-label">Total Clients</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--gold)">${paying}</div><div class="analytics-label">Paying Clients</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--green)">$${revenue.toLocaleString()}</div><div class="analytics-label">Est. MRR</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:${alerts.length>0?'var(--red)':'var(--green)'}">${alerts.length}</div><div class="analytics-label">Alerts Today</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:${avgC>=70?'var(--green)':avgC>=50?'var(--gold)':'var(--red)'}">${avgC}%</div><div class="analytics-label">Avg Compliance</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.875rem;margin-bottom:1.25rem">
+      <div class="coach-metric-card">
+        <div class="coach-metric-num">${allUsers.length}</div>
+        <div class="coach-metric-label">Total Clients</div>
+        <div class="coach-metric-sub">Active rosters</div>
+      </div>
+      <div class="coach-metric-card" style="--card-accent:var(--gold)">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,var(--gold2),var(--gold3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${paying}</div>
+        <div class="coach-metric-label">Paying Clients</div>
+        <div class="coach-metric-sub">${allUsers.length>0?Math.round(paying/allUsers.length*100):0}% conversion</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,#4ACA78,#7de3a8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">$${revenue.toLocaleString()}</div>
+        <div class="coach-metric-label">Est. MRR</div>
+        <div class="coach-metric-sub">$${(revenue*12).toLocaleString()} ARR</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:${alerts.length>0?'linear-gradient(135deg,#E05252,#f07878)':'linear-gradient(135deg,#4ACA78,#7de3a8)'};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${alerts.length}</div>
+        <div class="coach-metric-label">Alerts Today</div>
+        <div class="coach-metric-sub">${alerts.length===0?'All clients on track':'Need attention'}</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:${avgC>=70?'linear-gradient(135deg,#4ACA78,#7de3a8)':avgC>=50?'var(--gradient-gold)':'linear-gradient(135deg,#E05252,#f07878)'};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${avgC}%</div>
+        <div class="coach-metric-label">Avg Compliance</div>
+        <div class="coach-metric-sub">${avgC>=70?'Excellent retention':avgC>=50?'Room to improve':'Needs coaching'}</div>
+      </div>
     </div>
 
     <!-- TIER BOARD -->
@@ -12184,8 +12913,9 @@ async function renderCoachDashboard(){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-top:0.5rem">
         ${['free','core','elite','vip','diamond'].map(t=>{
           const clients=allUsers.filter(u=>(u.tier||'free')===t);
-          return `<div style="background:var(--dark3);border:1px solid ${TIERS[t].color}33;padding:1rem;cursor:pointer;transition:var(--transition);border-radius:var(--radius-sm)" onmouseover="this.style.borderColor='${TIERS[t].color}66'" onmouseout="this.style.borderColor='${TIERS[t].color}33'" onclick="renderTierView('${t}')">
-            <div style="font-family:var(--font-display);font-size:2rem;color:${TIERS[t].color};line-height:1">${clients.length}</div>
+          return `<div style="background:linear-gradient(135deg,rgba(20,20,26,0.95),rgba(13,13,16,0.95));border:1px solid ${TIERS[t].color}33;padding:1rem;cursor:pointer;transition:all 0.22s ease;border-radius:var(--radius-lg);position:relative;overflow:hidden" onmouseover="this.style.borderColor='${TIERS[t].color}88';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='${TIERS[t].color}33';this.style.transform=''" onclick="renderTierView('${t}')">
+            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${TIERS[t].color};opacity:0.6"></div>
+            <div style="font-family:var(--font-display);font-size:2.4rem;color:${TIERS[t].color};line-height:1">${clients.length}</div>
             <div style="font-family:var(--font-cond);font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:${TIERS[t].color};margin-top:0.2rem">${TIERS[t].name}</div>
             ${clients.slice(0,3).map(u=>`<div style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.firstName} ${u.lastName}</div>`).join('')}
             ${clients.length>3?`<div style="font-size:0.7rem;color:var(--muted)">+${clients.length-3} more</div>`:''}
@@ -13493,30 +14223,62 @@ async function renderCoachAnalytics(){
     <div class="section-title">Analytics</div>
     <div class="section-sub">Full progress across all areas — ${allUsers.length} clients</div>
 
-    <div style="font-family:var(--font-cond);font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Business Metrics</div>
-    <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1rem">
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--gold)">$${mrr.toLocaleString()}</div><div class="analytics-label">MRR</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--green)">$${(mrr*12).toLocaleString()}</div><div class="analytics-label">ARR (projected)</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--purple)">$${avgLTV}</div><div class="analytics-label">Avg LTV (est.)</div></div>
-      <div class="analytics-stat"><div class="analytics-num">${allUsers.length}</div><div class="analytics-label">Total Clients</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--gold)">${payingClients.length}</div><div class="analytics-label">Paying</div></div>
+    <div style="font-family:var(--font-cond);font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Business Metrics</div>
+    <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:1.5rem">
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,var(--gold),#f5c842)">$${mrr.toLocaleString()}</div>
+        <div class="coach-metric-label">Monthly Revenue</div>
+        <div class="coach-metric-sub">MRR</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,var(--green),#4ade80)">$${(mrr*12).toLocaleString()}</div>
+        <div class="coach-metric-label">Annual Run Rate</div>
+        <div class="coach-metric-sub">ARR projected</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,#a855f7,#7c3aed)">$${avgLTV}</div>
+        <div class="coach-metric-label">Avg Client LTV</div>
+        <div class="coach-metric-sub">estimated</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,#60a5fa,#3b82f6)">${allUsers.length}</div>
+        <div class="coach-metric-label">Total Clients</div>
+        <div class="coach-metric-sub">all tiers</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,var(--gold),#f5c842)">${payingClients.length}</div>
+        <div class="coach-metric-label">Paying Clients</div>
+        <div class="coach-metric-sub">core tier &amp; above</div>
+      </div>
     </div>
 
-    <div style="font-family:var(--font-cond);font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Engagement & Retention</div>
-    <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1.5rem">
-      <div class="analytics-stat">
-        <div class="analytics-num" style="color:${retentionRate>=80?'var(--green)':retentionRate>=60?'var(--gold)':'var(--red)'}">${retentionRate}%</div>
-        <div class="analytics-label">Retention Rate</div>
-        <div style="font-size:0.65rem;color:var(--muted)">active paying / total paying</div>
+    <div style="font-family:var(--font-cond);font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Engagement &amp; Retention</div>
+    <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:1.5rem">
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,${retentionRate>=80?'var(--green),#4ade80':retentionRate>=60?'var(--gold),#f5c842':'var(--red),#f87171'})">${retentionRate}%</div>
+        <div class="coach-metric-label">Retention Rate</div>
+        <div class="coach-metric-sub">active paying / total paying</div>
       </div>
-      <div class="analytics-stat">
-        <div class="analytics-num" style="color:${engagementScore>=70?'var(--green)':engagementScore>=50?'var(--gold)':'var(--red)'}">${engagementScore}</div>
-        <div class="analytics-label">Engagement Score</div>
-        <div style="font-size:0.65rem;color:var(--muted)">compliance + training + course</div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,${engagementScore>=70?'var(--green),#4ade80':engagementScore>=50?'var(--gold),#f5c842':'var(--red),#f87171'})">${engagementScore}</div>
+        <div class="coach-metric-label">Engagement Score</div>
+        <div class="coach-metric-sub">compliance + training + course</div>
       </div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:${avgPct>=70?'var(--green)':avgPct>=50?'var(--gold)':'var(--red)'}">${avgPct}%</div><div class="analytics-label">Avg Compliance</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--green)">${onTrack}</div><div class="analytics-label">On Track ✅</div></div>
-      <div class="analytics-stat"><div class="analytics-num" style="color:var(--red)">${needsAttention}</div><div class="analytics-label">At Risk ⚠️</div></div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,${avgPct>=70?'var(--green),#4ade80':avgPct>=50?'var(--gold),#f5c842':'var(--red),#f87171'})">${avgPct}%</div>
+        <div class="coach-metric-label">Avg Compliance</div>
+        <div class="coach-metric-sub">7-day check-in rate</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,var(--green),#4ade80)">${onTrack}</div>
+        <div class="coach-metric-label">On Track</div>
+        <div class="coach-metric-sub">≥70% compliance</div>
+      </div>
+      <div class="coach-metric-card">
+        <div class="coach-metric-num" style="background:linear-gradient(135deg,var(--red),#f87171)">${needsAttention}</div>
+        <div class="coach-metric-label">At Risk</div>
+        <div class="coach-metric-sub">&lt;50% compliance</div>
+      </div>
     </div>
 
     <!-- FULL CLIENT TABLE -->
