@@ -6028,7 +6028,7 @@ ALTER TABLE coach_notes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "coach_notes_access" ON coach_notes USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
 
 ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "checkins_access" ON check_ins USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
+CREATE POLICY "checkins_access" ON check_ins USING (user_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
 
 ALTER TABLE workout_overrides ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "overrides_access" ON workout_overrides USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
@@ -8064,9 +8064,8 @@ async function renderPhotoGallery(){
         try {
           const url = await getSignedUrl(paths[i]);
           if(!url) continue;
-          const imgHtml = `<img src="${url}" style="width:90px;height:120px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.08);cursor:pointer" onclick="window.open('${url}','_blank')" loading="lazy" alt="Progress photo">`;
           const el = document.getElementById(`photo-${row.date.replace(/-/g,'')}-${i}`);
-          if(el) el.outerHTML = imgHtml;
+          if(el) { const img=document.createElement('img'); img.src=url; img.style.cssText='width:90px;height:120px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.08);cursor:pointer'; img.loading='lazy'; img.alt='Progress photo'; img.onclick=()=>window.open(url,'_blank'); el.replaceWith(img); }
         } catch(e) {}
       }
     }
@@ -8079,8 +8078,8 @@ async function renderPhotoGallery(){
         const afterUrl = latestPaths.length?await getSignedUrl(latestPaths[0]):null;
         const bw = document.getElementById('beforePhotoWrap');
         const aw = document.getElementById('afterPhotoWrap');
-        if(bw&&beforeUrl) bw.innerHTML=`<img src="${beforeUrl}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${beforeUrl}','_blank')">`;
-        if(aw&&afterUrl) aw.innerHTML=`<img src="${afterUrl}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${afterUrl}','_blank')">`;
+        if(bw&&beforeUrl) { const img=document.createElement('img'); img.src=beforeUrl; img.style.cssText='width:100%;height:100%;object-fit:cover;cursor:pointer'; img.onclick=()=>window.open(beforeUrl,'_blank'); bw.innerHTML=''; bw.appendChild(img); }
+        if(aw&&afterUrl) { const img=document.createElement('img'); img.src=afterUrl; img.style.cssText='width:100%;height:100%;object-fit:cover;cursor:pointer'; img.onclick=()=>window.open(afterUrl,'_blank'); aw.innerHTML=''; aw.appendChild(img); }
       } catch(e) {}
     }
     } catch(e) {}
@@ -14644,7 +14643,7 @@ async function loadProgressPhotos(email) {
       const paths=typeof row.photo_urls==='string'?JSON.parse(row.photo_urls):(row.photo_urls||[]);
       html+=`<div style="margin-bottom:0.75rem"><div style="font-size:0.7rem;color:var(--muted);font-family:var(--font-cond);margin-bottom:0.35rem">${row.date}</div><div style="display:flex;gap:0.4rem;flex-wrap:wrap">`;
       for(const path of paths){
-        try{const signed=await getProgressPhotoUrl(path);if(signed)html+=`<img src="${signed}" onclick="window.open('${signed}','_blank')" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1);cursor:pointer" alt="Progress photo" loading="lazy" onerror="this.style.display='none'">`;
+        try{const signed=await getProgressPhotoUrl(path);if(signed)html+=`<img src="${escapeAttr(signed)}" onclick="window.open(this.src,'_blank')" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1);cursor:pointer" alt="Progress photo" loading="lazy" onerror="this.style.display='none'">`;
         }catch(e){}
       }
       html+='</div></div>';
@@ -19433,7 +19432,7 @@ window.runCoachRiskScan = async function() {
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.35rem">' +
         '<span style="font-weight:700;font-size:0.88rem">' + escHTML(r.name) + '</span>' +
         '<span style="font-family:var(--font-cond);font-size:0.7rem;letter-spacing:0.08em;padding:0.15rem 0.5rem;border-radius:4px;background:' + (riskColors[r.riskLevel] || '#888') + '22;color:' + (riskColors[r.riskLevel] || '#888') + ';text-transform:uppercase">' + (r.riskLevel || 'unknown') + '</span></div>' +
-        '<div style="font-size:0.78rem;color:var(--muted)">' + (r.signals || []).join(' · ') + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--muted)">' + (r.signals || []).map(function(s){ return escHTML(s); }).join(' · ') + '</div>' +
         '<div style="font-size:0.75rem;color:var(--gold);margin-top:0.25rem">→ ' + escHTML(r.recommendedAction || '') + '</div></div>';
     });
     html += '</div><button class="btn btn-outline" onclick="closeModal(\'riskScanModal\')" style="margin-top:1rem;width:100%">Close</button></div></div>';
