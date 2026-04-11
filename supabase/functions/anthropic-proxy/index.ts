@@ -160,12 +160,12 @@ serve(async (req: Request) => {
         const today = new Date().toISOString().split("T")[0];
         const { data: usageRow } = await supabaseClient
           .from("daily_ai_usage")
-          .select("calls")
+          .select("scan_count")
           .eq("user_email", user.email)
-          .eq("date", today)
+          .eq("usage_date", today)
           .single();
 
-        const calls = (usageRow?.calls ?? 0) as number;
+        const calls = (usageRow?.scan_count ?? 0) as number;
         if (calls >= limit) {
           return new Response(
             JSON.stringify({

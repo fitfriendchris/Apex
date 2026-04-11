@@ -32,7 +32,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://apexcoaching.app";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -146,10 +146,10 @@ serve(async (req: Request) => {
     try {
       const today = new Date().toISOString().split("T")[0];
       const { data: usageRow } = await supabase
-        .from("daily_ai_usage").select("calls").eq("user_email", targetEmail).eq("date", today).single();
+        .from("daily_ai_usage").select("scan_count").eq("user_email", targetEmail).eq("usage_date", today).single();
       const LIMITS: Record<string, number> = { core: 100, elite: 200, vip: 500, diamond: 9999 };
       const limit = LIMITS[profile.tier] ?? 0;
-      const calls = (usageRow?.calls ?? 0) as number;
+      const calls = (usageRow?.scan_count ?? 0) as number;
       if (calls >= limit) return jsonError(`Daily AI limit reached (${calls}/${limit})`, 429);
     } catch { /* table may not exist yet */ }
   }

@@ -9149,7 +9149,8 @@ async function doCoachLogin(){
   // Server-side password verification — COACH_SECRET never leaves the server
   // POST to get-config with the password; server compares and returns secret only if valid
   try {
-    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config', {
+    const configUrl = SUPABASE_URL ? (SUPABASE_URL + '/functions/v1/get-config') : 'https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config';
+    const res = await fetch(configUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: p })

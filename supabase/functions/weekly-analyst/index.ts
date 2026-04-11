@@ -31,7 +31,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://apexcoaching.app";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
