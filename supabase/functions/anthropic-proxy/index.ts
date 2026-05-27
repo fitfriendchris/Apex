@@ -79,7 +79,7 @@ serve(async (req: Request) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
-    if (authError && !isCoach) {
+    if ((!user && !isCoach) || (authError && !isCoach)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized — valid Supabase session or coach token required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

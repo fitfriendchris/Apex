@@ -158,7 +158,7 @@ serve(async (req: Request) => {
     { global: { headers: { Authorization: authHeader } } }
   );
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr && !isCoach) return jsonError("Unauthorized", 401);
+  if ((!user && !isCoach) || (authErr && !isCoach)) return jsonError("Unauthorized", 401);
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400); }

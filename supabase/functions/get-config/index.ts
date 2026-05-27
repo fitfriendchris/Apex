@@ -33,10 +33,11 @@ serve(async (req) => {
       supabaseUrl:     Deno.env.get("SUPABASE_URL")      ?? "",
       supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       stripeLinks: {
-        core:    Deno.env.get("STRIPE_LINK_CORE")    ?? "",
-        elite:   Deno.env.get("STRIPE_LINK_ELITE")   ?? "",
-        vip:     Deno.env.get("STRIPE_LINK_VIP")     ?? "",
-        diamond: Deno.env.get("STRIPE_LINK_DIAMOND") ?? "",
+        core:     Deno.env.get("STRIPE_LINK_CORE")     ?? "",
+        elite:    Deno.env.get("STRIPE_LINK_ELITE")    ?? "",
+        vip:      Deno.env.get("STRIPE_LINK_VIP")      ?? "",
+        diamond:  Deno.env.get("STRIPE_LINK_DIAMOND")  ?? "",
+        ai_basic: Deno.env.get("STRIPE_LINK_APEX_AI_FEATURES") ?? "",
       },
     };
 

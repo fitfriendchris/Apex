@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
 
 ALTER TABLE daily_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "allow_all" ON daily_logs;
 DROP POLICY IF EXISTS "logs_self_all"   ON daily_logs;
 DROP POLICY IF EXISTS "coach_read_logs" ON daily_logs;
 
@@ -30,7 +31,7 @@ CREATE POLICY "logs_self_all" ON daily_logs
 
 CREATE POLICY "coach_read_logs" ON daily_logs
   FOR SELECT
-  USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
+  USING (EXISTS (SELECT 1 FROM coaches WHERE email = current_setting('request.jwt.claims', true)::json->>'email'));
 
 -- Workout logs (sets/reps per exercise)
 CREATE TABLE IF NOT EXISTS workout_logs (
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS workout_logs (
 
 ALTER TABLE workout_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "allow_all" ON workout_logs;
 DROP POLICY IF EXISTS "wlogs_self_all"   ON workout_logs;
 DROP POLICY IF EXISTS "wlogs_coach_read" ON workout_logs;
 
@@ -56,7 +58,7 @@ CREATE POLICY "wlogs_self_all" ON workout_logs
 
 CREATE POLICY "wlogs_coach_read" ON workout_logs
   FOR SELECT
-  USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
+  USING (EXISTS (SELECT 1 FROM coaches WHERE email = current_setting('request.jwt.claims', true)::json->>'email'));
 
 -- AI usage tracking (enforces daily limits)
 CREATE TABLE IF NOT EXISTS daily_ai_usage (
@@ -69,6 +71,7 @@ CREATE TABLE IF NOT EXISTS daily_ai_usage (
 
 ALTER TABLE daily_ai_usage ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "allow_all" ON daily_ai_usage;
 DROP POLICY IF EXISTS "ai_usage_self" ON daily_ai_usage;
 
 CREATE POLICY "ai_usage_self" ON daily_ai_usage

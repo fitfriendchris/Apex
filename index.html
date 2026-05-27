@@ -42,6 +42,7 @@
 </script>
 <script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // Sentry is optional — guard against CDN block / ad-blocker / network failure
 (function() {
@@ -5301,6 +5302,24 @@ async function loadConfig() {
     // COACH_SECRET is no longer sent in public config — verified server-side via POST
     if (cfg.stripeLinks) Object.assign(STRIPE_LINKS, cfg.stripeLinks);
     if (cfg.stripePortalUrl) STRIPE_PORTAL_URL = cfg.stripePortalUrl;
+    // Initialize Supabase Auth client once we have the URL + anon key
+    if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
+      supabaseAuth = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: true, persistSession: true, storageKey: 'apex_auth_session' }
+      });
+      supabaseAuth.auth.onAuthStateChange(function(event, session) {
+        currentAccessToken = session ? session.access_token : '';
+        if (event === 'PASSWORD_RECOVERY' && session) {
+          // Supabase Auth recovery token detected — show password reset modal
+          openModal('resetPasswordModal');
+        }
+      });
+      // Prime currentAccessToken if a session already exists
+      supabaseAuth.auth.getSession().then(function(_ref) {
+        var session = _ref.data.session;
+        currentAccessToken = session ? session.access_token : '';
+      });
+    }
   } catch (err) {
     // Non-fatal: fall back to localStorage-only mode
     // This is expected when running locally, in iframe, or Supabase function is not deployed
@@ -5410,6 +5429,8 @@ function getCoachById(id) {
 let SUPABASE_URL = '';
 let SUPABASE_ANON_KEY = '';
 let COACH_SECRET = '';
+let currentAccessToken = '';   // JWT from Supabase Auth, injected into sb() calls
+let supabaseAuth = null;       // Supabase JS client (auth-only)
 // Anthropic API — used for AI Food Scanner (photo analysis)
 // AI features are handled server-side via Supabase Edge Function.
 // No API key required from clients.
@@ -5617,9 +5638,10 @@ window.addEventListener('online', ()=>{ _sbOk=true; _sbFails=0; });
 async function sb(table, method='GET', body=null, params='') {
   if (!_sbAvail()) return { data: null, error: { message: 'offline' } };
   const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
+  const token = currentAccessToken || SUPABASE_ANON_KEY;
   const headers = {
     'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
     'Prefer': method==='POST'?'return=representation':method==='PATCH'?'return=representation':''
   };
@@ -5663,8 +5685,9 @@ async function sbUpsert(table, body, onConflict) {
   } catch(e) {}
   if (!isConfigured() || !_sbAvail()) { return { data:body, error:null }; }
   const url = SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict;
+  const token = currentAccessToken || SUPABASE_ANON_KEY;
   const headers = {
-    'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token,
     'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation'
   };
   const ctrl = new AbortController();
@@ -6295,13 +6318,11 @@ async function getUser(email) {
   const cached = local[email.toLowerCase()]||null;
   if (!_sbAvail()) return cached;
   try {
-    const {data,error}=await sbGet('users',`?email=eq.${encodeURIComponent(email.toLowerCase())}&select=email,first_name,last_name,age,sex,height,weight,goal_weight,goal,activity,diet,transform,start_weight,join_date,tier,tier_expires,stripe_customer_id,created_at,password,email_verified`);
+    const {data,error}=await sbGet('users',`?email=eq.${encodeURIComponent(email.toLowerCase())}&select=email,first_name,last_name,age,sex,height,weight,goal_weight,goal,activity,diet,transform,start_weight,join_date,tier,tier_expires,stripe_customer_id,created_at,email_verified`);
     if (error || !data || !data.length) return cached;
     const user = dbToUser(data[0]);
-    // SECURITY: Never cache password hash in localStorage — strip it before storing
-    const { password: _pw, ...userSafe } = user;
-    local[email.toLowerCase()] = userSafe; lf.set('users', local); // sync cache
-    return user; // return full object (including hash) for in-memory auth only
+    local[email.toLowerCase()] = user; lf.set('users', local); // sync cache
+    return user;
   } catch(e) { return cached; }
 }
 async function _getAllUsersImpl() {
@@ -6314,9 +6335,7 @@ async function createUser(user) {
   try {
     if (!isConfigured()) {
       const u=lf.get('users')||{};
-      // SECURITY: strip password hash before writing to localStorage
-      const { password: _pw, ...userSafe } = user;
-      u[user.email]=userSafe; lf.set('users',u);
+      u[user.email]=user; lf.set('users',u);
       return {data:user,error:null};
     }
     return await sbPost('users', userToDb(user));
@@ -6326,9 +6345,7 @@ async function updateUser(email, updates) {
   try {
     if (!isConfigured()) {
       const u=lf.get('users')||{};
-      // Strip password from localStorage — never persist it
-      const { password: _pw, ...updatesSafe } = updates;
-      u[email]={...u[email],...updatesSafe};
+      u[email]={...u[email],...updates};
       lf.set('users',u);
       if (currentUser) Object.assign(currentUser, updates); // in-memory gets full update
       return {data:u[email],error:null};
@@ -6432,63 +6449,7 @@ function getExercisePR(email, exerciseName){
 function defaultLog(){ return {foods:[],checks:{},water:0,fastStart:'20:00',fastEnd:'12:00'}; }
 
 // ================================================================
-//  PASSWORD SECURITY — PBKDF2-SHA256 via Web Crypto API
-//  No dependencies. Works in all modern browsers.
-//  Format stored: "pbkdf2:<16-byte-salt-hex>:<32-byte-hash-hex>"
-//  Legacy plaintext passwords are auto-migrated on next login.
-// ================================================================
-async function _pbkdf2Hash(password, saltHex) {
-  const enc = new TextEncoder();
-  const keyMat = await crypto.subtle.importKey(
-    'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name:'PBKDF2', salt: enc.encode(saltHex), iterations: 150000, hash:'SHA-256' },
-    keyMat, 256
-  );
-  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-function _genSalt() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-// Hash a plaintext password for storage
-async function hashPassword(plain) {
-  const salt = _genSalt();
-  const hash = await _pbkdf2Hash(plain, salt);
-  return `pbkdf2:${salt}:${hash}`;
-}
-
-// Verify a password against stored hash (supports legacy plaintext migration)
-async function verifyPassword(plain, stored) {
-  if (!stored) return false;
-  if (stored.startsWith('pbkdf2:')) {
-    const parts = stored.split(':');
-    if (parts.length !== 3) return false;
-    const [, salt, expectedHash] = parts;
-    const computed = await _pbkdf2Hash(plain, salt);
-    // Constant-time comparison (prevent timing attacks)
-    if (computed.length !== expectedHash.length) return false;
-    let diff = 0;
-    for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expectedHash.charCodeAt(i);
-    return diff === 0;
-  }
-  // Legacy plaintext — will be migrated on successful login
-  return plain === stored;
-}
-
-// Check if password needs migration (is still plaintext)
-function _needsMigration(stored) {
-  return stored && !stored.startsWith('pbkdf2:');
-}
-
-
-
-// ================================================================
 //  SUPABASE EDGE FUNCTION: supabase/functions/send-email/index.ts
-//  Deploy with: supabase functions deploy send-email
 //
 //  import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 //  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
@@ -6553,7 +6514,7 @@ async function sendEmail(templateId, toEmail, toName, data = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        'Authorization': `Bearer ${currentAccessToken || SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify(payload)
     }).catch(() => {}); // silent fail — email is non-critical
@@ -7128,7 +7089,7 @@ Tone: direct, expert, like a coach who genuinely cares. No fluff. Max 180 words 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY)
       },
       body: JSON.stringify({
         type: 'weekly-report',
@@ -7210,7 +7171,7 @@ async function checkStripeUpgrade() {
     try {
       const verifyRes = await fetch(SUPABASE_URL + '/functions/v1/verify-stripe-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
         body: JSON.stringify({ sessionId, plan, userEmail: currentUser?.email || '' })
       });
       if (verifyRes.ok) {
@@ -7993,7 +7954,7 @@ async function renderPhotoGallery(){
   async function getSignedUrl(path){
     try{
       const res = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/progress-photos/${path}`,{
-        method:'POST', headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+        method:'POST', headers:{'Authorization':'Bearer '+(currentAccessToken || SUPABASE_ANON_KEY),'Content-Type':'application/json'},
         body: JSON.stringify({expiresIn:3600})
       });
       const d = await res.json();
@@ -8615,12 +8576,12 @@ async function uploadProgressPhoto(email, dataUrl, filename) {
   const base64=dataUrl.split(',')[1]; const mime=dataUrl.split(';')[0].split(':')[1];
   const path=`${email}/${getTodayStr()}_${filename}`;
   const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
-  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':mime,'x-upsert':'true'},body:bytes});
+  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+(currentAccessToken || SUPABASE_ANON_KEY),'Content-Type':mime,'x-upsert':'true'},body:bytes});
   if(!res.ok) throw new Error('Upload failed: '+res.status);
   return path;
 }
 async function getProgressPhotoUrl(path) {
-  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/sign/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
+  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/sign/progress-photos/${path}`,{method:'POST',headers:{'Authorization':'Bearer '+(currentAccessToken || SUPABASE_ANON_KEY),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
   const data=await res.json();
   return data.signedURL ? `${SUPABASE_URL}/storage/v1${data.signedURL}` : null;
 }
@@ -8872,46 +8833,35 @@ async function doLogin(){
   if(!email || !pass){ err.textContent='Please enter your email and password.'; return; }
   setBtn('loginBtn', true, 'Logging in...');
 
-  let user = await getUser(email);
+  // Server-side authentication via Supabase Auth
+  if (!supabaseAuth) {
+    err.textContent = 'Authentication service unavailable. Please try again later.';
+    setBtn('loginBtn', false, 'Login');
+    return;
+  }
+  const { data: authData, error: authError } = await supabaseAuth.auth.signInWithPassword({ email, password: pass });
+  if (authError || !authData.session) {
+    err.textContent = 'Invalid email or password.';
+    clientLoginAttempts = (clientLoginAttempts||0) + 1;
+    if(clientLoginAttempts >= 5){ clientLoginLockoutUntil = Date.now() + 60000; clientLoginAttempts = 0; }
+    setBtn('loginBtn', false, 'Login');
+    return;
+  }
+  currentAccessToken = authData.session.access_token;
 
-  // Supabase might be down — try localStorage fallback
+  // Fetch extended profile from public.users
+  let user = await getUser(email);
   if(!user){
     const localUsers = lf.get('users') || {};
     user = localUsers[email] || null;
   }
 
   if(!user){
-    err.textContent = 'Invalid email or password.';
-    clientLoginAttempts = (clientLoginAttempts||0) + 1;
-    if(clientLoginAttempts >= 5){ clientLoginLockoutUntil = Date.now() + 60000; clientLoginAttempts = 0; }
-    setBtn('loginBtn', false, 'Login');
-    return;
-  }
-  const passwordValid = await verifyPassword(pass, user.password);
-  if(!passwordValid){
-    err.textContent = 'Invalid email or password.';
-    clientLoginAttempts = (clientLoginAttempts||0) + 1;
-    if(clientLoginAttempts >= 5){ clientLoginLockoutUntil = Date.now() + 60000; clientLoginAttempts = 0; }
-    setBtn('loginBtn', false, 'Login');
-    return;
+    // Auth account exists but no profile row yet — create minimal profile
+    user = { email: email, firstName: '', lastName: '', tier: 'free', joinDate: todayStr };
+    await createUser(user);
   }
 
-  // Auto-migrate legacy plaintext password to PBKDF2 hash on successful login
-  if (_needsMigration(user.password)) {
-    const hashed = await hashPassword(pass);
-    await updateUser(email, { password: hashed });
-    user.password = hashed;
-  }
-
-  // Email verification gate (48h grace period for new/legacy accounts)
-  if (!isEmailVerified(user)) {
-    const err2 = document.getElementById('loginError');
-    if(err2){
-      err2.innerHTML = '⚠️ Please verify your email first. <button onclick="sendVerificationEmail(\'' + escapeAttr(email) + '\',\'' + escapeAttr(user.firstName||'') + '\').then(()=>showToast(\'Verification email sent!\',\'gold\',4000))" style="background:none;border:1px solid rgba(201,168,76,0.4);color:var(--gold);font-size:0.78rem;padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;margin-left:0.4rem">Resend</button>';
-    }
-    setBtn('loginBtn', false, 'Log In →');
-    return;
-  }
   currentUser = user; isCoach = false;
   lf.set('session', { email, ts: Date.now() });
   closeModal('loginModal');
@@ -8953,16 +8903,34 @@ async function doRegister(){
 
   setBtn('regBtn', true, 'Joining...');
 
-  // Check for existing account
+  if (!supabaseAuth) {
+    err.textContent = 'Authentication service unavailable. Please try again later.';
+    setBtn('regBtn', false, 'Join for Free →');
+    return;
+  }
+
+  // Check for existing profile (not fatal — Supabase Auth will reject duplicate emails)
   const existing = await getUser(rEmail);
   if(existing){ err.textContent='Email already registered. Please log in.'; setBtn('regBtn',false,'Join for Free →'); return; }
 
-  // Hash password before storage — never store plaintext
+  // Create Supabase Auth account (server-side hashed — never touches client)
   setBtn('regBtn', true, 'Securing your account...');
-  const hashedPass = await hashPassword(rPass);
+  const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
+    email: rEmailClean,
+    password: rPass,
+    options: { data: { first_name: rFirstClean, last_name: rLastClean } }
+  });
+  if (authError) {
+    err.textContent = authError.message || 'Account creation failed. Please try again.';
+    setBtn('regBtn', false, 'Join for Free →');
+    return;
+  }
+  if (authData.session) {
+    currentAccessToken = authData.session.access_token;
+  }
 
   const user = {
-    email:rEmailClean, password:hashedPass,
+    email:rEmailClean,
     firstName:rFirstClean, lastName:rLastClean,
     age:parseInt(rAge), sex:rSex,
     height:parseFloat(rHeight), weight:parseFloat(rWeight),
@@ -8976,10 +8944,8 @@ async function doRegister(){
 
   if(error){
     // If Supabase fails (network, RLS, etc) — save locally so signup still works
-    // SECURITY: never persist password hash in localStorage
-    const { password: _pw, ...userSafe } = user;
     const localUsers = lf.get('users') || {};
-    localUsers[rEmail] = userSafe;
+    localUsers[rEmail] = user;
     lf.set('users', localUsers);
   }
 
@@ -8989,66 +8955,16 @@ async function doRegister(){
   closeModal('registerModal');
   await launchApp();
   showToast('🎉 Welcome to APEX, '+rFirst+'! Your account is ready.', 'gold', 5000);
-  // Fire welcome + verification emails (non-blocking)
+  // Fire welcome email (non-blocking)
   emailWelcome(user).catch(()=>{});
-  sendVerificationEmail(rEmail, rFirst).catch(()=>{});
-  // Show verification reminder after 2s
-  setTimeout(() => showToast('📧 Check your email to verify your account.', 'info', 6000), 2000);
   // Schedule upgrade nudge check (48 hours)
   setTimeout(() => emailUpgradeNudge(user).catch(()=>{}), 172800000);
 }
 
-// ── EMAIL VERIFICATION ───────────────────────────────────────────────────────
-async function sendVerificationEmail(email, firstName) {
-  const token = Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b=>b.toString(16).padStart(2,'0')).join('');
-  const expires = Date.now() + 86400000; // 24 hours
-  try {
-    await updateUser(email, { emailVerifyToken: token, emailVerifyExpires: expires, emailVerified: false });
-    const verifyUrl = window.location.origin + window.location.pathname + '?verifyEmail=' + encodeURIComponent(email) + '&token=' + token;
-    await sendEmail(EMAIL_TEMPLATES.emailVerify, email, firstName, {
-      firstName,
-      verifyUrl,
-      subject: 'Verify your APEX account'
-    });
-    return token;
-  } catch(e) {
-    return null; // Don't block signup if email fails
-  }
-}
-
-async function checkEmailVerification() {
-  const params = new URLSearchParams(window.location.search);
-  const verifyEmail = params.get('verifyEmail');
-  const verifyToken = params.get('token');
-  if (!verifyEmail || !verifyToken) return;
-
-  window.history.replaceState({}, '', window.location.pathname);
-
-  const user = await getUser(verifyEmail);
-  if (!user) { showToast('Verification link invalid or expired.', 'error', 5000); return; }
-  if (user.emailVerified) { showToast('Email already verified — you can log in.', 'gold', 4000); return; }
-
-  const now = Date.now();
-  if (user.emailVerifyToken !== verifyToken || (user.emailVerifyExpires && now > user.emailVerifyExpires)) {
-    showToast('Verification link expired. Please request a new one.', 'error', 6000);
-    return;
-  }
-
-  await updateUser(verifyEmail, { emailVerified: true, emailVerifyToken: null, emailVerifyExpires: null });
-  showToast('✅ Email verified! You can now log in.', 'gold', 5000);
-  setTimeout(() => openModal('loginModal'), 1200);
-}
-
+// ── EMAIL VERIFICATION (legacy — now handled by Supabase Auth) ────────────────
 function isEmailVerified(user) {
-  if (!user) return false;
-  if (user.emailVerified === true) return true;
-  // If emailVerified is null/undefined (legacy accounts before verification was added), let them in
-  if (user.emailVerified === null || user.emailVerified === undefined) return true;
-  // 30-day grace period for existing accounts
-  const joined = user.joinDate ? new Date(user.joinDate).getTime() : 0;
-  const gracePeriod = 30 * 24 * 60 * 60 * 1000;
-  if (Date.now() - joined < gracePeriod) return true;
-  return false;
+  // With Supabase Auth, users are confirmed immediately (email confirmation disabled)
+  return true;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 async function doForgot(){
@@ -9061,17 +8977,9 @@ async function doForgot(){
 
   // Always show success regardless of whether email exists — prevents user enumeration
   try {
-    const user = await getUser(email);
-    if(user) {
-      // Generate a dedicated password-reset token (separate from email-verify token)
-      const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,'0')).join('');
-      const expires = Date.now() + 3600000; // 1 hour
-      await updateUser(email, { passwordResetToken: token, passwordResetExpires: expires });
-      const resetUrl = window.location.origin + window.location.pathname + '?resetPassword=' + encodeURIComponent(email) + '&token=' + token;
-      await sendEmail(EMAIL_TEMPLATES.passwordReset, email, user.firstName || '', {
-        firstName: user.firstName || '',
-        resetUrl,
-        subject: 'Reset your APEX password'
+    if (supabaseAuth) {
+      await supabaseAuth.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
       });
     }
   } catch(e) {}
@@ -9080,38 +8988,8 @@ async function doForgot(){
   setBtn('forgotBtn', false, 'Send Reset Link');
 }
 
-async function handlePasswordReset() {
-  const params = new URLSearchParams(window.location.search);
-  const resetEmail = params.get('resetPassword');
-  const resetToken = params.get('token');
-  if (!resetEmail || !resetToken) return;
-
-  // Clean URL immediately so token isn't visible in address bar
-  window.history.replaceState({}, '', window.location.pathname);
-
-  const user = await getUser(resetEmail);
-  if (!user) { showToast('Reset link is invalid or has expired.', 'error', 6000); return; }
-
-  const now = Date.now();
-  if (user.passwordResetToken !== resetToken || !user.passwordResetExpires || now > user.passwordResetExpires) {
-    showToast('Reset link has expired. Please request a new one.', 'error', 6000);
-    setTimeout(() => openModal('forgotModal'), 1200);
-    return;
-  }
-
-  // Token valid — show the set-new-password modal
-  const modal = document.getElementById('resetPasswordModal');
-  if (modal) {
-    modal.dataset.resetEmail = resetEmail;
-    modal.dataset.resetToken = resetToken;
-    openModal('resetPasswordModal');
-  }
-}
 
 async function doResetPassword() {
-  const modal = document.getElementById('resetPasswordModal');
-  const email = modal?.dataset.resetEmail;
-  const token = modal?.dataset.resetToken;
   const np = document.getElementById('resetNewPass').value;
   const cp = document.getElementById('resetConfirmPass').value;
   const errEl = document.getElementById('resetPassError');
@@ -9119,19 +8997,13 @@ async function doResetPassword() {
 
   if (!np || np.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
   if (np !== cp) { errEl.textContent = 'Passwords do not match.'; return; }
-  if (!email || !token) { errEl.textContent = 'Invalid reset session. Please start over.'; return; }
 
   setBtn('resetPassSubmitBtn', true, 'Saving...');
 
   try {
-    const user = await getUser(email);
-    if (!user || user.passwordResetToken !== token || Date.now() > user.passwordResetExpires) {
-      errEl.textContent = 'Reset link has expired. Please request a new one.';
-      setBtn('resetPassSubmitBtn', false, 'Set New Password');
-      return;
-    }
-    const hashed = await hashPassword(np);
-    await updateUser(email, { password: hashed, passwordResetToken: null, passwordResetExpires: null });
+    if (!supabaseAuth) { throw new Error('Auth not ready'); }
+    const { error } = await supabaseAuth.auth.updateUser({ password: np });
+    if (error) { errEl.textContent = error.message; setBtn('resetPassSubmitBtn', false, 'Set New Password'); return; }
     closeModal('resetPasswordModal');
     showToast('✅ Password updated! You can now log in.', 'gold', 5000);
     setTimeout(() => openModal('loginModal'), 800);
@@ -9178,6 +9050,30 @@ async function doCoachLogin(){
 
   const matchedCoach = getCoachById(APP_CONFIG.defaultCoachId);
   if (matchedCoach) {
+    // Ensure coach has a Supabase Auth session for RLS
+    if (supabaseAuth) {
+      try {
+        // Try signing in with coach email + COACH_SECRET as password
+        const { data: authData } = await supabaseAuth.auth.signInWithPassword({
+          email: matchedCoach.email,
+          password: COACH_SECRET || p
+        });
+        if (authData && authData.session) {
+          currentAccessToken = authData.session.access_token;
+        }
+      } catch(e) {
+        // If login fails, create the coach auth account silently
+        try {
+          const { data: signUpData } = await supabaseAuth.auth.signUp({
+            email: matchedCoach.email,
+            password: COACH_SECRET || p
+          });
+          if (signUpData && signUpData.session) {
+            currentAccessToken = signUpData.session.access_token;
+          }
+        } catch(e2) {}
+      }
+    }
     coachLoginAttempts=0;
     isCoach=true; currentUser=null;
     window._activeCoachId = matchedCoach.id;
@@ -9187,9 +9083,13 @@ async function doCoachLogin(){
     await launchApp();
   }
 }
-function logout(){
+async function logout(){
   currentUser=null; isCoach=false; viewingClient=null;
   lf.del('session');
+  currentAccessToken = '';
+  if (supabaseAuth) {
+    try { await supabaseAuth.auth.signOut(); } catch(e) {}
+  }
   document.getElementById('app').classList.remove('active');
   document.getElementById('app').style.display='none';
   document.getElementById('salesPage').classList.remove('hidden');
@@ -9239,8 +9139,7 @@ async function launchApp(){
   }
 
   if (!isCoach && currentUser && !window._previewMode) await checkStripeUpgrade();
-  await checkEmailVerification();
-  await handlePasswordReset();
+  // Legacy email verification and password reset URL handlers removed — now handled by Supabase Auth
   if (!isCoach && currentUser) checkTierExpiry(currentUser);
   buildNav();
   buildMobileNav();
@@ -11899,7 +11798,7 @@ async function clientGenerateMealPlan() {
   try {
     const res = await fetch(SUPABASE_URL + '/functions/v1/coach-ai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
       body: JSON.stringify({ type: 'meal-plan', payload: {
         calories: macros.calories, protein: macros.protein,
         carbs: macros.carb, fats: macros.fat,
@@ -12307,7 +12206,7 @@ async function aiAnalyzeMeal(){
     try {
       res = await fetch(SUPABASE_URL + '/functions/v1/analyze-food', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
         signal: _aiCtrl.signal,
         body: JSON.stringify({
           type: 'text',
@@ -12692,7 +12591,7 @@ async function ntAnalyzeFood(){
     const res = await Promise.race([
       _nativeFetch(SUPABASE_URL + '/functions/v1/analyze-food', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
         body: JSON.stringify({
           type: 'scan',
           userEmail: currentUser?.email || 'anonymous',
@@ -13848,9 +13747,14 @@ async function changePass(){
   if(np!==cp){el.style.color='var(--red)';el.textContent='Passwords do not match.';return;}
   if(np.length<6){el.style.color='var(--red)';el.textContent='Min 6 characters.';return;}
   setBtn('changePassBtn',true);
-  const hashedChangedPass = await hashPassword(np);
-  await updateUser(currentUser.email,{password:hashedChangedPass});
-  el.style.color='var(--green)';el.textContent='✅ Password updated!';
+  try {
+    if (!supabaseAuth) throw new Error('Auth not ready');
+    const { error } = await supabaseAuth.auth.updateUser({ password: np });
+    if (error) throw error;
+    el.style.color='var(--green)';el.textContent='✅ Password updated!';
+  } catch(e) {
+    el.style.color='var(--red)';el.textContent = e.message || 'Failed to update password.';
+  }
   setBtn('changePassBtn',false,'Update Password');
 }
 
@@ -14462,7 +14366,7 @@ Each meal: specific foods with portions (e.g. "6oz grilled chicken, 1 cup brown 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY)
       },
       body: JSON.stringify({
         type: 'meal-plan',
@@ -15021,14 +14925,12 @@ async function coachCalNav(action, arg){
 async function saveClientNotes(email){ setBtn('saveNotesBtn',true);await saveCoachNotes(email,document.getElementById('coachNotesArea').value);const el=document.getElementById('cnoteMsg');el.style.color='var(--green)';el.textContent='✅ Saved.';setBtn('saveNotesBtn',false,'Save Notes'); }
 async function resetClientPass(email){
   if(!isCoach){ showToast('Unauthorized','error'); return; }
-  const np=document.getElementById('resetPass').value;
   const el=document.getElementById('resetMsg');
-  if(!np||np.length<6){el.style.color='var(--red)';el.textContent='Min 6 characters.';return;}
   setBtn('resetPassBtn',true);
-  const hashed=await hashPassword(np);
-  await updateUser(email,{password:hashed});
-  el.style.color='var(--green)';
-  el.textContent='✅ Password reset.';
+  // With Supabase Auth, coaches cannot directly reset client passwords.
+  // Direct the client to use "Forgot password" on the login screen.
+  el.style.color='var(--gold)';
+  el.textContent='ℹ️ Have the client use "Forgot password" on the login screen. They will receive a secure reset link via email.';
   setBtn('resetPassBtn',false,'Reset');
 }
 // ── COACH WORKOUT EDITOR ─────────────────────────────────────
@@ -17963,7 +17865,27 @@ async function init(){
     }
   } catch(e){}
 
-  // Check saved session — use localStorage only (instant, no network)
+  // Check Supabase Auth session first (more reliable than localStorage timestamp)
+  if (supabaseAuth) {
+    try {
+      const { data: { session } } = await supabaseAuth.auth.getSession();
+      if (session && session.user) {
+        currentAccessToken = session.access_token;
+        const user = await getUser(session.user.email);
+        if (user) {
+          currentUser = user; isCoach = false;
+          await launchApp(); return;
+        }
+        // Auth session exists but no profile — create minimal one
+        const minimalUser = { email: session.user.email, firstName: '', lastName: '', tier: 'free', joinDate: todayStr };
+        await createUser(minimalUser);
+        currentUser = minimalUser; isCoach = false;
+        await launchApp(); return;
+      }
+    } catch(e) {}
+  }
+
+  // Fallback: check saved localStorage session (offline / legacy)
   const session=lf.get('session');
   if(session){
     // Validate session age: 7 days for users, 24h for coach (higher privilege)
@@ -19291,7 +19213,7 @@ window.runProgramBuilder = async function() {
   try {
     var res = await fetch(SUPABASE_URL + '/functions/v1/program-builder', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
       body: JSON.stringify({
         user: { firstName: user.firstName, age: user.age, sex: user.sex, weight: user.weight, height: user.height, goal: user.goal, activity: user.activity, transform: user.transform, tier: user.tier },
         weeks: weeks, equipment: equipment, focus: focus
@@ -19362,7 +19284,7 @@ window.requestWeeklyReport = async function() {
   try {
     var res = await fetch(SUPABASE_URL + '/functions/v1/weekly-analyst', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
       body: JSON.stringify({
         user: { email: currentUser.email, firstName: currentUser.firstName, age: currentUser.age, sex: currentUser.sex, weight: currentUser.weight, goalWeight: currentUser.goalWeight || currentUser.goal_weight, goal: currentUser.goal, tier: currentUser.tier, joinDate: currentUser.created_at },
         logs: logs, checkIn: checkInData, macros: macros
@@ -19417,7 +19339,7 @@ window.runCoachRiskScan = async function() {
     }
     var res = await fetch(SUPABASE_URL + '/functions/v1/coach-copilot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'X-Coach-Token': COACH_SECRET },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY), 'X-Coach-Token': COACH_SECRET },
       body: JSON.stringify({ action: 'risk-scan', allClients: clientSummaries })
     });
     var data = await res.json();
@@ -19450,7 +19372,7 @@ window.generateClientBrief = async function(email) {
     if (!u) { showToast('Client not found', 'error'); return; }
     var res = await fetch(SUPABASE_URL + '/functions/v1/coach-copilot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'X-Coach-Token': COACH_SECRET },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY), 'X-Coach-Token': COACH_SECRET },
       body: JSON.stringify({ action: 'client-brief', clientData: u })
     });
     var data = await res.json();
@@ -19475,7 +19397,7 @@ window.suggestMacroAdjust = async function(email) {
     var macros = calcMacros(u);
     var res = await fetch(SUPABASE_URL + '/functions/v1/coach-copilot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'X-Coach-Token': COACH_SECRET },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY), 'X-Coach-Token': COACH_SECRET },
       body: JSON.stringify({ action: 'macro-adjust', clientData: { firstName: u.firstName, goal: u.goal, weight: u.weight, goalWeight: u.goalWeight || u.goal_weight, calories: macros.calories, protein: macros.protein, carb: macros.carb, fat: macros.fat } })
     });
     var data = await res.json();

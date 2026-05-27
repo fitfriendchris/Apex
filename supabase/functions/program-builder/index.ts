@@ -113,7 +113,7 @@ serve(async (req: Request) => {
   );
 
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr && !isCoach) return jsonError("Unauthorized", 401);
+  if ((!user && !isCoach) || (authErr && !isCoach)) return jsonError("Unauthorized", 401);
 
   // ── Parse body ────────────────────────────────────────────────────────────────
   let body: Record<string, unknown>;

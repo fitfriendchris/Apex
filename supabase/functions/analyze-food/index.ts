@@ -1,5 +1,9 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const ALLOWED_ORIGINS = [
   "https://apexcoaching.app",
   "https://apex-356.pages.dev",
@@ -78,6 +82,18 @@ Deno.serve(async (req) => {
   const cors = getCors(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
+    // ── Authenticate caller via Supabase JWT ────────────────────────────
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized — valid Supabase session required" }),
+        { status: 401, headers: { ...cors, "Content-Type": "application/json" } }
+      );
+    }
     const body = await req.json();
     const { type, meal, image, userContext } = body;
     let food;
