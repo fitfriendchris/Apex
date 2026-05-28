@@ -1,18 +1,34 @@
 -- Harden messages INSERT to prevent sender_email spoofing.
--- The existing FOR ALL policy allowed any participant to INSERT with any sender_email.
--- We split it into SELECT/UPDATE/DELETE (conversation-based) and INSERT (conversation + sender verified).
+-- PostgreSQL does not allow comma-separated command lists in FOR clauses.
+-- We create separate policies for SELECT / UPDATE / DELETE and a stricter INSERT.
 
 DROP POLICY IF EXISTS "messages_participants" ON messages;
 
--- Participants and coaches can read, update, delete messages in their conversations
-CREATE POLICY "messages_participants" ON messages
-  FOR SELECT, UPDATE, DELETE USING (
+-- 1. SELECT: participants and coaches can read messages in their conversations
+CREATE POLICY "messages_select" ON messages
+  FOR SELECT USING (
     conversation_id LIKE (current_setting('request.jwt.claims', true)::json->>'email') || '%'
     OR conversation_id LIKE '%:' || (current_setting('request.jwt.claims', true)::json->>'email')
     OR EXISTS (SELECT 1 FROM coaches WHERE LOWER(email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email'))
   );
 
--- Only the authenticated sender (or a coach) can insert a message into a conversation they participate in
+-- 2. UPDATE: same scope as SELECT
+CREATE POLICY "messages_update" ON messages
+  FOR UPDATE USING (
+    conversation_id LIKE (current_setting('request.jwt.claims', true)::json->>'email') || '%'
+    OR conversation_id LIKE '%:' || (current_setting('request.jwt.claims', true)::json->>'email')
+    OR EXISTS (SELECT 1 FROM coaches WHERE LOWER(email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email'))
+  );
+
+-- 3. DELETE: same scope as SELECT
+CREATE POLICY "messages_delete" ON messages
+  FOR DELETE USING (
+    conversation_id LIKE (current_setting('request.jwt.claims', true)::json->>'email') || '%'
+    OR conversation_id LIKE '%:' || (current_setting('request.jwt.claims', true)::json->>'email')
+    OR EXISTS (SELECT 1 FROM coaches WHERE LOWER(email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email'))
+  );
+
+-- 4. INSERT: stricter — must be a participant AND sender must match JWT email (or be a coach)
 CREATE POLICY "messages_insert" ON messages
   FOR INSERT WITH CHECK (
     (
