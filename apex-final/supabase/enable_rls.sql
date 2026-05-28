@@ -261,7 +261,78 @@ CREATE POLICY "ai_usage_self" ON daily_ai_usage
 
 
 -- ════════════════════════════════════════════════════════════════
--- 12. ADDITIONAL TABLES
+-- 12. CREATE MISSING TABLES (if they don't exist yet)
+-- ════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS weight_history (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email text NOT NULL,
+  log_date date NOT NULL,
+  weight_lbs numeric(5,1) NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_email, log_date)
+);
+
+CREATE TABLE IF NOT EXISTS personal_records (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email text NOT NULL,
+  lift_name text NOT NULL,
+  weight_lbs numeric(6,1),
+  reps int,
+  pr_date date,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_email, lift_name)
+);
+
+CREATE TABLE IF NOT EXISTS body_measurements (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email text NOT NULL,
+  site_name text NOT NULL,
+  value_inches numeric(5,2),
+  measured_date date,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_gamification (
+  user_email text PRIMARY KEY,
+  total_xp int DEFAULT 0,
+  level int DEFAULT 1,
+  streak_days int DEFAULT 0,
+  badges jsonb DEFAULT '[]',
+  last_activity date,
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS course_progress (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email text NOT NULL,
+  course_id text NOT NULL,
+  progress_data jsonb DEFAULT '{}',
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_email, course_id)
+);
+
+CREATE TABLE IF NOT EXISTS check_ins (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email text NOT NULL,
+  date date NOT NULL,
+  week int,
+  energy int,
+  sleep int,
+  stress int,
+  perf int,
+  weight numeric(6,1),
+  win text,
+  challenge text,
+  coach_q text,
+  photo_urls jsonb DEFAULT '[]',
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_email, date)
+);
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 13. ADDITIONAL TABLES — RLS POLICIES
 -- ════════════════════════════════════════════════════════════════
 
 -- weight_history
