@@ -6784,14 +6784,20 @@ async function sendMessage(convId, senderEmail, senderName, body) {
   _lsAddMsg(convId, msg); // optimistic local write
   if (isConfigured()) {
     try {
+      const [clientEmail, coachId] = convId.split(':');
+      const isFromClient = senderEmail === clientEmail;
+      const recipientEmail = isFromClient
+        ? (getCoachById(coachId).email || getDefaultCoach().email)
+        : clientEmail;
       await sbPost('messages', {
         conversation_id: convId,
         sender_email: senderEmail,
         sender_name: senderName,
+        recipient_email: recipientEmail,
         body: body.trim(),
         read_by: [senderEmail]
       });
-    } catch(e) {}
+    } catch(e) { console.warn('[APEX] sendMessage server save failed:', e.message); }
   }
   // Notify via email if recipient is likely offline
   // (fire-and-forget — never block)
@@ -6802,15 +6808,28 @@ async function sendMessage(convId, senderEmail, senderName, body) {
 }
 
 async function markConversationRead(convId, readerEmail) {
+  // Use real coach email for server-side operations (COACH_SELF_EMAIL is a local sentinel)
+  const realReaderEmail = readerEmail === COACH_SELF_EMAIL
+    ? (getDefaultCoach().email || readerEmail)
+    : readerEmail;
   _lsMarkRead(convId, readerEmail);
   _unreadCache = null;
-  if (isConfigured()) {
+  if (isConfigured() && convId) {
     try {
-      // Mark all unread messages in this conv as read (PATCH with filter)
-      // Supabase doesn't support array_append in REST easily — use edge function or RPC
-      // Fallback: we track read state client-side in localStorage for now
-      // Full implementation would use: SELECT * WHERE NOT read_by @> '["email"]'
-    } catch(e) {}
+      // Fetch all messages for this conversation from server
+      const { data } = await sbGet('messages',
+        `?conversation_id=eq.${encodeURIComponent(convId)}&select=id,read_by`
+      );
+      if (!data || !data.length) return;
+      // Update each message where reader is not yet in read_by
+      for (const row of data) {
+        const currentReaders = row.read_by || [];
+        if (!currentReaders.includes(realReaderEmail)) {
+          const updatedReaders = [...currentReaders, realReaderEmail];
+          await sbPatch('messages', { read_by: updatedReaders }, `id=eq.${row.id}`);
+        }
+      }
+    } catch(e) { console.warn('[APEX] markConversationRead server sync failed:', e.message); }
   }
 }
 
