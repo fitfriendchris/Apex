@@ -5310,8 +5310,14 @@ async function loadConfig() {
       supabaseAuth.auth.onAuthStateChange(function(event, session) {
         currentAccessToken = session ? session.access_token : '';
         if (event === 'PASSWORD_RECOVERY' && session) {
-          // Supabase Auth recovery token detected — show password reset modal
           openModal('resetPasswordModal');
+        }
+        if (event === 'SIGNED_OUT') {
+          currentAccessToken = '';
+          if (!isCoach) { logout(); }
+        }
+        if (event === 'TOKEN_REFRESHED' && session) {
+          currentAccessToken = session.access_token;
         }
       });
       // Prime currentAccessToken if a session already exists
@@ -5658,6 +5664,19 @@ async function sb(table, method='GET', body=null, params='') {
     try { data = text ? JSON.parse(text) : null; } catch{}
     if (!res.ok) {
       const msg = (data&&data.message) ? `${data.code||res.status}: ${data.message}` : `HTTP ${res.status}`;
+      // Detect auth failures (401/403) and force re-login to prevent silent degradation
+      if (res.status === 401 || res.status === 403) {
+        if (currentAccessToken) {
+          console.warn('[APEX] Auth failure detected — forcing re-login');
+          currentAccessToken = '';
+          if (supabaseAuth) { try { supabaseAuth.auth.signOut(); } catch(e) {} }
+          logout();
+          setTimeout(()=> {
+            showToast('Session expired. Please log in again.', 'error', 5000);
+            openModal('loginModal');
+          }, 300);
+        }
+      }
       return { data:null, error:{ message:msg } };
     }
     return { data, error:null };
@@ -7299,7 +7318,22 @@ async function checkStripeUpgrade() {
 // ── UPDATE STRIPE LINKS TO APPEND UPGRADE PARAMS ──
 // Stripe supports ?client_reference_id= to pass metadata
 // We encode email+plan so we can auto-upgrade on return
-function goToStripe(plan) {
+async function goToStripe(plan) {
+  // SECURITY: Re-verify tier server-side before redirecting to paid checkout
+  // Prevents users from spoofing tier in localStorage to access paid checkout links
+  if (currentUser && supabaseAuth) {
+    try {
+      const { data: userRow } = await sbGet('users', `?email=eq.${encodeURIComponent(currentUser.email)}&select=tier&single`);
+      const serverTier = userRow?.tier || 'free';
+      if (serverTier === 'free' && plan !== 'free') {
+        showToast('Upgrade requires a paid account. Please select a plan from your profile.', 'warning', 4000);
+        return;
+      }
+    } catch(e) {
+      console.warn('[APEX] Tier verification failed — proceeding cautiously', e);
+    }
+  }
+
   const link = STRIPE_LINKS[plan];
   if (!link || link.includes('REPLACE_WITH')) {
     // Stripe not configured yet — show a clean info modal
@@ -9197,6 +9231,10 @@ async function launchApp(){
     await renderClientDashboard();
     // First-time welcome
     setTimeout(()=> checkFirstTimeWelcome(), 1200);
+    // Server-side badge validation on login (prevents localStorage spoofing)
+    if (currentUser && currentUser.email) {
+      setTimeout(()=> checkBadgesServer(currentUser.email).catch(()=>{}), 2500);
+    }
     // Weekly recap on Mondays
     setTimeout(()=> maybeShowWeeklyRecap(), 2000);
   }
@@ -11173,7 +11211,7 @@ async function saveFood(){
   currentLogs.foods=currentLogs.foods||[]; currentLogs.foods.push(food);
   await saveDailyLog(currentUser.email,todayStr,currentLogs);
   addXP(currentUser.email,'logFood','Meal logged!');
-  try { checkBadges(currentUser.email); } catch(e) {}
+  try { checkBadgesServer(currentUser.email); } catch(e) {}
   closeModal('addFoodModal');
   ['foodName','foodCals','foodProtein','foodCarbs','foodFats'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('foodError').textContent='';
@@ -19677,6 +19715,48 @@ window.checkBadges = function(email) {
   }
 };
 
+// Server-side badge validation: queries actual data from Supabase to prevent localStorage spoofing
+window.checkBadgesServer = async function(email) {
+  if (!email || !isConfigured()) return;
+  try {
+    // Fetch server-side counts for stats that are trackable in the database
+    const today = getTodayStr();
+    const start = new Date(); start.setDate(start.getDate() - 365);
+    const startStr = start.toISOString().split('T')[0];
+
+    // Workout count
+    const { data: wlogs } = await sbGet('workout_logs',
+      `?user_email=eq.${encodeURIComponent(email)}&completed=eq.true&select=log_date&log_date=gte.${startStr}`);
+    const serverWorkouts = (wlogs || []).length;
+    localStorage.setItem('workout_count_' + email, String(Math.max(parseInt(localStorage.getItem('workout_count_' + email)||'0'), serverWorkouts)));
+
+    // PR count
+    const { data: prs } = await sbGet('personal_records',
+      `?user_email=eq.${encodeURIComponent(email)}&select=lift_name`);
+    const serverPRs = (prs || []).length;
+    localStorage.setItem('pr_count_' + email, String(Math.max(parseInt(localStorage.getItem('pr_count_' + email)||'0'), serverPRs)));
+
+    // Meals logged count
+    const { data: dlogs } = await sbGet('daily_logs',
+      `?user_email=eq.${encodeURIComponent(email)}&select=foods&log_date=gte.${startStr}`);
+    const serverMeals = (dlogs || []).reduce((sum, r) => sum + (r.foods ? r.foods.length : 0), 0);
+    localStorage.setItem('meals_logged_' + email, String(Math.max(parseInt(localStorage.getItem('meals_logged_' + email)||'0'), serverMeals)));
+
+    // Check-ins count
+    const { data: cis } = await sbGet('check_ins',
+      `?user_email=eq.${encodeURIComponent(email)}&select=id`);
+    const serverCheckins = (cis || []).length;
+    localStorage.setItem('checkins_' + email, String(Math.max(parseInt(localStorage.getItem('checkins_' + email)||'0'), serverCheckins)));
+
+    // Now run the badge check with server-validated floor values
+    checkBadges(email);
+  } catch(e) {
+    console.error('[APEX] checkBadgesServer failed:', e);
+    // Fall back to local-only badge check
+    checkBadges(email);
+  }
+};
+
 window.renderBadges = function() {
   var email = currentUser?.email;
   if (!email) return '';
@@ -19837,7 +19917,7 @@ window.submitQuiz = function(lessonId, quizData) {
       progress[lessonId] = { completed: true, score: pct, date: new Date().toISOString() };
       localStorage.setItem('course_progress_' + email, JSON.stringify(progress));
       var count = parseInt(localStorage.getItem('meals_logged_' + email) || '0');
-      checkBadges(email);
+      checkBadgesServer(email).catch(()=>{});
     }
   }
   return passed;
