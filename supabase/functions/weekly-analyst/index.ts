@@ -28,7 +28,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://apexcoaching.app";
+const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -172,6 +172,43 @@ serve(async (req: Request) => {
 
   if (!profile || !logs || !macros) return jsonError("user, logs, and macros are required", 400);
   if (!Array.isArray(logs) || logs.length < 1) return jsonError("logs must be a non-empty array", 400);
+
+  // ── Rate limit + tier verification (server-side truth) ─────────────────────
+  const targetEmail = user?.email || profile.email;
+  if (targetEmail && !isCoach) {
+    let serverTier = "free";
+    try {
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("tier")
+        .eq("email", targetEmail)
+        .single();
+      serverTier = (userRow?.tier ?? "free") as string;
+    } catch {
+      console.warn("Could not read user tier — defaulting to free");
+    }
+
+    const LIMITS: Record<string, number> = { free: 0, ai_basic: 5, core: 10, elite: 20, vip: 50, diamond: 999 };
+    const limit = LIMITS[serverTier] ?? 0;
+    if (limit === 0) {
+      return jsonError("Weekly analyst requires a paid plan. Upgrade to access.", 403);
+    }
+
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: usageRow } = await supabase
+        .from("daily_ai_usage")
+        .select("scan_count")
+        .eq("user_email", targetEmail)
+        .eq("usage_date", today)
+        .single();
+      const calls = (usageRow?.scan_count ?? 0) as number;
+      if (calls >= limit) return jsonError(`Daily AI limit reached (${calls}/${limit})`, 429);
+    } catch {
+      console.error("daily_ai_usage table not accessible — denying request");
+      return jsonError("Usage tracking unavailable. Please try again later.", 503);
+    }
+  }
 
   // ── Compute summaries ──────────────────────────────────────────────────────
   const summary = summariseLogs(logs, macros);

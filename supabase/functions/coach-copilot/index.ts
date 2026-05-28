@@ -24,7 +24,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://apexcoaching.app";
+const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",

@@ -4305,7 +4305,7 @@ async function installPWA() {
     "name": (window.APP_CONFIG && APP_CONFIG.appName) || "APEX COACHING",
     "short_name": (window.APP_CONFIG && APP_CONFIG.appShortName) || "APEX",
     "description": (window.APP_CONFIG && APP_CONFIG.tagline) || "Elite Physique Transformation Platform",
-    "start_url": "/",
+    "start_url": "./",
     "display": "standalone",
     "orientation": "portrait",
     "background_color": "#060608",
@@ -5664,6 +5664,7 @@ async function sb(table, method='GET', body=null, params='') {
   } catch(e) {
     clearTimeout(timer);
     _markSbFail(); // stop retrying if network keeps failing
+    console.error('[APEX] sb() error:', e.message, '|', method, table);
     return { data:null, error:{ message: e.message } };
   }
 }
@@ -5680,7 +5681,8 @@ const sbDelete=(t,p)=>sb(t,'DELETE',null,p);
 async function sbUpsert(table, body, onConflict) {
   // Always write to localStorage first for instant offline availability
   try {
-    const cacheKey = table + '_' + (body.email||body.user_email||body.id||JSON.stringify(body).slice(0,40));
+    const timeKey = body.log_date || body.date || body.session_date || '';
+    const cacheKey = table + '_' + (body.email||body.user_email||body.id||'') + (timeKey ? '_' + timeKey : '');
     lf.set(cacheKey, body);
   } catch(e) {}
   if (!isConfigured() || !_sbAvail()) { return { data:body, error:null }; }
@@ -7208,7 +7210,7 @@ async function checkStripeUpgrade() {
           renderTab(currentTab);
         }, 400);
         // Fire payment confirmation email
-        emailPaymentConfirm(currentUser, plan).catch(()=>{});
+        emailPaymentConfirm(currentUser, plan).catch(e=>console.error('[APEX] emailPaymentConfirm failed:', e));
       }
     } else {
       // Not logged in yet — store pending upgrade, then prompt login
@@ -7224,7 +7226,24 @@ async function checkStripeUpgrade() {
   if (currentUser && !payment) {
     const pending = lf.get('pendingUpgrade');
     if (pending && pending.plan && validTiers.includes(pending.plan)) {
-      if (tierLevel(pending.plan) > tierLevel(currentUser.tier||'free')) {
+      // SECURITY: Re-verify Stripe session server-side before trusting localStorage
+      let serverVerified = false;
+      try {
+        const verifyRes = await fetch(SUPABASE_URL + '/functions/v1/verify-stripe-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
+          body: JSON.stringify({ sessionId: pending.sessionId, plan: pending.plan, userEmail: currentUser.email })
+        });
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          serverVerified = verifyData.verified === true && verifyData.plan === pending.plan;
+        }
+      } catch(e) { serverVerified = false; }
+
+      if (!serverVerified) {
+        lf.del('pendingUpgrade');
+        console.warn('[APEX] Pending upgrade failed server verification — removed.');
+      } else if (tierLevel(pending.plan) > tierLevel(currentUser.tier||'free')) {
         lf.del('pendingUpgrade');
         await updateUser(currentUser.email, { tier: pending.plan, stripeSessionId: pending.sessionId||'' });
         currentUser.tier = pending.plan;
@@ -7623,13 +7642,27 @@ function showToast(msg, type='success', duration=3500){
 async function getStreak(email){
   let streak=0;
   const _today=getToday();
+  const endStr = _today.toISOString().split('T')[0];
+  const start = new Date(_today); start.setDate(_today.getDate()-89);
+  const startStr = start.toISOString().split('T')[0];
+
+  // Batch-fetch last 90 days in a single query instead of 90 sequential round-trips
+  let logs = [];
+  try {
+    const {data} = await sbGet('daily_logs',`?user_email=eq.${encodeURIComponent(email)}&log_date=gte.${startStr}&log_date=lte.${endStr}&select=log_date,checks&order=log_date.desc`);
+    logs = data || [];
+  } catch(e) { logs = []; }
+
+  // Build a map for O(1) lookup
+  const logMap = {};
+  for (const r of logs) { logMap[r.log_date] = r.checks || {}; }
+
   for(let i=0;i<90;i++){
     const d=new Date(_today); d.setDate(_today.getDate()-i);
-    const lg=await getDailyLog(email,d.toISOString().split('T')[0]);
-    const checks=Object.values(lg.checks||{}).filter(Boolean).length;
-    // A day "counts" if at least 4 of 8 checks were done
+    const dateStr = d.toISOString().split('T')[0];
+    const checks=Object.values(logMap[dateStr]||{}).filter(Boolean).length;
     if(checks>=4) streak++;
-    else if(i>0) break; // don't break on today (might not be done yet)
+    else if(i>0) break;
   }
   return streak;
 }
@@ -8834,6 +8867,13 @@ async function doLogin(){
   setBtn('loginBtn', true, 'Logging in...');
 
   // Server-side authentication via Supabase Auth
+  // Wait for auth client if it's still initializing (race with loadConfig)
+  if (!supabaseAuth) {
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      if (supabaseAuth) break;
+    }
+  }
   if (!supabaseAuth) {
     err.textContent = 'Authentication service unavailable. Please try again later.';
     setBtn('loginBtn', false, 'Login');
@@ -8956,9 +8996,9 @@ async function doRegister(){
   await launchApp();
   showToast('🎉 Welcome to APEX, '+rFirst+'! Your account is ready.', 'gold', 5000);
   // Fire welcome email (non-blocking)
-  emailWelcome(user).catch(()=>{});
+  emailWelcome(user).catch(e=>console.error('[APEX] emailWelcome failed:', e));
   // Schedule upgrade nudge check (48 hours)
-  setTimeout(() => emailUpgradeNudge(user).catch(()=>{}), 172800000);
+  setTimeout(() => emailUpgradeNudge(user).catch(e=>console.error('[APEX] emailUpgradeNudge failed:', e)), 172800000);
 }
 
 // ── EMAIL VERIFICATION (legacy — now handled by Supabase Auth) ────────────────
@@ -9103,7 +9143,7 @@ async function logout(){
 async function launchApp(){
   // Sync all user data from Supabase on login (non-blocking)
   if (currentUser && currentUser.email) {
-    syncAllUserDataFromServer(currentUser.email).catch(()=>{});
+    syncAllUserDataFromServer(currentUser.email).catch(e=>console.error('[APEX] syncAllUserDataFromServer failed:', e));
   }
   document.getElementById('salesPage').classList.add('hidden');
   document.getElementById('salesPage').classList.remove('active');
@@ -13771,8 +13811,10 @@ async function renderCoachDashboard(){
     const checks=Object.values(logs.checks||{}).filter(Boolean).length;
     const macros=calcMacros(u);
     const cals=logTotals(logs.foods||[]).calories;
-    let weekChecks=0;
-    for(let i=0;i<7;i++){const d=new Date(getToday());d.setDate(getToday().getDate()-i);const lg=await getDailyLog(u.email,d.toISOString().split('T')[0]);weekChecks+=Object.values(lg.checks||{}).filter(Boolean).length;}
+    // Parallelize the 7-day lookback instead of 7 sequential awaits
+    const weekLogPromises = Array.from({length:7},(_,i)=>{const d=new Date(getToday());d.setDate(getToday().getDate()-i);return getDailyLog(u.email,d.toISOString().split('T')[0]);});
+    const weekLogs = await Promise.all(weekLogPromises);
+    const weekChecks = weekLogs.reduce((sum,lg)=>sum+Object.values(lg.checks||{}).filter(Boolean).length,0);
     const weekPct=Math.round((weekChecks/(7*8))*100);
     clientData.push({u,logs,checks,macros,cals,weekPct});
     if(checks<4) alerts.push({name:u.firstName+' '+u.lastName,email:u.email,issue:`Low compliance — ${checks}/8 checks`,type:'danger'});
@@ -17888,14 +17930,27 @@ async function init(){
   // Fallback: check saved localStorage session (offline / legacy)
   const session=lf.get('session');
   if(session){
-    // Validate session age: 7 days for users, 24h for coach (higher privilege)
-    const maxAge = session.isCoach ? 24*60*60*1000 : 7*24*60*60*1000;
+    // Validate session age: 7 days for users, 2h for coach (higher privilege — must re-verify frequently)
+    const maxAge = session.isCoach ? 2*60*60*1000 : 7*24*60*60*1000;
     if(session.ts && (Date.now()-session.ts) > maxAge){
       lf.del('session');
     } else if(session.isCoach){
-      isCoach=true;
-      if (session.coachId) window._activeCoachId = session.coachId;
-      await launchApp(); return;
+      // SECURITY: Never trust localStorage for coach mode. Require valid Supabase Auth session.
+      if (supabaseAuth) {
+        try {
+          const { data: { session: authSession } } = await supabaseAuth.auth.getSession();
+          if (authSession && authSession.user) {
+            isCoach=true;
+            if (session.coachId) window._activeCoachId = session.coachId;
+            await launchApp(); return;
+          }
+        } catch(e) {}
+      }
+      // Auth session missing or expired — force re-login
+      lf.del('session'); isCoach=false;
+      document.getElementById('salesPage').classList.add('active');
+      setTimeout(()=>openModal('coachLoginModal'),350);
+      return;
     } else if(session.email){
       // Try localStorage first (instant)
       const localUsers=lf.get('users')||{};
@@ -20736,7 +20791,7 @@ window.addEventListener('unhandledrejection', function(e) {
 // ── Service Worker (offline-first PWA) ──
 (function() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register('./sw.js')
     .then(function(reg) {
       // Listen for SW messages (offline/online status)
       navigator.serviceWorker.addEventListener('message', function(e) {

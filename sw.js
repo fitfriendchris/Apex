@@ -1,5 +1,5 @@
-const CACHE = 'apex-v9';
-const APP_SHELL = ['/', '/index.html'];
+const CACHE = 'apex-v10';
+const APP_SHELL = ['./', './index.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

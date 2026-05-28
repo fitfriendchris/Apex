@@ -39,7 +39,7 @@ const MAX_CALLS_PER_DAY: Record<string, number> = {
 
 // ── CORS — driven by ALLOWED_ORIGIN env var set via supabase secrets ──────────
 // NEVER hardcode the domain in source — it changes between staging and prod.
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://apexcoaching.app";
+const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
 const corsHeaders = {
   "Access-Control-Allow-Origin":  allowedOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
@@ -178,8 +178,12 @@ serve(async (req: Request) => {
           );
         }
       } catch {
-        // Table might not exist yet — skip usage check for paid tiers, don't fail the request
-        console.warn("daily_ai_usage table not accessible — skipping usage check for paid tier");
+        // Fail closed: if we can't verify usage, deny the request to prevent abuse
+        console.error("daily_ai_usage table not accessible — denying request");
+        return new Response(
+          JSON.stringify({ error: "Usage tracking unavailable. Please try again later.", code: "QUOTA_UNAVAILABLE" }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 

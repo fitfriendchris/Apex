@@ -58,6 +58,7 @@ async function analyzeText(meal, userContext) {
   return buildFoodObject(Array.isArray(items) ? items : [items], meal);
 }
 async function analyzePhoto(base64, mediaType) {
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not configured");
   const prompt = `Analyze this food photo. Return ONLY a valid JSON array. No markdown, no explanation. Each object must have: food, grams, calories, protein, carbs, fats, fiber, vitaminA, vitaminC, vitaminD, vitaminE, calcium, iron, magnesium, zinc, potassium, sodium, omega3, folate, b12, selenium. Start with [ and end with ].`;
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ contents:[{parts:[{text:prompt},{inline_data:{mime_type:mediaType,data:base64}}]}], generationConfig:{temperature:0.1,maxOutputTokens:2000} }) });
   if (!res.ok) throw new Error("Gemini error: " + res.status);

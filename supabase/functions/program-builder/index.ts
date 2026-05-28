@@ -29,7 +29,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://apexcoaching.app";
+const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -151,7 +151,11 @@ serve(async (req: Request) => {
       const limit = LIMITS[profile.tier] ?? 0;
       const calls = (usageRow?.calls ?? 0) as number;
       if (calls >= limit) return jsonError(`Daily AI limit reached (${calls}/${limit})`, 429);
-    } catch { /* table may not exist yet */ }
+    } catch {
+      // Fail closed: if we can't verify usage, deny the request to prevent abuse
+      console.error("daily_ai_usage table not accessible — denying request");
+      return jsonError("Usage tracking unavailable. Please try again later.", 503);
+    }
   }
 
   // ── Derive training level from activity ───────────────────────────────────────

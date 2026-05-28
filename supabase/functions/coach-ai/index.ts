@@ -1,5 +1,6 @@
-const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ALLOWED_ORIGINS = [
   "https://apexcoaching.app",
   "https://apex-356.pages.dev",
@@ -27,7 +28,7 @@ async function callClaude(systemPrompt: string, userMessage: string, maxTokens =
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-20250514",
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -116,6 +117,64 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ── Authenticate caller ─────────────────────────────────────────────────────
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const coachToken = req.headers.get("X-Coach-Token") ?? "";
+  const isCoach = coachToken.length > 8 && coachToken === (Deno.env.get("COACH_SECRET") ?? "");
+
+  const supabaseClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: authHeader } } }
+  );
+  const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+  if ((!user && !isCoach) || (authError && !isCoach)) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...cors, "Content-Type": "application/json" } }
+    );
+  }
+
+  // ── Rate limit: check tier and daily usage ──────────────────────────────────
+  if (user?.email && !isCoach) {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: userRow } = await supabaseClient
+        .from("users")
+        .select("tier")
+        .eq("email", user.email)
+        .single();
+      const tier = (userRow?.tier ?? "free") as string;
+      const limits: Record<string, number> = { free: 0, ai_basic: 5, core: 10, elite: 20, vip: 50, diamond: 999 };
+      const limit = limits[tier] ?? 0;
+
+      if (limit === 0) {
+        return new Response(
+          JSON.stringify({ error: "AI features require a paid plan. Upgrade to access." }),
+          { status: 403, headers: { ...cors, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: usageRow } = await supabaseClient
+        .from("daily_ai_usage")
+        .select("scan_count")
+        .eq("user_email", user.email)
+        .eq("usage_date", today)
+        .single();
+      const calls = (usageRow?.scan_count ?? 0) as number;
+      if (calls >= limit) {
+        return new Response(
+          JSON.stringify({ error: `Daily AI limit reached (${calls}/${limit}).` }),
+          { status: 429, headers: { ...cors, "Content-Type": "application/json" } }
+        );
+      }
+      await supabaseClient.rpc("increment_ai_usage", { p_email: user.email, p_date: today });
+    } catch {
+      // Non-fatal if usage tracking is unavailable
+    }
+  }
+
   try {
     const { type, payload } = await req.json();
 
@@ -140,7 +199,9 @@ Deno.serve(async (req) => {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    console.error("coach-ai error:", msg);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...cors, "Content-Type": "application/json" },
     });
