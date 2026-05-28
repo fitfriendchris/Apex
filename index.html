@@ -5989,130 +5989,9 @@ async function syncAllUserDataFromServer(email) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SQL SCHEMA for new tables (run in Supabase SQL editor)
+// Database schema and RLS policies are maintained in supabase/migrations/
+// Run: supabase db push --linked
 // ══════════════════════════════════════════════════════════════════════════════
-/*
-CREATE TABLE IF NOT EXISTS weight_history (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_email text NOT NULL,
-  log_date date NOT NULL,
-  weight_lbs numeric(5,1) NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(user_email, log_date)
-);
-ALTER TABLE weight_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_weight" ON weight_history USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-CREATE TABLE IF NOT EXISTS personal_records (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_email text NOT NULL,
-  lift_name text NOT NULL,
-  weight_lbs numeric(6,1),
-  reps int,
-  pr_date date,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(user_email, lift_name)
-);
-ALTER TABLE personal_records ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_prs" ON personal_records USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-CREATE TABLE IF NOT EXISTS body_measurements (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_email text NOT NULL,
-  site_name text NOT NULL,
-  value_inches numeric(5,2),
-  measured_date date,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE body_measurements ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_measurements" ON body_measurements USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-CREATE TABLE IF NOT EXISTS workout_logs (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_email text NOT NULL,
-  log_date date NOT NULL,
-  log_data jsonb,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(user_email, log_date)
-);
-ALTER TABLE workout_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_workout_logs" ON workout_logs USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-CREATE TABLE IF NOT EXISTS user_gamification (
-  user_email text PRIMARY KEY,
-  total_xp int DEFAULT 0,
-  level int DEFAULT 1,
-  streak_days int DEFAULT 0,
-  badges jsonb DEFAULT '[]',
-  last_activity date,
-  updated_at timestamptz DEFAULT now()
-);
-ALTER TABLE user_gamification ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_xp" ON user_gamification USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-CREATE TABLE IF NOT EXISTS course_progress (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_email text NOT NULL,
-  course_id text NOT NULL,
-  progress_data jsonb DEFAULT '{}',
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE(user_email, course_id)
-);
-ALTER TABLE course_progress ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_progress" ON course_progress USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-CREATE TABLE IF NOT EXISTS daily_ai_usage (
-  user_email text NOT NULL,
-  usage_date date NOT NULL,
-  scan_count int DEFAULT 0,
-  tier text DEFAULT 'free',
-  PRIMARY KEY (user_email, usage_date)
-);
-ALTER TABLE daily_ai_usage ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_ai_usage" ON daily_ai_usage USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-
--- Add emailVerified column to users table
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token text;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires bigint;
-
--- RLS POLICIES for existing tables (run these if RLS is currently disabled)
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_read_own" ON users FOR SELECT USING (email = current_setting('request.jwt.claims', true)::json->>'email');
-CREATE POLICY "coach_read_all_users" ON users FOR SELECT USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-CREATE POLICY "users_update_own" ON users FOR UPDATE USING (email = current_setting('request.jwt.claims', true)::json->>'email');
-
-ALTER TABLE daily_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_own_logs" ON daily_logs USING (user_email = current_setting('request.jwt.claims', true)::json->>'email');
-CREATE POLICY "coach_read_logs" ON daily_logs FOR SELECT USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "message_participants" ON messages USING (sender_email = current_setting('request.jwt.claims', true)::json->>'email' OR recipient_email = current_setting('request.jwt.claims', true)::json->>'email');
-
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "session_participants" ON sessions USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-
-ALTER TABLE coach_notes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "coach_notes_access" ON coach_notes USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-
-ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "checkins_access" ON check_ins USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-
-ALTER TABLE workout_overrides ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "overrides_access" ON workout_overrides USING (client_email = current_setting('request.jwt.claims', true)::json->>'email' OR current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-
-ALTER TABLE contact_requests ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "contact_requests_insert" ON contact_requests FOR INSERT WITH CHECK (true);
-CREATE POLICY "coach_reads_contacts" ON contact_requests FOR SELECT USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-
-ALTER TABLE availability ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "coach_manages_availability" ON availability USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-CREATE POLICY "clients_read_availability" ON availability FOR SELECT USING (true);
-
-ALTER TABLE blocked_dates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "coach_manages_blocked_dates" ON blocked_dates USING (current_setting('request.jwt.claims', true)::json->>'role' = 'coach');
-CREATE POLICY "clients_read_blocked_dates" ON blocked_dates FOR SELECT USING (true);
-*/
 
 // ══════════════════════════════════════════════════════════════════════════════
 // B2B SAAS MODE — Coach seat licensing
@@ -6373,7 +6252,7 @@ async function getUser(email) {
 async function _getAllUsersImpl() {
   if (!isConfigured()) return Object.values(lf.get('users')||{});
   // SECURITY: Exclude password hash from bulk coach-dashboard queries
-  const {data}=await sbGet('users','?select=email,first_name,last_name,age,sex,height,weight,goal_weight,goal,activity,diet,transform,start_weight,join_date,tier,tier_expires,stripe_customer_id,coach_id,created_at&order=created_at.asc');
+  const {data}=await sbGet('users','?select=email,first_name,last_name,age,sex,height,weight,goal_weight,goal,activity,diet,transform,start_weight,join_date,tier,tier_expires,stripe_customer_id,coach_id,email_verified,created_at&order=created_at.asc');
   return (data||[]).map(dbToUser);
 }
 async function createUser(user) {
@@ -6383,7 +6262,9 @@ async function createUser(user) {
       u[user.email]=user; lf.set('users',u);
       return {data:user,error:null};
     }
-    return await sbPost('users', userToDb(user));
+    // Use upsert so the profile row is created whether the auth trigger
+    // already inserted it or not (handles both email-confirmation enabled/disabled)
+    return await sbUpsert('users', userToDb(user), 'email');
   } catch(e) { console.error('[APEX] createUser failed:', e); return {data:null,error:e}; }
 }
 async function updateUser(email, updates) {
@@ -6786,16 +6667,19 @@ async function sendMessage(convId, senderEmail, senderName, body) {
     try {
       const [clientEmail, coachId] = convId.split(':');
       const isFromClient = senderEmail === clientEmail;
+      const realSenderEmail = senderEmail === COACH_SELF_EMAIL
+        ? (getCoachById(coachId).email || getDefaultCoach().email || senderEmail)
+        : senderEmail;
       const recipientEmail = isFromClient
         ? (getCoachById(coachId).email || getDefaultCoach().email)
         : clientEmail;
       await sbPost('messages', {
         conversation_id: convId,
-        sender_email: senderEmail,
+        sender_email: realSenderEmail,
         sender_name: senderName,
         recipient_email: recipientEmail,
         body: body.trim(),
-        read_by: [senderEmail]
+        read_by: [realSenderEmail]
       });
     } catch(e) { console.warn('[APEX] sendMessage server save failed:', e.message); }
   }
@@ -6886,6 +6770,7 @@ async function notifyMessageRecipient(convId, senderEmail, senderName, body) {
       const coach = getCoachById(coachId);
       await sendEmail('client-message-alert', clientEmail, '', {
         coachName: coach?.fullName || 'Your Coach',
+        fromEmail: coach?.email || getDefaultCoach().email,
         preview: body.slice(0, 200),
         loginUrl: window.location.origin + window.location.pathname,
       });
@@ -7235,7 +7120,7 @@ async function checkStripeUpgrade() {
       const verifyRes = await fetch(SUPABASE_URL + '/functions/v1/verify-stripe-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
-        body: JSON.stringify({ sessionId, plan, userEmail: currentUser?.email || '' })
+        body: JSON.stringify({ sessionId, plan })
       });
       if (verifyRes.ok) {
         const verifyData = await verifyRes.json();
@@ -7293,7 +7178,7 @@ async function checkStripeUpgrade() {
         const verifyRes = await fetch(SUPABASE_URL + '/functions/v1/verify-stripe-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (currentAccessToken || SUPABASE_ANON_KEY) },
-          body: JSON.stringify({ sessionId: pending.sessionId, plan: pending.plan, userEmail: currentUser.email })
+          body: JSON.stringify({ sessionId: pending.sessionId, plan: pending.plan })
         });
         if (verifyRes.ok) {
           const verifyData = await verifyRes.json();
@@ -9034,7 +8919,24 @@ async function doRegister(){
   const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
     email: rEmailClean,
     password: rPass,
-    options: { data: { first_name: rFirstClean, last_name: rLastClean } }
+    options: {
+      data: {
+        first_name: rFirstClean,
+        last_name: rLastClean,
+        age: parseInt(rAge),
+        sex: rSex,
+        height: parseFloat(rHeight),
+        weight: parseFloat(rWeight),
+        goal_weight: parseFloat(rGoalWeight),
+        goal: rGoal,
+        activity: rActivity,
+        diet: rDiet,
+        transform: rTransform,
+        start_weight: parseFloat(rWeight),
+        join_date: todayStr,
+        tier: 'free'
+      }
+    }
   });
   if (authError) {
     err.textContent = authError.message || 'Account creation failed. Please try again.';
@@ -9098,7 +9000,7 @@ async function doForgot(){
         redirectTo: window.location.origin + window.location.pathname
       });
     }
-  } catch(e) {}
+  } catch(e) { console.error('[APEX] resetPasswordForEmail failed:', e.message); }
 
   succEl.textContent = '✅ If that email is registered, a reset link has been sent. Check your inbox (and spam folder).';
   setBtn('forgotBtn', false, 'Send Reset Link');
