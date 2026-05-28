@@ -7293,11 +7293,33 @@ async function goToStripe(plan) {
 
 // Coach can manually upgrade a client's tier from dashboard
 async function setClientTier(email, tier) {
-  await updateUser(email, { tier });
+  let success = false;
+  // Use secure RPC (bypasses RLS for coaches only)
+  if (isConfigured() && supabaseAuth) {
+    try {
+      const { data, error } = await supabaseAuth.rpc('set_client_tier', {
+        p_email: email,
+        p_tier: tier
+      });
+      if (!error && data) {
+        success = true;
+      } else {
+        console.warn('[APEX] set_client_tier RPC failed:', error?.message);
+      }
+    } catch(e) {
+      console.warn('[APEX] set_client_tier RPC error:', e.message);
+    }
+  }
+  // Fallback: direct update (will only work if RLS allows, e.g. self-update)
+  if (!success) {
+    const result = await updateUser(email, { tier });
+    success = !result.error;
+  }
   // If viewing this client, refresh
-  if (viewingClient && viewingClient.email === email) {
+  if (success && viewingClient && viewingClient.email === email) {
     viewingClient.tier = tier;
   }
+  return success;
 }
 
 // ================================================================
