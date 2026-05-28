@@ -40,6 +40,12 @@ const MESSAGE_NOTIFICATION_TEMPLATES = new Set([
   "client-message-alert",
 ]);
 
+// Allowed sending addresses — prevents forging from support@, billing@, etc.
+const ALLOWED_FROM = new Set([
+  "noreply@apexcoaching.app",
+  "coach@apexcoaching.app",
+]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -68,6 +74,14 @@ Deno.serve(async (req) => {
 
   if (!to || !from || !template) {
     return new Response(JSON.stringify({ error: "Missing required fields: to, from, template" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Validate sender address — must be an approved from address
+  if (!ALLOWED_FROM.has(from.toLowerCase())) {
+    return new Response(
+      JSON.stringify({ error: "Invalid sender address" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   const isMessageNotification = MESSAGE_NOTIFICATION_TEMPLATES.has(template);

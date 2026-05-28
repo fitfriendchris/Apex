@@ -12,19 +12,17 @@ CREATE POLICY "messages_select" ON messages
     OR EXISTS (SELECT 1 FROM coaches WHERE LOWER(email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email'))
   );
 
--- 2. UPDATE: same scope as SELECT
+-- 2. UPDATE: only the original sender (or a coach) can edit a message
 CREATE POLICY "messages_update" ON messages
   FOR UPDATE USING (
-    conversation_id LIKE (current_setting('request.jwt.claims', true)::json->>'email') || '%'
-    OR conversation_id LIKE '%:' || (current_setting('request.jwt.claims', true)::json->>'email')
+    sender_email = current_setting('request.jwt.claims', true)::json->>'email'
     OR EXISTS (SELECT 1 FROM coaches WHERE LOWER(email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email'))
   );
 
--- 3. DELETE: same scope as SELECT
+-- 3. DELETE: only the original sender (or a coach) can delete a message
 CREATE POLICY "messages_delete" ON messages
   FOR DELETE USING (
-    conversation_id LIKE (current_setting('request.jwt.claims', true)::json->>'email') || '%'
-    OR conversation_id LIKE '%:' || (current_setting('request.jwt.claims', true)::json->>'email')
+    sender_email = current_setting('request.jwt.claims', true)::json->>'email'
     OR EXISTS (SELECT 1 FROM coaches WHERE LOWER(email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email'))
   );
 

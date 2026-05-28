@@ -9037,7 +9037,8 @@ async function doCoachLogin(){
   if(!p){document.getElementById('coachLoginError').textContent='Enter password.';return;}
 
   // Server-side password verification — COACH_SECRET never leaves the server
-  // POST to get-config with the password; server compares and returns secret only if valid
+  // POST to get-config with the password; server compares and returns success only
+  let serverVerified = false;
   try {
     const res = await fetch(SUPABASE_URL + '/functions/v1/get-config', {
       method: 'POST',
@@ -9051,23 +9052,31 @@ async function doCoachLogin(){
       return;
     }
     const data = await res.json();
-    COACH_SECRET = data.coachSecret || '';
-    lf.set('coachVerifiedAt', Date.now());
+    if (data.success) {
+      // Cache password for offline fallback (24h window) — never transmitted again
+      lf.set('coachVerified', { password: p, ts: Date.now() });
+      COACH_SECRET = p; // used for X-Coach-Token on edge functions
+      serverVerified = true;
+    }
   } catch(e) {
-    // Offline fallback: only if secret was verified server-side in last 24h
-    const lastVerified = lf.get('coachVerifiedAt') || 0;
-    const hoursSince = (Date.now() - lastVerified) / 3600000;
-    if (!COACH_SECRET || hoursSince > 24) {
+    // Offline fallback: only if password was verified server-side in last 24h
+    const verified = lf.get('coachVerified');
+    const hoursSince = verified ? (Date.now() - verified.ts) / 3600000 : Infinity;
+    if (!verified || hoursSince > 24) {
       document.getElementById('coachLoginError').textContent='Cannot verify — server unreachable and offline window expired (24h).';
       return;
     }
-    if (p !== COACH_SECRET) {
+    if (p !== verified.password) {
       coachLoginAttempts++;
       if(coachLoginAttempts>=3){coachLockoutUntil=Date.now()+30000;coachLoginAttempts=0;document.getElementById('coachLoginError').textContent='Too many attempts. Locked 30s.';}
       else{document.getElementById('coachLoginError').textContent=`Incorrect. ${3-coachLoginAttempts} attempt${3-coachLoginAttempts!==1?'s':''} left.`;}
       return;
     }
+    COACH_SECRET = p;
+    serverVerified = true;
   }
+
+  if (!serverVerified) return;
 
   const matchedCoach = getCoachById(APP_CONFIG.defaultCoachId);
   if (matchedCoach) {

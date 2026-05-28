@@ -89,7 +89,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ coachSecret }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
