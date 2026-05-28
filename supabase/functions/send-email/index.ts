@@ -33,6 +33,13 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
+// Message-notification templates: sender must match authenticated user
+// but recipient can be anyone (coach <-> client conversations)
+const MESSAGE_NOTIFICATION_TEMPLATES = new Set([
+  "coach-message-alert",
+  "client-message-alert",
+]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -63,12 +70,26 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Missing required fields: to, from, template" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  // Only allow sending to the authenticated user's own email (prevents email spoofing/abuse)
-  if (to.toLowerCase() !== (user.email || '').toLowerCase()) {
-    return new Response(
-      JSON.stringify({ error: "You can only send emails to your own address" }),
-      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  const isMessageNotification = MESSAGE_NOTIFICATION_TEMPLATES.has(template);
+
+  if (isMessageNotification) {
+    // For message notifications: verify the sender (from the data payload) matches
+    // the authenticated user. This prevents spoofing "new message" emails.
+    const claimedSender = data?.fromEmail || '';
+    if (claimedSender.toLowerCase() !== (user.email || '').toLowerCase()) {
+      return new Response(
+        JSON.stringify({ error: "Message sender does not match authenticated user" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+  } else {
+    // For all other templates: only allow sending to the authenticated user's own email
+    if (to.toLowerCase() !== (user.email || '').toLowerCase()) {
+      return new Response(
+        JSON.stringify({ error: "You can only send emails to your own address" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   }
 
   // ── Rate limit per user ─────────────────────────────────────────────────────
@@ -92,11 +113,28 @@ Deno.serve(async (req) => {
     "client-message-alert": "New message from your coach"
   };
   const subject = subjects[template] || `Message from ${fromName || "APEX Coaching"}`;
+
+  // Build a basic HTML body — for message notifications use a readable template
+  let htmlBody = `<p>${JSON.stringify(data)}</p>`;
+  if (isMessageNotification) {
+    const preview = data?.preview || '';
+    const senderLabel = data?.fromName || data?.coachName || 'Someone';
+    const loginUrl = data?.loginUrl || '#';
+    htmlBody = `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <h2 style="color:#d4a017;margin:0 0 12px">${subject}</h2>
+        <p style="color:#333;margin:0 0 16px"><strong>${escapeHtml(senderLabel)}</strong> sent you a message:</p>
+        <blockquote style="border-left:3px solid #d4a017;padding-left:12px;margin:0 0 16px;color:#555">${escapeHtml(preview)}</blockquote>
+        <a href="${escapeHtml(loginUrl)}" style="display:inline-block;background:#d4a017;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600">Open APEX →</a>
+      </div>
+    `;
+  }
+
   const emailPayload: Record<string, unknown> = {
     from: fromName ? `${fromName} <${from}>` : from,
     to: toName ? [`${toName} <${to}>`] : [to],
     subject,
-    html: `<p>${JSON.stringify(data)}</p>`
+    html: htmlBody,
   };
   if (replyTo) emailPayload.reply_to = replyTo;
 
@@ -119,3 +157,12 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
