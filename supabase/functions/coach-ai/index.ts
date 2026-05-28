@@ -1,23 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-const ALLOWED_ORIGINS = [
-  "https://apexcoaching.app",
-  "https://apex-356.pages.dev",
-  "https://fitfriendchris.github.io",
-  "http://localhost:8888",
-  "http://localhost:3000",
-];
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
 
-function getCors(req: Request) {
-  const origin = req.headers.get("origin") ?? "";
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 async function callClaude(systemPrompt: string, userMessage: string, maxTokens = 600): Promise<string> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -108,12 +98,11 @@ Max 15 words per meal. Start your response with { and end with }.`;
 }
 
 Deno.serve(async (req) => {
-  const cors = getCors(req);
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -132,7 +121,7 @@ Deno.serve(async (req) => {
   if ((!user && !isCoach) || (authError && !isCoach)) {
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
-      { status: 401, headers: { ...cors, "Content-Type": "application/json" } }
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
@@ -152,7 +141,7 @@ Deno.serve(async (req) => {
       if (limit === 0) {
         return new Response(
           JSON.stringify({ error: "AI features require a paid plan. Upgrade to access." }),
-          { status: 403, headers: { ...cors, "Content-Type": "application/json" } }
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -166,12 +155,16 @@ Deno.serve(async (req) => {
       if (calls >= limit) {
         return new Response(
           JSON.stringify({ error: `Daily AI limit reached (${calls}/${limit}).` }),
-          { status: 429, headers: { ...cors, "Content-Type": "application/json" } }
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       await supabaseClient.rpc("increment_ai_usage", { p_email: user.email, p_date: today });
     } catch {
-      // Non-fatal if usage tracking is unavailable
+      // Fail-closed: if usage tracking is unavailable, deny the request
+      return new Response(
+        JSON.stringify({ error: "Usage tracking unavailable. Please try again later." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   }
 
@@ -182,7 +175,7 @@ Deno.serve(async (req) => {
       const report = await generateWeeklyReport(payload ?? {});
       return new Response(JSON.stringify({ report }), {
         status: 200,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -190,20 +183,19 @@ Deno.serve(async (req) => {
       const plan = await generateMealPlan(payload ?? {});
       return new Response(JSON.stringify({ plan }), {
         status: 200,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Unknown type: " + type }), {
       status: 400,
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Internal server error";
-    console.error("coach-ai error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
+    console.error("coach-ai error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

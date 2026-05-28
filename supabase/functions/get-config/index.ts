@@ -1,12 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const ALLOWED_ORIGINS = [
-  "https://apexcoaching.app",
-  "https://apex-356.pages.dev",
-  "https://fitfriendchris.github.io",
-  "http://localhost:8888",
-  "http://localhost:3000",
-];
+const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
 
 // ── Coach emails authorized to receive COACH_SECRET ──────────────────────────
 // Only these emails get the coach secret in the config response.
@@ -18,7 +12,7 @@ const COACH_EMAILS = new Set([
 serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
   const corsHeaders = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Origin": origin === allowedOrigin ? origin : allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };

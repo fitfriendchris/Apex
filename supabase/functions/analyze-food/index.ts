@@ -4,22 +4,14 @@ const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const ALLOWED_ORIGINS = [
-  "https://apexcoaching.app",
-  "https://apex-356.pages.dev",
-  "https://fitfriendchris.github.io",
-  "http://localhost:8888",
-  "http://localhost:3000",
-];
-function getCors(req: Request) {
-  const origin = req.headers.get("origin") ?? "";
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function extractJSON(raw) {
   let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   try { return JSON.parse(s); } catch (_) {}
@@ -79,9 +71,9 @@ async function analyzePhotoFallback(base64, mediaType) {
   const items = extractJSON(text);
   return buildFoodObject(Array.isArray(items) ? items : [items], "Scanned meal");
 }
+
 Deno.serve(async (req) => {
-  const cors = getCors(req);
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     // ── Authenticate caller via Supabase JWT ────────────────────────────
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -92,17 +84,43 @@ Deno.serve(async (req) => {
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized — valid Supabase session required" }),
-        { status: 401, headers: { ...cors, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // ── Rate limit: 20 scans per day per user ───────────────────────────
+    const today = new Date().toISOString().split("T")[0];
+    try {
+      const { data: usageRow } = await supabaseClient
+        .from("daily_ai_usage")
+        .select("scan_count")
+        .eq("user_email", user.email)
+        .eq("usage_date", today)
+        .single();
+      const calls = (usageRow?.scan_count ?? 0) as number;
+      if (calls >= 20) {
+        return new Response(
+          JSON.stringify({ error: "Daily food scan limit reached (20). Upgrade for unlimited access." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      await supabaseClient.rpc("increment_ai_usage", { p_email: user.email, p_date: today });
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Usage tracking unavailable. Please try again later." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const body = await req.json();
     const { type, meal, image, userContext } = body;
     let food;
     if (type === "scan" && image?.base64) { food = await analyzePhoto(image.base64, image.mediaType || "image/jpeg"); }
     else if (type === "text" && meal) { food = await analyzeText(meal, userContext || {}); }
-    else { return new Response(JSON.stringify({ error: "Invalid request" }), { status:400, headers:{...cors,"Content-Type":"application/json"} }); }
-    return new Response(JSON.stringify({ food }), { status:200, headers:{...cors,"Content-Type":"application/json"} });
+    else { return new Response(JSON.stringify({ error: "Invalid request" }), { status:400, headers:{...corsHeaders,"Content-Type":"application/json"} }); }
+    return new Response(JSON.stringify({ food }), { status:200, headers:{...corsHeaders,"Content-Type":"application/json"} });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status:500, headers:{...cors,"Content-Type":"application/json"} });
+    console.error("analyze-food error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status:500, headers:{...corsHeaders,"Content-Type":"application/json"} });
   }
 });

@@ -31,11 +31,39 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// ── Per-coach per-day call limit ────────────────────────────────────────────
+const MAX_CALLS_PER_DAY = 100;
+
+// ── In-memory rate limiter with bounded map size ──────────────────────────
+const MAX_IP_ENTRIES = 500;
+const ipCounts = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  if (ipCounts.size >= MAX_IP_ENTRIES) {
+    for (const [key, val] of ipCounts) {
+      if (now > val.resetAt) ipCounts.delete(key);
+    }
+    if (ipCounts.size >= MAX_IP_ENTRIES) {
+      const oldestKey = ipCounts.keys().next().value;
+      if (oldestKey) ipCounts.delete(oldestKey);
+    }
+  }
+  const record = ipCounts.get(ip);
+  if (!record || now > record.resetAt) {
+    ipCounts.set(ip, { count: 1, resetAt: now + 86_400_000 }); // 24-hour window
+    return true;
+  }
+  if (record.count >= MAX_CALLS_PER_DAY) return false;
+  record.count++;
+  return true;
+}
+
 // ── Action-specific system prompts ────────────────────────────────────────────
 
 const PROMPTS: Record<string, string> = {
 
-  "draft-response": `You are an elite physique coach writing a personalised response to a client's weekly check-in. 
+  "draft-response": `You are an elite physique coach writing a personalised response to a client's weekly check-in.
 Your voice: Direct, warm, knowledgeable, motivating without being generic. You know this client's data.
 RULES:
 - Reference specific numbers (their actual weight, compliance %, protein intake)
@@ -81,6 +109,15 @@ serve(async (req: Request) => {
   const validSecret = Deno.env.get("COACH_SECRET") ?? "";
   if (!coachToken || coachToken !== validSecret) {
     return jsonError("Coach authentication required", 401);
+  }
+
+  // ── Rate limit per coach IP ─────────────────────────────────────────────────
+  const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+  if (!clientIP) {
+    return jsonError("Unable to determine client IP", 403);
+  }
+  if (!checkRateLimit(clientIP)) {
+    return jsonError("Daily coach copilot limit reached (100).", 429);
   }
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");

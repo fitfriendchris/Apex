@@ -5716,14 +5716,30 @@ async function sbUpsert(table, body, onConflict) {
   try {
     const res = await fetch(url, { method:'POST', headers, body:JSON.stringify(body), signal: ctrl.signal });
     clearTimeout(timer);
-    if (!res.ok) { _markSbFail(); return { data:null, error:{ message:'HTTP '+res.status } }; }
+    if (!res.ok) {
+      // Detect auth failures (401/403) and force re-login
+      if (res.status === 401 || res.status === 403) {
+        if (currentAccessToken) {
+          console.warn('[APEX] Auth failure in sbUpsert — forcing re-login');
+          currentAccessToken = '';
+          if (supabaseAuth) { try { supabaseAuth.auth.signOut(); } catch(e) {} }
+          logout();
+          setTimeout(function() {
+            showToast('Session expired. Please log in again.', 'error', 5000);
+            openModal('loginModal');
+          }, 300);
+        }
+      }
+      _markSbFail();
+      return { data:null, error:{ message:'HTTP '+res.status } };
+    }
     const data = await res.json().catch(function(){ return body; });
     return { data, error:null };
   } catch(e) {
     clearTimeout(timer);
     _markSbFail();
-    // Silent fallback — data is already in localStorage
-    return { data:body, error:null };
+    console.error('[APEX] sbUpsert network error:', e.message);
+    return { data:null, error:{ message:'Network error — saved locally, will retry when online' } };
   }
 }
 
@@ -6893,7 +6909,6 @@ async function submitContactEmail(fromEmail, fromName, subject, body) {
 function userToDb(u) {
   const m={};
   if(u.email!==undefined) m.email=u.email;
-  if(u.password!==undefined) m.password=u.password;
   if(u.firstName!==undefined) m.first_name=u.firstName;
   if(u.lastName!==undefined) m.last_name=u.lastName;
   if(u.age!==undefined) m.age=u.age;
@@ -6915,7 +6930,7 @@ function userToDb(u) {
 }
 function dbToUser(r) {
   return {
-    email:r.email, password:r.password,
+    email:r.email,
     firstName:r.first_name, lastName:r.last_name,
     age:r.age, sex:r.sex, height:r.height, weight:r.weight,
     goalWeight:r.goal_weight, goal:r.goal, activity:r.activity,
@@ -9103,7 +9118,7 @@ async function doCoachLogin(){
   // Server-side password verification — COACH_SECRET never leaves the server
   // POST to get-config with the password; server compares and returns secret only if valid
   try {
-    const res = await fetch('https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/get-config', {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/get-config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: p })
@@ -9116,10 +9131,13 @@ async function doCoachLogin(){
     }
     const data = await res.json();
     COACH_SECRET = data.coachSecret || '';
+    lf.set('coachVerifiedAt', Date.now());
   } catch(e) {
-    // Offline fallback: allow local-only coach login if secret was previously cached
-    if (!COACH_SECRET) {
-      document.getElementById('coachLoginError').textContent='Cannot verify — no server connection.';
+    // Offline fallback: only if secret was verified server-side in last 24h
+    const lastVerified = lf.get('coachVerifiedAt') || 0;
+    const hoursSince = (Date.now() - lastVerified) / 3600000;
+    if (!COACH_SECRET || hoursSince > 24) {
+      document.getElementById('coachLoginError').textContent='Cannot verify — server unreachable and offline window expired (24h).';
       return;
     }
     if (p !== COACH_SECRET) {
@@ -9153,7 +9171,9 @@ async function doCoachLogin(){
           if (signUpData && signUpData.session) {
             currentAccessToken = signUpData.session.access_token;
           }
-        } catch(e2) {}
+        } catch(e2) {
+          console.error('[APEX] Coach sign-up fallback failed:', e2.message);
+        }
       }
     }
     coachLoginAttempts=0;

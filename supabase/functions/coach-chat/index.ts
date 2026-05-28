@@ -56,7 +56,11 @@ serve(async (req) => {
         }
         await supabaseClient.rpc("increment_ai_usage", { p_email: user.email, p_date: today });
       } catch {
-        // Non-fatal if usage tracking fails
+        // Fail-closed: if usage tracking fails, deny the request
+        return new Response(
+          JSON.stringify({ error: "Usage tracking unavailable. Please try again later." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
@@ -109,16 +113,21 @@ COACHING STYLE:
     });
 
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) {
+      console.error("Anthropic API error:", data.error);
+      return new Response(
+        JSON.stringify({ error: "AI service temporarily unavailable" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const reply = data.content?.[0]?.text || "I couldn't generate a response. Please try again.";
 
     return new Response(JSON.stringify({ ok: true, reply }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("coach-chat error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
+    console.error("coach-chat error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 502,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -138,7 +138,10 @@ serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
   // ── IP rate limit ─────────────────────────────────────────────────────────────
-  const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+  if (!clientIP) {
+    return jsonError("Unable to determine client IP — request blocked", 403);
+  }
   if (!checkRateLimit(clientIP)) {
     return jsonError("Too many requests — slow down", 429);
   }
