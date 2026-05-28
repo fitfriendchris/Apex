@@ -5878,11 +5878,19 @@ async function sbGetWorkoutLog(email, date) {
 // ── XP & Gamification ─────────────────────────────────────────────────────────
 async function sbSyncXP(email, xpData) {
   try {
+    // SECURITY: Fetch server XP first to prevent massive localStorage inflation
+    const { data } = await sbGet('user_gamification',
+      `?user_email=eq.${encodeURIComponent(email)}&select=total_xp,level,streak_days,badges`);
+    const serverTotal = (data && data[0]) ? (data[0].total_xp || 0) : 0;
+    const localTotal = xpData.total || 0;
+    // Cap unreasonable jumps (max 500 XP per sync to prevent abuse)
+    const maxAllowed = serverTotal + 500;
+    const safeTotal = localTotal > maxAllowed ? maxAllowed : localTotal;
     await sbUpsert('user_gamification',
-      { user_email: email, total_xp: xpData.total||0, level: xpData.level||1,
+      { user_email: email, total_xp: safeTotal, level: xpData.level||1,
         streak_days: xpData.streak||0, badges: xpData.badges||[], last_activity: getTodayStr() },
       'user_email');
-  } catch(e) {}
+  } catch(e) { console.error('[APEX] sbSyncXP failed:', e); }
 }
 
 async function sbGetXP(email) {
@@ -5899,7 +5907,7 @@ async function sbGetXP(email) {
         return serverData;
       }
       // Local is higher — push to server
-      sbSyncXP(email, local).catch(()=>{});
+      sbSyncXP(email, local).catch(e=>console.error('[APEX] sbSyncXP failed:', e));
       return local;
     }
   } catch(e) {}
@@ -5940,7 +5948,7 @@ async function syncAllUserDataFromServer(email) {
     sbGetPRs(email),
     sbGetMeasurements(email),
     sbGetXP(email),
-  ]).catch(()=>{});
+  ]).catch(e=>console.error('[APEX] syncAllUserDataFromServer parallel pull failed:', e));
   // Workout logs: only sync recent 30 days (too many to pull all at once)
   // They're pulled on-demand by sbGetWorkoutLog
 }
@@ -6409,7 +6417,7 @@ async function saveCoachNotes(email,notes) {
 //  shape: { dayName, completed, finishedAt, exercises: { [exerciseName]: { sets:[{weight,reps,rpe}] } } }
 // ================================================================
 function getWorkoutLog(email, date){ return lf.get('wlog_'+email+'_'+date) || null; }
-function saveWorkoutLog(email, date, log){ lf.set('wlog_'+email+'_'+date, log); sbSaveWorkoutLog(email, date, log).catch(()=>{}); }
+function saveWorkoutLog(email, date, log){ lf.set('wlog_'+email+'_'+date, log); sbSaveWorkoutLog(email, date, log).catch(e=>console.error('[APEX] saveWorkoutLog failed:', e)); }
 
 // Walk back up to 8 weeks to find the last logged session for a given dayName+exerciseName
 function getPrevLiftData(email, dayName, exerciseName){
@@ -7113,7 +7121,7 @@ Tone: direct, expert, like a coach who genuinely cares. No fluff. Max 180 words 
     const reports = lf.get('ai_reports_' + clientEmail) || [];
     reports.unshift({ date: getTodayStr(), report, weekData, avgCal, avgProtein, trainDays });
     lf.set('ai_reports_' + clientEmail, reports.slice(0, 12)); // keep 12 weeks
-  if (currentUser) incrementAIUsage(currentUser.email, (currentUser.tier||'free').toLowerCase()).catch(()=>{});
+  if (currentUser) incrementAIUsage(currentUser.email, (currentUser.tier||'free').toLowerCase()).catch(e=>console.error('[APEX] incrementAIUsage failed:', e));
 
     // Display inline
     const container = document.getElementById('aiReportContainer_' + clientEmail.replace(/[^a-z0-9]/gi, '_'));
@@ -7746,7 +7754,7 @@ function savePR(email, lift, weight, reps){
   const prs=getPRs(email);
   prs[lift]={weight,reps,date:getTodayStr()};
   lf.set('prs_'+email,prs);
-  sbUpsertPR(email, lift, weight, reps, getTodayStr()).catch(()=>{});
+  sbUpsertPR(email, lift, weight, reps, getTodayStr()).catch(e=>console.error('[APEX] savePR failed:', e));
 }
 
 // Auto-sync PRs from workout logs — called after any set is saved
@@ -8339,7 +8347,7 @@ function saveMeasurement(email, site, value){
   const today = getTodayStr();
   Object.entries(m).forEach(([site, vals]) => {
     const last = Array.isArray(vals) ? vals[vals.length-1] : null;
-    if (last && last.date === today) sbUpsertMeasurement(email, site, last.value||last, today).catch(()=>{});
+    if (last && last.date === today) sbUpsertMeasurement(email, site, last.value||last, today).catch(e=>console.error('[APEX] sbUpsertMeasurement failed:', e));
   });
 }
 function renderMeasurements(){
@@ -11165,6 +11173,7 @@ async function saveFood(){
   currentLogs.foods=currentLogs.foods||[]; currentLogs.foods.push(food);
   await saveDailyLog(currentUser.email,todayStr,currentLogs);
   addXP(currentUser.email,'logFood','Meal logged!');
+  try { checkBadges(currentUser.email); } catch(e) {}
   closeModal('addFoodModal');
   ['foodName','foodCals','foodProtein','foodCarbs','foodFats'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('foodError').textContent='';
@@ -11849,7 +11858,7 @@ async function clientGenerateMealPlan() {
     const data = await res.json();
     if (!data.plan) throw new Error('No plan returned');
     lf.set('meal_plan_' + currentUser.email, data.plan);
-    incrementAIUsage(currentUser.email, (currentUser.tier||'free').toLowerCase()).catch(()=>{});
+    incrementAIUsage(currentUser.email, (currentUser.tier||'free').toLowerCase()).catch(e=>console.error('[APEX] incrementAIUsage failed:', e));
     showToast('✅ Meal plan generated!', 'success', 3000);
     renderNutrition(null, null, 'mealplan');
   } catch(e) {
@@ -13769,7 +13778,7 @@ async function saveProfile(){
   Object.assign(currentUser, updates);
   // Sync weight history to Supabase whenever profile weight changes
   if (updates.weight) {
-    sbUpsertWeightEntry(currentUser.email, getTodayStr(), updates.weight).catch(()=>{});
+    sbUpsertWeightEntry(currentUser.email, getTodayStr(), updates.weight).catch(e=>console.error('[APEX] sbUpsertWeightEntry failed:', e));
   }
   // Refresh macro display if goal or weight changed
   const macroEl = document.querySelector('.analytics-num');
@@ -17784,7 +17793,7 @@ async function submitApplication(){
 
   showToast(`🎯 Application submitted for ${plan.toUpperCase()}!`, 'gold', 5000);
   // Send application received email
-  emailApplicationReceived({ email, first, plan }).catch(()=>{});
+  emailApplicationReceived({ email, first, plan }).catch(e=>console.error('[APEX] emailApplicationReceived failed:', e));
 }
 
 function claimFreeVideo(){
@@ -17799,7 +17808,7 @@ function claimFreeVideo(){
   lf.set('leads', leads);
 
   if(isConfigured()){
-    sb('users','POST',{ email, first_name:'Lead', last_name:'(Free Video)', tier:'free', goal:'greek_god' }).catch(()=>{});
+    sb('users','POST',{ email, first_name:'Lead', last_name:'(Free Video)', tier:'free', goal:'greek_god' }).catch(e=>console.error('[APEX] lead user creation failed:', e));
   }
 
   document.getElementById('dmEmail').value = '';
@@ -18451,7 +18460,7 @@ function initNetworkModule() {
     } else if (isOnline && existing) {
       existing.remove();
       showToast('Back online — syncing...', 'success', 2000);
-      if (currentUser) syncAllUserDataFromServer(currentUser.email).catch(()=>{});
+      if (currentUser) syncAllUserDataFromServer(currentUser.email).catch(e=>console.error('[APEX] online sync failed:', e));
     }
   };
   window.addEventListener('online', updateOnlineStatus);
@@ -18464,7 +18473,7 @@ function initPerformanceModule() {
   if ('requestIdleCallback' in window) {
     requestIdleCallback(() => {
       if (currentUser && !isCoach) {
-        getDailyLog(currentUser.email, getTodayStr()).catch(()=>{});
+        getDailyLog(currentUser.email, getTodayStr()).catch(e=>console.error('[APEX] preload dailyLog failed:', e));
       }
     }, { timeout: 3000 });
   }
