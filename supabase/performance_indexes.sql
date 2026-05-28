@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_weight_history_email_date
 
 -- AI usage: rate limit checks (email + date composite)
 CREATE INDEX IF NOT EXISTS idx_daily_ai_usage_email_date
-  ON daily_ai_usage(user_email, date);
+  ON daily_ai_usage(user_email, usage_date);
 
 -- Users: email lookups for tier checks and auth
 CREATE INDEX IF NOT EXISTS idx_users_email
@@ -37,20 +37,20 @@ CREATE INDEX IF NOT EXISTS idx_users_tier
   ON users(tier);
 
 -- Check-ins: coach queue sorted by date, filtered by review status
-CREATE INDEX IF NOT EXISTS idx_checkins_date_reviewed
-  ON checkins(checkin_date DESC, reviewed);
+CREATE INDEX IF NOT EXISTS idx_check_ins_date_reviewed
+  ON check_ins(checkin_date DESC, reviewed);
 
 -- Check-ins: user's check-in history
-CREATE INDEX IF NOT EXISTS idx_checkins_email_date
-  ON checkins(user_email, checkin_date DESC);
+CREATE INDEX IF NOT EXISTS idx_check_ins_email_date
+  ON check_ins(user_email, checkin_date DESC);
 
 -- Course progress: user's completion status
 CREATE INDEX IF NOT EXISTS idx_course_progress_email
   ON course_progress(user_email);
 
--- Messages: conversation lookups
-CREATE INDEX IF NOT EXISTS idx_messages_conversation
-  ON messages(sender_email, recipient_email, created_at DESC);
+-- Messages: conversation lookups (primary query pattern)
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_created
+  ON messages(conversation_id, created_at DESC);
 
 -- ================================================================
 --  ANALYZE — update statistics after creating indexes
@@ -59,4 +59,6 @@ ANALYZE daily_logs;
 ANALYZE workout_logs;
 ANALYZE weight_history;
 ANALYZE users;
-ANALYZE checkins;
+ANALYZE check_ins;
+ANALYZE messages;
+ANALYZE daily_ai_usage;

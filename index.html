@@ -9081,31 +9081,43 @@ async function doCoachLogin(){
   const matchedCoach = getCoachById(APP_CONFIG.defaultCoachId);
   if (matchedCoach) {
     // Ensure coach has a Supabase Auth session for RLS
+  // Use secure coach-login edge function (Admin API) for reliable JWT sessions
+  let authResult = null;
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/coach-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: matchedCoach.email, password: p })
+    });
+    if (res.ok) {
+      authResult = await res.json();
+    }
+  } catch(e) {
+    console.error('[APEX] coach-login edge function error:', e.message);
+  }
+
+  if (authResult?.access_token) {
+    currentAccessToken = authResult.access_token;
+    // Store refresh token for long-lived sessions
+    if (authResult.refresh_token) {
+      lf.set('coach_refresh_token', authResult.refresh_token);
+    }
+  } else {
+    // Fallback: direct Supabase sign-in (works when email confirmation is disabled)
     if (supabaseAuth) {
       try {
-        // Try signing in with coach email + COACH_SECRET as password
         const { data: authData } = await supabaseAuth.auth.signInWithPassword({
           email: matchedCoach.email,
-          password: COACH_SECRET || p
+          password: p
         });
         if (authData && authData.session) {
           currentAccessToken = authData.session.access_token;
         }
       } catch(e) {
-        // If login fails, create the coach auth account silently
-        try {
-          const { data: signUpData } = await supabaseAuth.auth.signUp({
-            email: matchedCoach.email,
-            password: COACH_SECRET || p
-          });
-          if (signUpData && signUpData.session) {
-            currentAccessToken = signUpData.session.access_token;
-          }
-        } catch(e2) {
-          console.error('[APEX] Coach sign-up fallback failed:', e2.message);
-        }
+        console.warn('[APEX] Coach direct sign-in failed:', e.message);
       }
     }
+  }
     coachLoginAttempts=0;
     isCoach=true; currentUser=null;
     window._activeCoachId = matchedCoach.id;
