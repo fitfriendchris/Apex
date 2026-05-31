@@ -1,4 +1,4 @@
-const CACHE = 'apex-v11';
+const CACHE = 'apex-v12';
 const APP_SHELL = ['./', './index.html'];
 
 self.addEventListener('install', e => {

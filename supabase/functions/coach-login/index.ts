@@ -107,13 +107,21 @@ Deno.serve(async (req) => {
   );
 
   try {
-    // Check if coach already exists in auth.users
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw listError;
-
-    const coachUser = existingUsers?.users?.find(
-      (u) => u.email?.toLowerCase() === email
-    );
+    // Check if coach already exists in auth.users.
+    // listUsers() is paginated (50/page by default); searching only the first
+    // page silently breaks coach login once the user base grows past 50 — the
+    // coach wouldn't be found, createUser would fail on the duplicate email, and
+    // login would 500. Page through until we find the coach (or run out).
+    let coachUser: { id: string; email?: string } | undefined;
+    const PER_PAGE = 1000;
+    for (let page = 1; page <= 100; page++) {
+      const { data: pageData, error: listError } =
+        await supabaseAdmin.auth.admin.listUsers({ page, perPage: PER_PAGE });
+      if (listError) throw listError;
+      const users = pageData?.users ?? [];
+      coachUser = users.find((u) => u.email?.toLowerCase() === email);
+      if (coachUser || users.length < PER_PAGE) break; // found, or last page
+    }
 
     let userId: string;
 
@@ -139,19 +147,8 @@ Deno.serve(async (req) => {
       userId = createData.user.id;
     }
 
-    // Generate a session (access_token + refresh_token)
-    const { data: signInData, error: signInError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo: ALLOWED_ORIGIN },
-    });
-
-    // Actually, generateLink doesn't give us tokens. We need to use signInWithPassword
-    // with the service_role client... but that won't work either.
-    // The correct approach: use createUser + then sign in via the public API
-    // Since we just set/created the user with a known password, we can sign in
-    // using the regular anon client.
-
+    // Mint a session. We just created/updated the coach with a known password,
+    // so sign in through the public (anon) client to get access + refresh tokens.
     const supabasePublic = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? ""
