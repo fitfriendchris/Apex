@@ -32,11 +32,12 @@ supabase secrets set --project-ref "$PROJECT_REF" \
   STRIPE_LINK_APEX_AI_FEATURES="${STRIPE_LINK_APEX_AI_FEATURES:-}"
 
 echo "📦 Deploying edge functions..."
-supabase functions deploy analyze-food anthropic-proxy program-builder weekly-analyst coach-ai coach-chat coach-copilot get-config smart-onboard verify-stripe-session send-email --project-ref "$PROJECT_REF" --use-api
+supabase functions deploy analyze-food anthropic-proxy program-builder weekly-analyst coach-ai coach-chat coach-copilot coach-login get-config smart-onboard verify-stripe-session send-email --project-ref "$PROJECT_REF" --use-api
 
 echo "✅ Deployment complete!"
 echo ""
 echo "Next steps:"
-echo "1. Apply RLS policies in the Supabase SQL Editor (apex-final/supabase/enable_rls.sql)"
+echo "1. Apply database migrations:  supabase db push --project-ref $PROJECT_REF"
+echo "   (RLS, the privileged-column trigger, and RPCs all live in supabase/migrations/)"
 echo "2. In Authentication → Providers → Email, configure email confirmation settings"
 echo "3. Log in as coach once to auto-provision the coach auth account"
