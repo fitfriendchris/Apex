@@ -1,59 +1,118 @@
 # APEX Coaching Platform
 
-## Local development
+Elite physique-transformation coaching app — macro tracking, AI workout/nutrition
+programs, coach ↔ client messaging, and tiered subscriptions.
 
-1. Install Netlify CLI:
-   ```bash
-   npm install -g netlify-cli
-   ```
+**Architecture:** a single static frontend (`index.html`, a self-contained SPA +
+PWA) served from **Cloudflare Pages** (the connected deploy that applies the CSP
+in `_headers`), backed by **Supabase** (Postgres + Auth + Edge Functions). All
+secrets live server-side; the browser only ever holds the public anon key, which
+is fetched at runtime from the `get-config` edge function.
 
-2. Copy the env template and fill in your values:
-   ```bash
-   cp .env.example .env
-   # edit .env with your real Supabase URL, anon key, coach secret, and Stripe links
-   ```
-
-3. Run locally:
-   ```bash
-   netlify dev
-   # opens at http://localhost:8888
-   ```
-
-## Deploying to production
-
-### First-time setup
-1. Push this repo to GitHub
-2. Go to [app.netlify.com](https://app.netlify.com) → **Add new site** → **Import from Git**
-3. Select your repo — Netlify will detect `netlify.toml` automatically
-4. Go to **Site configuration → Environment variables** and add:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `COACH_SECRET`
-   - `STRIPE_LINK_CORE`
-   - `STRIPE_LINK_ELITE`
-   - `STRIPE_LINK_VIP`
-   - `STRIPE_LINK_DIAMOND`
-5. Click **Deploy site**
-
-### After that
-Every push to `main` triggers an automatic redeploy. No manual steps needed.
+```
+Browser (Cloudflare Pages)  ──►  Supabase Edge Functions (Deno)  ──►  Anthropic / Stripe / Resend
+        │                                  │
+        └──────────────► Supabase Postgres (RLS-protected) ◄───────────┘
+```
 
 ## Project structure
 
 ```
-├── index.html                 # Main app
-├── netlify.toml               # Netlify build config
-├── netlify/
-│   └── functions/
-│       └── config.js          # Serverless function — serves env vars to the app
-├── .env.example               # Env var template (safe to commit)
-├── .env                       # Your real secrets (NEVER commit — in .gitignore)
-└── .gitignore
+├── index.html                  # The entire frontend app (SPA + PWA)
+├── sw.js                        # Service worker (offline shell, cache v11)
+├── manifest.json                # PWA manifest
+├── _headers                     # Security headers + CSP (GitHub Pages / Cloudflare)
+├── deploy.sh                    # Pushes secrets + deploys all edge functions
+├── .env.example                 # Secret template — copy to .env (gitignored)
+├── supabase/
+│   ├── config.toml
+│   ├── migrations/              # Source of truth for schema, RLS, RPCs, triggers
+│   └── functions/               # 12 Deno edge functions (see below)
+└── README.md
 ```
+
+### Edge functions
+
+| Function | Auth | Purpose |
+|---|---|---|
+| `get-config` | public (GET) / coach (POST) | Serves public config; validates coach password |
+| `coach-login` | coach secret | Server-side coach session via Supabase Admin API |
+| `verify-stripe-session` | user JWT | Verifies a Stripe checkout **and grants the tier server-side** |
+| `stripe-webhook` | Stripe signature | Subscription lifecycle — grants on checkout, **downgrades on cancel/unpaid** |
+| `anthropic-proxy` | user JWT / coach token | Rate-limited, tier-gated relay to Anthropic |
+| `analyze-food` | user JWT | AI food/macro photo analysis |
+| `smart-onboard` | public (rate-limited) | Pre-login sales/onboarding chat agent |
+| `program-builder` | user JWT / coach | Generates a training program |
+| `weekly-analyst` | user JWT / coach | Weekly progress analysis |
+| `coach-ai`, `coach-chat`, `coach-copilot` | user / coach | Coaching assistants |
+| `send-email` | user JWT | Transactional email via Resend (anti-spoof) |
+
+## Local development
+
+The frontend is plain static HTML — no build step. Serve it with any static
+server and it will fetch its config from the **deployed** Supabase functions:
+
+```bash
+python3 -m http.server 8000      # then open http://localhost:8000
+```
+
+> Add `http://localhost:8000` to `ALLOWED_ORIGIN` (or deploy a staging Supabase
+> project) if you want local pages to reach the edge functions, since functions
+> are CORS-locked to `ALLOWED_ORIGIN`.
+
+## Deploying to production
+
+### 1. Frontend (Cloudflare Pages)
+The repo is connected to Cloudflare Pages — every push to `main` republishes the
+static root (no build step). The `_headers` file applies the CSP and security
+headers. Make sure `ALLOWED_ORIGIN` (below) exactly matches the served origin.
+
+### 2. Backend (Supabase)
+```bash
+# one-time
+brew install supabase/tap/supabase        # or see supabase.com/docs/guides/cli
+supabase login
+cp .env.example .env                        # fill in real secrets
+
+# apply schema, RLS, triggers, and RPCs
+supabase db push --project-ref yiqilesbvthmwdrtlhgm
+
+# push secrets + deploy all 12 edge functions
+./deploy.sh
+```
+
+`deploy.sh` reads `.env`, sets the Supabase secrets, and deploys every function.
+
+### 3. Post-deploy checklist
+1. **Auth → Providers → Email**: configure confirmation settings.
+2. Log in once as coach to auto-provision the coach auth account.
+3. Confirm `ALLOWED_ORIGIN` exactly matches your Pages URL (no trailing slash).
+4. **Configure the Stripe webhook** (required for cancellations to downgrade users):
+   Stripe Dashboard → Developers → Webhooks → Add endpoint
+   → `https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/stripe-webhook`
+   → events: `checkout.session.completed`, `customer.subscription.deleted`,
+   `customer.subscription.updated`, `invoice.payment_failed`. Copy the signing
+   secret into `STRIPE_WEBHOOK_SECRET` and re-run `./deploy.sh`.
+5. Smoke-test a real Stripe checkout end-to-end (see Security notes).
 
 ## Security notes
 
-- `.env` is in `.gitignore` — it will never be committed
-- All secrets live in Netlify's encrypted environment variable store in production
-- The `config.js` function only responds to same-origin requests
-- Rotate your Supabase anon key if it was ever committed to a public repo
+- **Secrets never reach the browser.** Only `SUPABASE_URL` + the anon key are
+  public, served by `get-config`. Anthropic/Stripe/Resend keys stay in Supabase.
+- **Tiers can only be granted server-side.** The `tier` (and Stripe / email-
+  verification) columns are locked from client writes by the
+  `protect_user_privileged_columns` trigger. A paid tier is granted *only* by
+  `verify-stripe-session` after Stripe confirms payment, or by a coach via the
+  `set_client_tier` RPC. Direct `PATCH`es to those columns are rejected.
+- **RLS is enabled on all tables** (see `supabase/migrations/`).
+- **AI usage is rate-limited and tier-gated** server-side in `anthropic-proxy`,
+  including expiry enforcement via `tier_expires`.
+- Rotate the Supabase anon key (and any secret) if it was ever exposed.
+
+## Known limitations / recommended next steps
+
+- **In-memory rate limiters reset on cold start.** Fine for current scale; move
+  to a Postgres/Upstash-backed limiter if abuse becomes a concern.
+- **Mid-subscription plan changes.** The webhook downgrades on cancel/unpaid and
+  grants on checkout, but does not map Stripe price IDs to tiers for in-place
+  upgrades/downgrades. Add a price→tier map if you offer plan switching in Stripe.

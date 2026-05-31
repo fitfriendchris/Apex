@@ -106,10 +106,52 @@ Deno.serve(async (req) => {
       );
     }
 
+    const grantedPlan = confirmedPlan || plan;
+
+    // ── Apply the upgrade SERVER-SIDE with the service-role key ───────────────
+    // The `tier` column is locked from client writes (see the
+    // protect_user_privileged_columns trigger), so the only trustworthy place to
+    // grant a paid tier is right here, after Stripe has confirmed payment.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!serviceKey) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY not set — cannot grant tier");
+      return new Response(
+        JSON.stringify({ verified: false, error: "Server misconfiguration — contact support" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Only ever upgrade — never silently downgrade a higher existing tier.
+    const RANK: Record<string, number> = { free: 0, ai_basic: 1, core: 2, elite: 3, vip: 4, diamond: 5 };
+    const { data: existing } = await admin
+      .from("users")
+      .select("tier")
+      .eq("email", user.email!)
+      .single();
+    const currentTier = (existing?.tier ?? "free") as string;
+
+    if ((RANK[grantedPlan] ?? 0) > (RANK[currentTier] ?? 0)) {
+      const { error: upErr } = await admin
+        .from("users")
+        .update({ tier: grantedPlan, stripe_session_id: sessionId })
+        .eq("email", user.email!);
+      if (upErr) {
+        console.error("Failed to apply tier upgrade:", upErr);
+        return new Response(
+          JSON.stringify({ verified: false, error: "Could not apply upgrade — contact support" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     return new Response(
       JSON.stringify({
         verified: true,
-        plan: confirmedPlan || plan,
+        plan: grantedPlan,
         sessionId,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -131,10 +131,18 @@ serve(async (req: Request) => {
       try {
         const { data: userRow } = await supabaseClient
           .from("users")
-          .select("tier")
+          .select("tier, tier_expires")
           .eq("email", user.email)
           .single();
         tier = (userRow?.tier ?? "free") as string;
+        // Enforce tier expiry server-side. The client can no longer downgrade the
+        // `tier` column (it is locked by the protect_user_privileged_columns
+        // trigger), so an expired paid tier must be treated as free at the gate.
+        const expires = (userRow?.tier_expires ?? null) as string | null;
+        if (tier !== "free" && expires) {
+          const today = new Date().toISOString().split("T")[0];
+          if (expires < today) tier = "free";
+        }
       } catch {
         // users table read failed — default to free tier (fail closed)
         console.warn("Could not read user tier — defaulting to free");

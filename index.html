@@ -7145,7 +7145,8 @@ async function checkStripeUpgrade() {
     if (currentUser) {
       // User is already logged in — upgrade right now
       if (tierLevel(plan) > tierLevel(currentUser.tier||'free')) {
-        await updateUser(currentUser.email, { tier: plan, stripeSessionId: sessionId||'' });
+        // verify-stripe-session already persisted the tier server-side (the tier
+        // column is locked from client writes). Just sync local state here.
         currentUser.tier = plan;
         lf.set('session', { email: currentUser.email, isCoach: false });
         // Refresh badges
@@ -7191,7 +7192,7 @@ async function checkStripeUpgrade() {
         console.warn('[APEX] Pending upgrade failed server verification — removed.');
       } else if (tierLevel(pending.plan) > tierLevel(currentUser.tier||'free')) {
         lf.del('pendingUpgrade');
-        await updateUser(currentUser.email, { tier: pending.plan, stripeSessionId: pending.sessionId||'' });
+        // Tier was persisted server-side by verify-stripe-session; sync local state.
         currentUser.tier = pending.plan;
         const badge = document.getElementById('tierBadge');
         if (badge) { badge.className = 'tier-badge ' + (TIERS[pending.plan]?.badge||'tier-free'); badge.textContent = TIERS[pending.plan]?.name||pending.plan; }
@@ -8817,13 +8818,113 @@ function toggleFAQ(i){
   a.classList.toggle('open');
   arr.textContent=a.classList.contains('open')?'−':'+';
 }
+// ── Legal / policy content ──────────────────────────────────────────────────
+// NOTE FOR THE OWNER: items in [BRACKETS] must be filled in with your real legal
+// entity name and jurisdiction before launch. This is a solid starting template,
+// not a substitute for review by a lawyer in your jurisdiction.
+const POLICY_LAST_UPDATED = 'May 30, 2026';
+const POLICY_SUPPORT_EMAIL = 'support@apexcoaching.app';
+const POLICY_ENTITY = 'APEX Coaching';
+const POLICY_JURISDICTION = 'the United States';
+const POLICIES = {
+  privacy: {
+    title: 'Privacy Policy',
+    html: `
+      <p><em>Last updated: ${POLICY_LAST_UPDATED}</em></p>
+      <h4>What we collect</h4>
+      <p>Account details (name, email), the profile and goal data you enter, your
+      logged nutrition/workout/check-in data, and subscription status. We do not
+      collect payment card details — those are handled entirely by Stripe.</p>
+      <h4>How it is stored</h4>
+      <p>Your data lives in our Supabase (PostgreSQL) database, protected by
+      row-level security so that you can only access your own records. Coaches can
+      access the data of clients assigned to them.</p>
+      <h4>Third parties we share with</h4>
+      <p>Only as needed to run the service: <strong>Stripe</strong> (payments),
+      <strong>Anthropic</strong> (AI features — your prompts/inputs are sent to
+      generate responses), and <strong>Resend</strong> (transactional email). We
+      never sell your personal information.</p>
+      <h4>Your rights</h4>
+      <p>You may request a copy of your data or permanent deletion of your account
+      at any time by emailing ${POLICY_SUPPORT_EMAIL}. We will action deletion
+      requests within 30 days.</p>
+      <h4>Contact</h4>
+      <p>${POLICY_ENTITY} — ${POLICY_SUPPORT_EMAIL}</p>`
+  },
+  terms: {
+    title: 'Terms of Service',
+    html: `
+      <p><em>Last updated: ${POLICY_LAST_UPDATED}</em></p>
+      <div class="policy-warn">
+        <strong>Health &amp; medical disclaimer.</strong> APEX provides general
+        fitness and nutrition information and AI-generated guidance for
+        educational purposes only. It is <strong>not medical advice</strong> and
+        is not a substitute for consultation with a physician or registered
+        dietitian. Consult your doctor before starting any exercise or nutrition
+        program, especially if you are pregnant, under 18, or have a medical
+        condition. You participate at your own risk and assume responsibility for
+        your own health decisions.
+      </div>
+      <h4>Eligibility</h4>
+      <p>You must be at least 18 years old to create an account and purchase a plan.</p>
+      <h4>Your account</h4>
+      <p>You are responsible for keeping your login secure and for activity under
+      your account. Don't abuse, reverse-engineer, or attempt to disrupt the
+      service, and don't misuse the AI features.</p>
+      <h4>AI guidance</h4>
+      <p>AI-generated programs, macros, and feedback are estimates that may contain
+      errors. Use judgement and professional advice before acting on them.</p>
+      <h4>Results</h4>
+      <p>Results vary and depend on your individual effort and consistency. We make
+      no guarantee of any specific outcome.</p>
+      <h4>Subscriptions &amp; billing</h4>
+      <p>Paid plans are billed through Stripe on a recurring basis and renew
+      automatically until cancelled. You can cancel anytime; access continues
+      until the end of the current billing period. To cancel or update billing,
+      use the billing portal in your profile or email ${POLICY_SUPPORT_EMAIL}.</p>
+      <h4>Limitation of liability</h4>
+      <p>To the maximum extent permitted by law, ${POLICY_ENTITY} is not liable
+      for any indirect or consequential damages arising from use of the service.
+      These terms are governed by the laws of ${POLICY_JURISDICTION}.</p>`
+  },
+  refund: {
+    title: 'Refund Policy',
+    html: `
+      <p><em>Last updated: ${POLICY_LAST_UPDATED}</em></p>
+      <h4>30-day money-back guarantee</h4>
+      <p>If you're not satisfied with a paid plan, contact ${POLICY_SUPPORT_EMAIL}
+      within 30 days of your initial purchase for a full refund of that charge.</p>
+      <h4>After 30 days</h4>
+      <p>Subscriptions renew automatically. Renewal charges are non-refundable, but
+      you can cancel anytime to stop future billing; your access continues to the
+      end of the paid period.</p>
+      <h4>How to request</h4>
+      <p>Email ${POLICY_SUPPORT_EMAIL} from your account email with your request.
+      Refunds are issued to the original payment method via Stripe.</p>`
+  }
+};
+
 function showPolicy(type){
-  const policies={
-    privacy:'Your data is stored securely in our encrypted database. We never sell or share your personal information with third parties. You may request deletion of your account at any time by contacting us.',
-    terms:'By using APEX Coaching, you agree to follow the program as designed. Results vary based on individual effort and consistency. APEX Coaching is not a substitute for medical advice.',
-    refund:'We offer a 30-day money-back guarantee on all paid plans. If you follow the program for 30 days and do not see measurable progress, contact us for a full refund.'
-  };
-  alert(policies[type]);
+  const p = POLICIES[type];
+  if(!p) return;
+  const body = p.html;
+  document.getElementById('policyOverlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'policyOverlay';
+  ov.setAttribute('role','dialog');
+  ov.setAttribute('aria-modal','true');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:1.25rem;background:rgba(0,0,0,.72);backdrop-filter:blur(4px)';
+  ov.innerHTML =
+    '<style>#policyOverlay .policy-body h4{color:var(--gold,#C9A84C);font-family:var(--font-cond,sans-serif);font-size:.95rem;letter-spacing:.03em;margin:1.1rem 0 .35rem}#policyOverlay .policy-body p{margin:0 0 .65rem}#policyOverlay .policy-warn{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:.85rem 1rem;margin:.4rem 0 .6rem;font-size:.88rem}</style>'
+    + '<div style="background:var(--card,#111);border:1px solid var(--border,#2a2a2a);border-radius:14px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.6)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border,#2a2a2a)">'
+    + '<span style="font-family:var(--font-cond,sans-serif);font-size:1.15rem;letter-spacing:.04em;color:var(--gold,#C9A84C)">'+p.title+'</span>'
+    + '<button type="button" aria-label="Close" onclick="document.getElementById(\'policyOverlay\').remove()" style="background:none;border:none;color:var(--muted,#888);font-size:1.6rem;line-height:1;cursor:pointer">&times;</button>'
+    + '</div>'
+    + '<div class="policy-body" style="padding:1.2rem 1.4rem;overflow-y:auto;color:var(--text,#ddd);font-family:var(--font-body,sans-serif);font-size:.92rem;line-height:1.6">'+body+'</div>'
+    + '</div>';
+  ov.addEventListener('click', e => { if(e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
 }
 
 // ================================================================

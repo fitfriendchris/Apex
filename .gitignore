@@ -1,5 +1,24 @@
+# Secrets — never commit
 .env
 .env.local
+.env.*.local
+
+# Supabase local state
 supabase/.temp/
+
+# Dependencies
 node_modules/
+
+# OS / editor cruft
+.DS_Store
+**/.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Build artifacts / archives
+*.zip
+
+# Internal deployment notes
 DEPLOYMENT.md
