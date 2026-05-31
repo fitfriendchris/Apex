@@ -32,12 +32,18 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function buildCors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 // ── Rate limit: max 20 messages per session to prevent API abuse ──────────────
 const SESSION_MSG_LIMIT = 20;
@@ -134,23 +140,24 @@ NEVER:
 - Be vague about numbers — always show the actual calculated values`;
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCors(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
   // ── IP rate limit ─────────────────────────────────────────────────────────────
   const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
   if (!clientIP) {
-    return jsonError("Unable to determine client IP — request blocked", 403);
+    return jsonError(corsHeaders, "Unable to determine client IP — request blocked", 403);
   }
   if (!checkRateLimit(clientIP)) {
-    return jsonError("Too many requests — slow down", 429);
+    return jsonError(corsHeaders, "Too many requests — slow down", 429);
   }
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return jsonError("ANTHROPIC_API_KEY not configured", 500);
+  if (!anthropicKey) return jsonError(corsHeaders, "ANTHROPIC_API_KEY not configured", 500);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400); }
+  try { body = await req.json(); } catch { return jsonError(corsHeaders, "Invalid JSON", 400); }
 
   const { messages, userData } = body as {
     messages: { role: "user" | "assistant"; content: string }[];
@@ -162,12 +169,12 @@ serve(async (req: Request) => {
   };
 
   if (!Array.isArray(messages) || messages.length === 0) {
-    return jsonError("messages array is required", 400);
+    return jsonError(corsHeaders, "messages array is required", 400);
   }
 
   // ── Session length guard ──────────────────────────────────────────────────────
   if (messages.length > SESSION_MSG_LIMIT * 2) {
-    return jsonError("Session limit reached — please register to continue", 429);
+    return jsonError(corsHeaders, "Session limit reached — please register to continue", 429);
   }
 
   // ── Validate and sanitise message structure ───────────────────────────────────
@@ -177,7 +184,7 @@ serve(async (req: Request) => {
     .map(m => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
 
   if (validMessages.length === 0 || validMessages[validMessages.length - 1].role !== "user") {
-    return jsonError("Last message must be from the user", 400);
+    return jsonError(corsHeaders, "Last message must be from the user", 400);
   }
 
   // ── Inject known userData into system context ─────────────────────────────────
@@ -204,7 +211,7 @@ serve(async (req: Request) => {
     if (!res.ok) {
       const errText = await res.text();
       console.error("Anthropic error:", errText);
-      return jsonError("AI response failed", 502);
+      return jsonError(corsHeaders, "AI response failed", 502);
     }
 
     const aiData = await res.json();
@@ -250,11 +257,11 @@ serve(async (req: Request) => {
 
   } catch (err) {
     console.error("smart-onboard error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError(corsHeaders, "Internal server error", 500);
   }
 });
 
-function jsonError(message: string, status: number) {
+function jsonError(corsHeaders: Record<string, string>, message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

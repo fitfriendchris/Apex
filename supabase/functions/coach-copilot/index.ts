@@ -24,12 +24,18 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function buildCors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 // ── Per-coach per-day call limit ────────────────────────────────────────────
 const MAX_CALLS_PER_DAY = 100;
@@ -101,6 +107,7 @@ Return ONLY JSON: { "brief": string, "quickStats": { "weeklyScore": number, "tre
 };
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCors(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
@@ -108,23 +115,23 @@ serve(async (req: Request) => {
   const coachToken = req.headers.get("X-Coach-Token") ?? "";
   const validSecret = Deno.env.get("COACH_SECRET") ?? "";
   if (!coachToken || coachToken !== validSecret) {
-    return jsonError("Coach authentication required", 401);
+    return jsonError(corsHeaders, "Coach authentication required", 401);
   }
 
   // ── Rate limit per coach IP ─────────────────────────────────────────────────
   const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
   if (!clientIP) {
-    return jsonError("Unable to determine client IP", 403);
+    return jsonError(corsHeaders, "Unable to determine client IP", 403);
   }
   if (!checkRateLimit(clientIP)) {
-    return jsonError("Daily coach copilot limit reached (100).", 429);
+    return jsonError(corsHeaders, "Daily coach copilot limit reached (100).", 429);
   }
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return jsonError("ANTHROPIC_API_KEY not configured", 500);
+  if (!anthropicKey) return jsonError(corsHeaders, "ANTHROPIC_API_KEY not configured", 500);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400); }
+  try { body = await req.json(); } catch { return jsonError(corsHeaders, "Invalid JSON", 400); }
 
   const { action, clientData, coachStyle, allClients } = body as {
     action: "draft-response" | "risk-scan" | "macro-adjust" | "client-brief";
@@ -134,14 +141,14 @@ serve(async (req: Request) => {
   };
 
   if (!action || !PROMPTS[action]) {
-    return jsonError(`action must be one of: ${Object.keys(PROMPTS).join(", ")}`, 400);
+    return jsonError(corsHeaders, `action must be one of: ${Object.keys(PROMPTS).join(", ")}`, 400);
   }
 
   // ── Build action-specific user prompt ─────────────────────────────────────────
   let userPrompt = "";
 
   if (action === "draft-response") {
-    if (!clientData) return jsonError("clientData required for draft-response", 400);
+    if (!clientData) return jsonError(corsHeaders, "clientData required for draft-response", 400);
     const c = clientData;
     userPrompt = `Write a coaching response for this client.
 
@@ -162,7 +169,7 @@ ${coachStyle ? `\nCoach style preference: ${coachStyle}` : ""}
 Return the JSON coaching message now.`;
 
   } else if (action === "risk-scan") {
-    if (!allClients?.length) return jsonError("allClients array required for risk-scan", 400);
+    if (!allClients?.length) return jsonError(corsHeaders, "allClients array required for risk-scan", 400);
     const summaries = allClients.map(c => ({
       email: c.email,
       name: `${c.firstName} ${c.lastName}`,
@@ -179,7 +186,7 @@ Return the JSON coaching message now.`;
     userPrompt = `Scan these ${summaries.length} clients and return the risk assessment JSON array.\n\nClient data:\n${JSON.stringify(summaries, null, 2)}`;
 
   } else if (action === "macro-adjust") {
-    if (!clientData) return jsonError("clientData required for macro-adjust", 400);
+    if (!clientData) return jsonError(corsHeaders, "clientData required for macro-adjust", 400);
     const c = clientData;
     userPrompt = `Calculate a macro adjustment for this client.
 
@@ -194,7 +201,7 @@ WEEKS AT CURRENT CALORIES: ${c.weeksAtCurrentCals ?? 1}
 Return the macro adjustment JSON now.`;
 
   } else if (action === "client-brief") {
-    if (!clientData) return jsonError("clientData required for client-brief", 400);
+    if (!clientData) return jsonError(corsHeaders, "clientData required for client-brief", 400);
     userPrompt = `Write a client handoff brief for:\n\n${JSON.stringify(clientData, null, 2)}\n\nReturn the JSON brief now.`;
   }
 
@@ -214,7 +221,7 @@ Return the macro adjustment JSON now.`;
       }),
     });
 
-    if (!res.ok) return jsonError("AI copilot call failed", 502);
+    if (!res.ok) return jsonError(corsHeaders, "AI copilot call failed", 502);
     const aiData = await res.json();
     const rawText = aiData.content?.[0]?.text ?? "";
 
@@ -224,7 +231,7 @@ Return the macro adjustment JSON now.`;
       result = JSON.parse(cleaned);
     } catch {
       console.error("CoachCopilot parse failed:", rawText.slice(0, 400));
-      return jsonError("Failed to parse AI output", 422);
+      return jsonError(corsHeaders, "Failed to parse AI output", 422);
     }
 
     return new Response(JSON.stringify({ action, result }), {
@@ -234,11 +241,11 @@ Return the macro adjustment JSON now.`;
 
   } catch (err) {
     console.error("coach-copilot error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError(corsHeaders, "Internal server error", 500);
   }
 });
 
-function jsonError(message: string, status: number) {
+function jsonError(corsHeaders: Record<string, string>, message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

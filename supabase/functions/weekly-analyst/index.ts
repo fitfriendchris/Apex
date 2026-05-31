@@ -28,12 +28,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function buildCors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 interface FoodEntry { name: string; calories: number; protein: number; fat: number; carb: number; }
 interface DailyLog { date: string; foods: FoodEntry[]; checks: Record<string, boolean>; water: number; }
@@ -142,11 +148,12 @@ JSON SCHEMA:
 }`;
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCors(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return jsonError("ANTHROPIC_API_KEY not configured", 500);
+  if (!anthropicKey) return jsonError(corsHeaders, "ANTHROPIC_API_KEY not configured", 500);
 
   const authHeader = req.headers.get("Authorization") ?? "";
   const coachToken = req.headers.get("X-Coach-Token") ?? "";
@@ -158,10 +165,10 @@ serve(async (req: Request) => {
     { global: { headers: { Authorization: authHeader } } }
   );
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if ((!user && !isCoach) || (authErr && !isCoach)) return jsonError("Unauthorized", 401);
+  if ((!user && !isCoach) || (authErr && !isCoach)) return jsonError(corsHeaders, "Unauthorized", 401);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400); }
+  try { body = await req.json(); } catch { return jsonError(corsHeaders, "Invalid JSON", 400); }
 
   const { user: profile, logs, checkIn, macros } = body as {
     user: UserProfile;
@@ -170,8 +177,8 @@ serve(async (req: Request) => {
     macros: MacroTargets;
   };
 
-  if (!profile || !logs || !macros) return jsonError("user, logs, and macros are required", 400);
-  if (!Array.isArray(logs) || logs.length < 1) return jsonError("logs must be a non-empty array", 400);
+  if (!profile || !logs || !macros) return jsonError(corsHeaders, "user, logs, and macros are required", 400);
+  if (!Array.isArray(logs) || logs.length < 1) return jsonError(corsHeaders, "logs must be a non-empty array", 400);
 
   // ── Rate limit + tier verification (server-side truth) ─────────────────────
   const targetEmail = user?.email || profile.email;
@@ -191,7 +198,7 @@ serve(async (req: Request) => {
     const LIMITS: Record<string, number> = { free: 0, ai_basic: 5, core: 10, elite: 20, vip: 50, diamond: 999 };
     const limit = LIMITS[serverTier] ?? 0;
     if (limit === 0) {
-      return jsonError("Weekly analyst requires a paid plan. Upgrade to access.", 403);
+      return jsonError(corsHeaders, "Weekly analyst requires a paid plan. Upgrade to access.", 403);
     }
 
     try {
@@ -203,10 +210,10 @@ serve(async (req: Request) => {
         .eq("usage_date", today)
         .single();
       const calls = (usageRow?.scan_count ?? 0) as number;
-      if (calls >= limit) return jsonError(`Daily AI limit reached (${calls}/${limit})`, 429);
+      if (calls >= limit) return jsonError(corsHeaders, `Daily AI limit reached (${calls}/${limit})`, 429);
     } catch {
       console.error("daily_ai_usage table not accessible — denying request");
-      return jsonError("Usage tracking unavailable. Please try again later.", 503);
+      return jsonError(corsHeaders, "Usage tracking unavailable. Please try again later.", 503);
     }
   }
 
@@ -256,7 +263,7 @@ Return the JSON analysis now.`;
       }),
     });
 
-    if (!res.ok) return jsonError("AI analysis failed", 502);
+    if (!res.ok) return jsonError(corsHeaders, "AI analysis failed", 502);
     const aiData = await res.json();
     const rawText = aiData.content?.[0]?.text ?? "";
 
@@ -266,7 +273,7 @@ Return the JSON analysis now.`;
       report = JSON.parse(cleaned);
     } catch {
       console.error("Weekly analyst parse failed:", rawText.slice(0, 400));
-      return jsonError("Failed to parse AI report", 422);
+      return jsonError(corsHeaders, "Failed to parse AI report", 422);
     }
 
     // Attach computed metadata
@@ -291,11 +298,11 @@ Return the JSON analysis now.`;
 
   } catch (err) {
     console.error("weekly-analyst error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError(corsHeaders, "Internal server error", 500);
   }
 });
 
-function jsonError(message: string, status: number) {
+function jsonError(corsHeaders: Record<string, string>, message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

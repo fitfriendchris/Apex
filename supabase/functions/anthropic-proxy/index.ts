@@ -39,14 +39,21 @@ const MAX_CALLS_PER_DAY: Record<string, number> = {
 
 // ── CORS — driven by ALLOWED_ORIGIN env var set via supabase secrets ──────────
 // NEVER hardcode the domain in source — it changes between staging and prod.
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
-const corsHeaders = {
-  "Access-Control-Allow-Origin":  allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function buildCors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-coach-token",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCors(req);
   // ── CORS preflight ──────────────────────────────────────────────────────────
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });

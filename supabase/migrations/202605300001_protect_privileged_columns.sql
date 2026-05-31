@@ -32,13 +32,15 @@ BEGIN
   -- Public callers may NOT change any of these columns. Re-sending the same
   -- value (e.g. a profile save that echoes the current tier) is fine because
   -- IS DISTINCT FROM treats equal values — including NULLs — as not changed.
-  IF NEW.tier                 IS DISTINCT FROM OLD.tier
-  OR NEW.tier_expires         IS DISTINCT FROM OLD.tier_expires
-  OR NEW.stripe_customer_id   IS DISTINCT FROM OLD.stripe_customer_id
-  OR NEW.stripe_session_id    IS DISTINCT FROM OLD.stripe_session_id
-  OR NEW.email_verified       IS DISTINCT FROM OLD.email_verified
-  OR NEW.email_verify_token   IS DISTINCT FROM OLD.email_verify_token
-  OR NEW.email_verify_expires IS DISTINCT FROM OLD.email_verify_expires
+  -- NOTE: only columns that exist in the live `users` table are listed here.
+  -- The deployed schema has no email_verify_token/email_verify_expires or
+  -- coach_id columns, so referencing them would make the trigger throw on
+  -- every update.
+  IF NEW.tier               IS DISTINCT FROM OLD.tier
+  OR NEW.tier_expires       IS DISTINCT FROM OLD.tier_expires
+  OR NEW.stripe_customer_id IS DISTINCT FROM OLD.stripe_customer_id
+  OR NEW.stripe_session_id  IS DISTINCT FROM OLD.stripe_session_id
+  OR NEW.email_verified     IS DISTINCT FROM OLD.email_verified
   THEN
     RAISE EXCEPTION 'Cannot modify billing or verification fields'
       USING ERRCODE = 'insufficient_privilege';

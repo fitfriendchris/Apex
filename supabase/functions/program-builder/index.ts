@@ -29,12 +29,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") ?? "https://fitfriendchris.github.io")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function buildCors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 // ── Tier access gates ─────────────────────────────────────────────────────────
 const TIER_ALLOWED = new Set(["core", "elite", "vip", "diamond"]);
@@ -95,11 +101,12 @@ JSON SCHEMA:
 }`;
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCors(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return jsonError("ANTHROPIC_API_KEY not configured", 500);
+  if (!anthropicKey) return jsonError(corsHeaders, "ANTHROPIC_API_KEY not configured", 500);
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -113,11 +120,11 @@ serve(async (req: Request) => {
   );
 
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if ((!user && !isCoach) || (authErr && !isCoach)) return jsonError("Unauthorized", 401);
+  if ((!user && !isCoach) || (authErr && !isCoach)) return jsonError(corsHeaders, "Unauthorized", 401);
 
   // ── Parse body ────────────────────────────────────────────────────────────────
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400); }
+  try { body = await req.json(); } catch { return jsonError(corsHeaders, "Invalid JSON", 400); }
 
   const { user: profile, weeks = 4, equipment = "full_gym", focus, clientEmail } = body as {
     user: {
@@ -130,11 +137,11 @@ serve(async (req: Request) => {
     clientEmail?: string;
   };
 
-  if (!profile) return jsonError("user profile is required", 400);
+  if (!profile) return jsonError(corsHeaders, "user profile is required", 400);
 
   // ── Tier gate: Core+ can access program builder ───────────────────────────────
   if (!isCoach && !TIER_ALLOWED.has(profile.tier)) {
-    return jsonError("Program Builder requires Core tier or above", 403);
+    return jsonError(corsHeaders, "Program Builder requires Core tier or above", 403);
   }
 
   // ── Clamp weeks to a sane range ───────────────────────────────────────────────
@@ -150,11 +157,11 @@ serve(async (req: Request) => {
       const LIMITS: Record<string, number> = { core: 100, elite: 200, vip: 500, diamond: 9999 };
       const limit = LIMITS[profile.tier] ?? 0;
       const calls = (usageRow?.scan_count ?? 0) as number;
-      if (calls >= limit) return jsonError(`Daily AI limit reached (${calls}/${limit})`, 429);
+      if (calls >= limit) return jsonError(corsHeaders, `Daily AI limit reached (${calls}/${limit})`, 429);
     } catch {
       // Fail closed: if we can't verify usage, deny the request to prevent abuse
       console.error("daily_ai_usage table not accessible — denying request");
-      return jsonError("Usage tracking unavailable. Please try again later.", 503);
+      return jsonError(corsHeaders, "Usage tracking unavailable. Please try again later.", 503);
     }
   }
 
@@ -200,7 +207,7 @@ Generate the complete ${safeWeeks}-week periodized program. Return only the JSON
       }),
     });
 
-    if (!res.ok) return jsonError("AI program generation failed", 502);
+    if (!res.ok) return jsonError(corsHeaders, "AI program generation failed", 502);
 
     const aiData = await res.json();
     const rawText = aiData.content?.[0]?.text ?? "";
@@ -211,7 +218,7 @@ Generate the complete ${safeWeeks}-week periodized program. Return only the JSON
       program = JSON.parse(cleaned);
     } catch {
       console.error("Program JSON parse failed:", rawText.slice(0, 500));
-      return jsonError("Failed to parse AI program output", 422);
+      return jsonError(corsHeaders, "Failed to parse AI program output", 422);
     }
 
     // ── Increment usage (non-fatal) ────────────────────────────────────────────
@@ -229,11 +236,11 @@ Generate the complete ${safeWeeks}-week periodized program. Return only the JSON
 
   } catch (err) {
     console.error("program-builder error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError(corsHeaders, "Internal server error", 500);
   }
 });
 
-function jsonError(message: string, status: number) {
+function jsonError(corsHeaders: Record<string, string>, message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
