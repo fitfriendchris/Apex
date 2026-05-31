@@ -38,6 +38,7 @@ Browser (Cloudflare Pages)  ──►  Supabase Edge Functions (Deno)  ──►
 | `get-config` | public (GET) / coach (POST) | Serves public config; validates coach password |
 | `coach-login` | coach secret | Server-side coach session via Supabase Admin API |
 | `verify-stripe-session` | user JWT | Verifies a Stripe checkout **and grants the tier server-side** |
+| `stripe-webhook` | Stripe signature | Subscription lifecycle — grants on checkout, **downgrades on cancel/unpaid** |
 | `anthropic-proxy` | user JWT / coach token | Rate-limited, tier-gated relay to Anthropic |
 | `analyze-food` | user JWT | AI food/macro photo analysis |
 | `smart-onboard` | public (rate-limited) | Pre-login sales/onboarding chat agent |
@@ -86,7 +87,13 @@ supabase db push --project-ref yiqilesbvthmwdrtlhgm
 1. **Auth → Providers → Email**: configure confirmation settings.
 2. Log in once as coach to auto-provision the coach auth account.
 3. Confirm `ALLOWED_ORIGIN` exactly matches your Pages URL (no trailing slash).
-4. Smoke-test a real Stripe checkout end-to-end (see Security notes).
+4. **Configure the Stripe webhook** (required for cancellations to downgrade users):
+   Stripe Dashboard → Developers → Webhooks → Add endpoint
+   → `https://yiqilesbvthmwdrtlhgm.supabase.co/functions/v1/stripe-webhook`
+   → events: `checkout.session.completed`, `customer.subscription.deleted`,
+   `customer.subscription.updated`, `invoice.payment_failed`. Copy the signing
+   secret into `STRIPE_WEBHOOK_SECRET` and re-run `./deploy.sh`.
+5. Smoke-test a real Stripe checkout end-to-end (see Security notes).
 
 ## Security notes
 
@@ -104,10 +111,8 @@ supabase db push --project-ref yiqilesbvthmwdrtlhgm
 
 ## Known limitations / recommended next steps
 
-- **Stripe webhook for lifecycle events.** Tiers are granted on successful
-  checkout, but cancellations / failed renewals / refunds are not yet auto-
-  downgraded. Add a `stripe-webhook` edge function handling
-  `customer.subscription.deleted` / `invoice.payment_failed` to set
-  `tier`/`tier_expires` for full subscription correctness.
 - **In-memory rate limiters reset on cold start.** Fine for current scale; move
   to a Postgres/Upstash-backed limiter if abuse becomes a concern.
+- **Mid-subscription plan changes.** The webhook downgrades on cancel/unpaid and
+  grants on checkout, but does not map Stripe price IDs to tiers for in-place
+  upgrades/downgrades. Add a price→tier map if you offer plan switching in Stripe.

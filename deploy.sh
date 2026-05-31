@@ -29,10 +29,13 @@ supabase secrets set --project-ref "$PROJECT_REF" \
   STRIPE_LINK_ELITE="${STRIPE_LINK_ELITE}" \
   STRIPE_LINK_VIP="${STRIPE_LINK_VIP}" \
   STRIPE_LINK_DIAMOND="${STRIPE_LINK_DIAMOND}" \
-  STRIPE_LINK_APEX_AI_FEATURES="${STRIPE_LINK_APEX_AI_FEATURES:-}"
+  STRIPE_LINK_APEX_AI_FEATURES="${STRIPE_LINK_APEX_AI_FEATURES:-}" \
+  STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-}"
 
 echo "📦 Deploying edge functions..."
-supabase functions deploy analyze-food anthropic-proxy program-builder weekly-analyst coach-ai coach-chat coach-copilot coach-login get-config smart-onboard verify-stripe-session send-email --project-ref "$PROJECT_REF" --use-api
+# verify_jwt=false for stripe-webhook is set in supabase/config.toml (Stripe sends
+# no Supabase JWT), so the deploy below honours it — no --no-verify-jwt flag needed.
+supabase functions deploy analyze-food anthropic-proxy program-builder weekly-analyst coach-ai coach-chat coach-copilot coach-login get-config smart-onboard stripe-webhook verify-stripe-session send-email --project-ref "$PROJECT_REF" --use-api
 
 echo "✅ Deployment complete!"
 echo ""
