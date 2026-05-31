@@ -26,10 +26,4 @@ jobs:
         with:
           deno-version: v2.x
       - name: deno check all edge functions
-        run: |
-          set -e
-          for f in supabase/functions/*/index.ts; do
-            echo "::group::deno check $f"
-            deno check "$f"
-            echo "::endgroup::"
-          done
+        run: deno check --config deno.jsonc supabase/functions/*/index.ts

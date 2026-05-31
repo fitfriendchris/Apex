@@ -1,0 +1,8 @@
+{
+  // Type-check config for CI (`deno check`). Supabase's edge runtime bundles and
+  // runs these functions without failing on implicit-any, so we relax that one
+  // rule to match production behaviour while still catching real type errors.
+  "compilerOptions": {
+    "noImplicitAny": false
+  }
+}

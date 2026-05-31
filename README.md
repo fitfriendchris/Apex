@@ -4,14 +4,15 @@ Elite physique-transformation coaching app — macro tracking, AI workout/nutrit
 programs, coach ↔ client messaging, and tiered subscriptions.
 
 **Architecture:** a single static frontend (`index.html`, a self-contained SPA +
-PWA) served from **GitHub Pages**, backed by **Supabase** (Postgres + Auth + Edge
-Functions). All secrets live server-side; the browser only ever holds the public
-anon key, which is fetched at runtime from the `get-config` edge function.
+PWA) served from **Cloudflare Pages** (the connected deploy that applies the CSP
+in `_headers`), backed by **Supabase** (Postgres + Auth + Edge Functions). All
+secrets live server-side; the browser only ever holds the public anon key, which
+is fetched at runtime from the `get-config` edge function.
 
 ```
-Browser (GitHub Pages)  ──►  Supabase Edge Functions (Deno)  ──►  Anthropic / Stripe / Resend
-        │                              │
-        └──────────► Supabase Postgres (RLS-protected) ◄───────────┘
+Browser (Cloudflare Pages)  ──►  Supabase Edge Functions (Deno)  ──►  Anthropic / Stripe / Resend
+        │                                  │
+        └──────────────► Supabase Postgres (RLS-protected) ◄───────────┘
 ```
 
 ## Project structure
@@ -60,9 +61,10 @@ python3 -m http.server 8000      # then open http://localhost:8000
 
 ## Deploying to production
 
-### 1. Frontend (GitHub Pages)
-Settings → **Pages** → deploy from the `main` branch root. Every push to `main`
-republishes. The app loads at `https://<user>.github.io/Apex/`.
+### 1. Frontend (Cloudflare Pages)
+The repo is connected to Cloudflare Pages — every push to `main` republishes the
+static root (no build step). The `_headers` file applies the CSP and security
+headers. Make sure `ALLOWED_ORIGIN` (below) exactly matches the served origin.
 
 ### 2. Backend (Supabase)
 ```bash
