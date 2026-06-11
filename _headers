@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://browser.sentry-cdn.com https://fonts.googleapis.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://yiqilesbvthmwdrtlhgm.supabase.co https://d2xsxph8kpxj0f.cloudfront.net; connect-src 'self' https://yiqilesbvthmwdrtlhgm.supabase.co https://o4511076164829184.ingest.us.sentry.io https://api.anthropic.com https://api.stripe.com; worker-src blob:; frame-ancestors 'none';
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://browser.sentry-cdn.com https://fonts.googleapis.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://yiqilesbvthmwdrtlhgm.supabase.co https://d2xsxph8kpxj0f.cloudfront.net; connect-src 'self' http://localhost:8790 https://yiqilesbvthmwdrtlhgm.supabase.co https://o4511076164829184.ingest.us.sentry.io https://api.anthropic.com https://api.stripe.com; worker-src blob:; frame-ancestors 'none';
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
