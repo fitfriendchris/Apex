@@ -111,6 +111,13 @@ CALORIE ADJUSTMENT RULES:
 - Weight up AND goal=bulk: HOLD or slight increase if under target
 - Poor protein compliance (<80%): Flag protein as #1 priority before adjusting calories
 
+RECOVERY ADJUSTMENT RULES (when wearable data is present):
+- Avg readiness < 40 OR HRV trending down >15% vs baseline: recommend DELOAD — reduce training volume 30–40% for the coming week, hold calories at maintenance-leaning, prioritise sleep
+- Avg readiness 40–60: recommend REDUCED volume (−10–20%), keep intensity, do NOT cut calories further this week even if weight stalls
+- Avg readiness > 75 AND sleep ≥ 7h avg: client can handle a volume PUSH (+1 set per muscle group) — say so
+- Sleep < 6h average: make sleep the #1 priority insight regardless of other metrics
+- Never recommend a calorie DECREASE in the same week as a DELOAD recommendation
+
 OUTPUT: Respond with ONLY valid JSON — no markdown, no commentary.
 
 JSON SCHEMA:
@@ -132,6 +139,12 @@ JSON SCHEMA:
     "lbsPerWeek": number | null,
     "onTrack": boolean,
     "note": "string"              // brief interpretation
+  },
+  "recovery": {                   // include ONLY when wearable data was provided, else null
+    "avgReadiness": number | null,
+    "status": "string",           // "Primed" | "Normal" | "Strained" | "Deload recommended"
+    "volumeAction": "string",     // "PUSH" | "HOLD" | "REDUCE" | "DELOAD"
+    "note": "string"
   },
   "calorieAdjustment": {
     "action": "string",           // "HOLD" | "INCREASE" | "DECREASE" | "N/A"
@@ -217,6 +230,32 @@ serve(async (req: Request) => {
     }
   }
 
+  // ── Sprint 2: pull 7-day wearable recovery data (RLS-scoped to the user) ───
+  let recoveryBlock = "No wearable data synced this week.";
+  let hasRecovery = false;
+  if (user) {
+    try {
+      const since = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+      const { data: hm } = await supabase
+        .from("health_metrics")
+        .select("metric_date, hrv_ms, resting_hr, sleep_hours, steps, readiness")
+        .gte("metric_date", since)
+        .order("metric_date");
+      if (hm && hm.length > 0) {
+        hasRecovery = true;
+        const avg = (k: string) => {
+          const v = hm.map((r: Record<string, unknown>) => Number(r[k])).filter((n: number) => n > 0);
+          return v.length ? Math.round((v.reduce((a: number, b: number) => a + b, 0) / v.length) * 10) / 10 : null;
+        };
+        recoveryBlock = `RECOVERY (7-DAY WEARABLE DATA, ${hm.length} days synced):\n` +
+          `- Avg readiness: ${avg("readiness") ?? "n/a"}/100\n` +
+          `- Avg HRV: ${avg("hrv_ms") ?? "n/a"} ms | Avg resting HR: ${avg("resting_hr") ?? "n/a"} bpm\n` +
+          `- Avg sleep: ${avg("sleep_hours") ?? "n/a"} h | Avg steps: ${avg("steps") ?? "n/a"}\n` +
+          `- Daily readiness: [${hm.map((r: Record<string, unknown>) => r.readiness ?? "-").join(", ")}]`;
+      }
+    } catch { /* recovery is additive — never block the report */ }
+  }
+
   // ── Compute summaries ──────────────────────────────────────────────────────
   const summary = summariseLogs(logs, macros);
   const weightDelta = checkIn?.weight ? +(checkIn.weight - profile.weight).toFixed(1) : null;
@@ -238,6 +277,8 @@ MACRO TARGETS: ${macros.calories} kcal / ${macros.protein}g protein / ${macros.c
 - Avg daily protein: ${summary.avgProtein}g (${summary.protAdherence}% of target)
 - Calories by day: [${summary.calsByDay.join(", ")}]
 
+${recoveryBlock}
+
 ${checkIn ? `WEEKLY CHECK-IN:
 - Weight this week: ${checkIn.weight ?? "not logged"} lbs ${weightDelta !== null ? `(${weightDelta > 0 ? "+" : ""}${weightDelta} lbs from baseline)` : ""}
 - Energy: ${checkIn.energy ?? "?"}/10 | Sleep: ${checkIn.sleep ?? "?"}/10 | Stress: ${checkIn.stress ?? "?"}/10 | Training perf: ${checkIn.perf ?? "?"}/10
@@ -245,6 +286,7 @@ ${checkIn ? `WEEKLY CHECK-IN:
 - Challenge: "${checkIn.challenge ?? "—"}"
 - Question for coach: "${checkIn.coachQ ?? "—"}"` : "No check-in submitted this week."}
 
+${hasRecovery ? "Apply the RECOVERY ADJUSTMENT RULES and include the recovery field." : "Set recovery to null."}
 Return the JSON analysis now.`;
 
   try {
@@ -282,6 +324,7 @@ Return the JSON analysis now.`;
     report.compliancePct = summary.compliancePct;
     report.avgCals       = summary.avgCals;
     report.avgProtein    = summary.avgProtein;
+    report.hasRecoveryData = hasRecovery;
 
     // Usage counter
     if (profile.email) {

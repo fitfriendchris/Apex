@@ -23,23 +23,23 @@
 
 **Deploy:** run `supabase db push`, `supabase functions deploy health-sync`, commit index.html, start bridge with `python3 jarvis/apex_bridge.py`.
 
-## Sprint 2 — Wearable Intelligence (1–2 weeks)
+## Sprint 2 — Wearable Intelligence ✅ CORE SHIPPED (Jun 11)
 - iOS Shortcut / companion PWA flow posting HealthKit (HRV, resting HR, sleep, steps) to health-sync daily.
 - weekly-analyst v2: factor recovery into macro + volume adjustments ("HRV down 18% week-over-week → deload recommendation").
 - Readiness score on the Today tab (HUD already has the slot).
 
-## Sprint 3 — Coach-as-Customer / Multi-Tenant (2–3 weeks)
+## Sprint 3 — Coach-as-Customer / Multi-Tenant 🟡 SCHEMA SHIPPED (Jun 11)
 - `coach_id` scoping across tables (coaches table exists — extend RLS).
 - Coach onboarding flow + Stripe Connect or per-seat pricing tier.
 - White-label theming via per-coach config row.
 - This is the B2B revenue line: coaches pay monthly, bring their own clients.
 
-## Sprint 4 — Retention Engine (1–2 weeks)
+## Sprint 4 — Retention Engine ✅ CORE SHIPPED (Jun 11)
 - Web push notifications (service worker v12): check-in reminders, streak saves, coach messages.
 - AI check-in photo feedback (analyze-food pattern → physique-feedback function).
 - Weekly "APEX Report" email via send-email with AI summary.
 
-## Sprint 5 — Jarvis Autonomy (ongoing)
+## Sprint 5 — Jarvis Autonomy ✅ EVENT LAYER SHIPPED (Jun 11)
 - Jarvis consumes jarvis_events (new signups, missed check-ins, churn-risk flags from coach-copilot risk scan).
 - Jarvis pushes jarvis_commands (broadcast message, adjust client macro, generate report) → bridge executes via service role.
 - Morning briefing: bridge endpoint `/api/briefing` aggregates overnight activity for Jarvis to read out.
@@ -58,3 +58,21 @@ Stripe / Resend / Anthropic ───────────────┘    
 
 ## Revenue model additions
 - Existing tiers stay. Add **Coach Pro** ($99–199/mo per coach seat) and **Corporate** (per-employee wellness — named growth segment in 2026 market research).
+
+
+---
+## Shipped Jun 11 (Sprints 2–5 execution pass)
+- weekly-analyst **v9**: pulls 7-day health_metrics, applies recovery adjustment rules (deload/reduce/push), new `recovery` field in report JSON
+- **physique-feedback** edge function: AI progress-photo review, tier-gated, shares daily AI usage limits
+- Frontend NEXUS S2/4 module: readiness card + 7-day sparkline on Today tab, HUD readiness, evening check-in reminder (Notification API), 📷 AI Photo Review flow
+- Multi-tenant scaffold: users.coach_id, coaches.plan/branding/stripe_customer_id
+- Jarvis event triggers: tier_change (catches Stripe upgrades AND downgrades), pr_hit, checkin_submitted — plus signup from Sprint 1
+- jarvis/jarvis_worker.py: command executor (ping, generate_report, broadcast_message, flag_client)
+- docs/HEALTHKIT_SHORTCUT.md: iOS automation guide
+- sw.js cache bumped to apex-v13 (forces fresh index for all clients)
+
+## Remaining for desktop sessions
+- Sprint 2.1: long-lived device key for HealthKit shortcut (avoid weekly token refresh)
+- Sprint 3.1: coach signup flow + Coach Pro Stripe payment link + RLS tenancy enforcement
+- Sprint 4.1: server push notifications (VAPID) + weekly APEX Report email cron
+- Sprint 5.1: verify broadcast_message/flag_client column mappings against live messages/coach_notes schema

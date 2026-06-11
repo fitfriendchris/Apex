@@ -21163,5 +21163,159 @@ body.nexus-v2 .topbar{backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-
 </script>
 <!-- ============== END NEXUS v2 ============== -->
 
+<!-- ================================================================
+     NEXUS SPRINT 2/4 MODULE — Readiness, Reminders, AI Photo Review
+     Self-contained & removable. Requires NEXUS v2 block above.
+================================================================ -->
+<style id="nexus-s24-css">
+#nexusReadyCard{margin:0 0 1rem;padding:1rem 1.2rem;border-radius:var(--radius-lg,12px);
+  background:linear-gradient(180deg,rgba(201,168,76,.07),rgba(255,255,255,.012)),var(--dark2,#0D0D10);
+  border:1px solid rgba(201,168,76,.22);display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap;}
+#nexusReadyCard .num{font-family:var(--font-display,'Bebas Neue');font-size:2.6rem;line-height:1;color:var(--gold,#C9A84C);}
+#nexusReadyCard .lab{font-family:var(--font-mono,'DM Mono',monospace);font-size:.6rem;letter-spacing:.16em;color:var(--muted,#8B8B98);text-transform:uppercase;}
+#nexusReadyCard .st{font-family:var(--font-cond,'Barlow Condensed');font-size:.95rem;color:var(--light,#F0EDE8);}
+#nexusReadyCard svg{display:block}
+#nexusReadyCard .actions{margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap}
+#nexusReadyCard .nx-btn{font-family:var(--font-cond,'Barlow Condensed');font-size:.78rem;letter-spacing:.06em;
+  padding:.45rem .8rem;border-radius:var(--radius,8px);border:1px solid rgba(201,168,76,.35);
+  background:transparent;color:var(--gold,#C9A84C);cursor:pointer;}
+#nexusReadyCard .nx-btn:hover{background:rgba(201,168,76,.12)}
+#nexusPhotoOverlay{position:fixed;inset:0;z-index:99500;display:none;align-items:center;justify-content:center;
+  background:rgba(4,4,6,.7);backdrop-filter:blur(6px);padding:1rem;}
+#nexusPhotoOverlay.open{display:flex}
+#nexusPhotoBox{width:min(520px,94vw);max-height:84vh;overflow-y:auto;border-radius:var(--radius-lg,12px);
+  background:rgba(13,13,16,.97);border:1px solid rgba(201,168,76,.35);padding:1.4rem;
+  font-family:var(--font-body,'Barlow');color:var(--light,#F0EDE8);}
+#nexusPhotoBox h3{font-family:var(--font-display,'Bebas Neue');color:var(--gold,#C9A84C);letter-spacing:.06em;margin:0 0 .8rem;font-size:1.4rem;}
+#nexusPhotoBox ul{padding-left:1.1rem;margin:.4rem 0;color:var(--muted,#8B8B98);font-size:.88rem;line-height:1.55;}
+#nexusPhotoBox .cn{margin-top:.9rem;padding:.8rem;border-left:2px solid var(--gold,#C9A84C);
+  background:rgba(201,168,76,.06);font-size:.88rem;line-height:1.5;}
+</style>
+
+<div id="nexusPhotoOverlay" role="dialog" aria-modal="true" aria-label="AI physique feedback">
+  <div id="nexusPhotoBox"><h3>APEX PHYSIQUE REVIEW</h3><div id="nexusPhotoContent">Analyzing…</div>
+  <button class="nx-btn" style="margin-top:1rem;border:1px solid rgba(201,168,76,.35);background:transparent;color:var(--gold);padding:.5rem 1rem;border-radius:8px;cursor:pointer" onclick="document.getElementById('nexusPhotoOverlay').classList.remove('open')">Close</button></div>
+</div>
+
+<script id="nexus-s24-js">
+(function () {
+  'use strict';
+
+  /* ── Supabase REST helper (uses the app's live session) ─────────── */
+  function rest(path) {
+    if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY || !window.currentAccessToken) return Promise.reject('no session');
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + currentAccessToken }
+    }).then(function (r) { if (!r.ok) throw new Error('rest ' + r.status); return r.json(); });
+  }
+
+  /* ── Readiness card on the Today tab ────────────────────────────── */
+  function statusFor(r) {
+    if (r == null) return ['No wearable data yet', 'Sync HealthKit to unlock recovery-aware coaching'];
+    if (r >= 75) return ['PRIMED', 'Green light — push volume today'];
+    if (r >= 60) return ['NORMAL', 'Train as planned'];
+    if (r >= 40) return ['STRAINED', 'Keep intensity, trim volume'];
+    return ['DELOAD', 'Recovery first — reduce volume 30-40%'];
+  }
+  function spark(values) {
+    if (!values.length) return '';
+    var w = 90, h = 30, max = 100;
+    var step = values.length > 1 ? w / (values.length - 1) : w;
+    var pts = values.map(function (v, i) { return (i * step).toFixed(1) + ',' + (h - (Math.max(0, v) / max) * h).toFixed(1); }).join(' ');
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '"><polyline fill="none" stroke="#C9A84C" stroke-width="1.5" points="' + pts + '"/></svg>';
+  }
+  function injectReadiness() {
+    var mc = document.getElementById('mainContent');
+    if (!mc || document.getElementById('nexusReadyCard')) return;
+    var since = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    rest('health_metrics?select=metric_date,readiness&metric_date=gte.' + since + '&order=metric_date.asc&limit=14')
+      .then(function (rows) {
+        var vals = rows.map(function (r) { return Number(r.readiness); }).filter(function (n) { return n > 0; });
+        var latest = vals.length ? vals[vals.length - 1] : null;
+        var st = statusFor(latest);
+        var card = document.createElement('div');
+        card.id = 'nexusReadyCard';
+        card.innerHTML =
+          '<div><div class="num">' + (latest == null ? '—' : latest) + '</div><div class="lab">Readiness</div></div>' +
+          '<div>' + spark(vals) + '<div class="st">' + st[0] + '</div><div class="lab">' + st[1] + '</div></div>' +
+          '<div class="actions"><button class="nx-btn" id="nexusPhotoBtn">📷 AI Photo Review</button></div>';
+        mc.insertBefore(card, mc.firstChild);
+        var b = document.getElementById('nexusPhotoBtn');
+        if (b) b.onclick = pickPhoto;
+        // HUD wiring
+        var hudR = document.getElementById('nexusHudReady');
+        if (hudR && latest != null) hudR.textContent = 'READY ' + latest;
+      })
+      .catch(function () { /* no session or table empty — stay silent */ });
+  }
+  // Hook the dashboard render without touching it
+  var _rcd = window.renderClientDashboard;
+  if (typeof _rcd === 'function') {
+    window.renderClientDashboard = function () {
+      var p = _rcd.apply(this, arguments);
+      Promise.resolve(p).then(function () { setTimeout(injectReadiness, 50); });
+      return p;
+    };
+  }
+  // Also catch the initial render
+  setTimeout(injectReadiness, 2500);
+
+  /* ── Sprint 4: gentle evening check-in reminder (while app open) ── */
+  function maybeRemind() {
+    try {
+      if (!('Notification' in window)) return;
+      var h = new Date().getHours();
+      if (h < 19 || sessionStorage.getItem('nexusReminded')) return;
+      var logged = window.currentLogs && Array.isArray(currentLogs.foods) && currentLogs.foods.length > 0;
+      if (logged) return;
+      if (Notification.permission === 'default') { Notification.requestPermission(); return; }
+      if (Notification.permission === 'granted') {
+        new Notification('APEX — log your day', { body: 'No food logged yet today. 60 seconds keeps the streak alive.' });
+        sessionStorage.setItem('nexusReminded', '1');
+      }
+    } catch (_) { /* never break the app */ }
+  }
+  setInterval(maybeRemind, 10 * 60 * 1000); setTimeout(maybeRemind, 20000);
+
+  /* ── Sprint 4: AI physique photo review ─────────────────────────── */
+  function pickPhoto() {
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/jpeg,image/png,image/webp';
+    inp.onchange = function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var overlay = document.getElementById('nexusPhotoOverlay');
+      var content = document.getElementById('nexusPhotoContent');
+      overlay.classList.add('open');
+      content.textContent = 'Analyzing your photo…';
+      var rd = new FileReader();
+      rd.onload = function () {
+        var b64 = String(rd.result).split(',')[1];
+        fetch(SUPABASE_URL + '/functions/v1/physique-feedback', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + currentAccessToken },
+          body: JSON.stringify({ image: b64, mediaType: f.type || 'image/jpeg', context: { goal: (window.currentUser && currentUser.goal) || '' } })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d.error) { content.textContent = d.error; return; }
+          var fb = d.feedback || {};
+          var li = function (a) { return (a || []).map(function (x) { return '<li>' + x + '</li>'; }).join(''); };
+          content.innerHTML =
+            '<div class="st" style="font-size:1.05rem;margin-bottom:.6rem">' + (fb.headline || '') + '</div>' +
+            (fb.observations ? '<div class="lab">Observations</div><ul>' + li(fb.observations) + '</ul>' : '') +
+            (fb.focusNext ? '<div class="lab">Focus next</div><ul>' + li(fb.focusNext) + '</ul>' : '') +
+            (fb.photoTips && fb.photoTips.length ? '<div class="lab">Photo tips</div><ul>' + li(fb.photoTips) + '</ul>' : '') +
+            (fb.coachNote ? '<div class="cn">' + fb.coachNote + '</div>' : '');
+        }).catch(function () { content.textContent = 'Analysis failed — try again.'; });
+      };
+      rd.readAsDataURL(f);
+    };
+    inp.click();
+  }
+  window.nexusPhysiqueFeedback = pickPhoto;
+})();
+</script>
+<!-- ============== END NEXUS SPRINT 2/4 ============== -->
+
+
 </body>
 </html>
