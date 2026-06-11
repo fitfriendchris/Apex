@@ -1,0 +1,21 @@
+-- Security audit fixes (Jun 11) — see APEX_AUDIT_REPORT.md
+REVOKE EXECUTE ON FUNCTION public.set_client_tier(text, text) FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.notify_jarvis_signup() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.notify_jarvis_tier_change() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.notify_jarvis_pr() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.notify_jarvis_checkin() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.increment_ai_usage(text, date) FROM anon, public;
+ALTER FUNCTION public.set_client_tier(text, text) SET search_path = public, pg_temp;
+ALTER FUNCTION public.handle_new_user() SET search_path = public, pg_temp;
+ALTER FUNCTION public.increment_ai_usage(text, date) SET search_path = public, pg_temp;
+ALTER FUNCTION public.apex_lowercase_email() SET search_path = public, pg_temp;
+ALTER FUNCTION public.notify_jarvis_signup() SET search_path = public, pg_temp;
+ALTER FUNCTION public.notify_jarvis_tier_change() SET search_path = public, pg_temp;
+ALTER FUNCTION public.notify_jarvis_pr() SET search_path = public, pg_temp;
+ALTER FUNCTION public.notify_jarvis_checkin() SET search_path = public, pg_temp;
+DROP POLICY IF EXISTS checkins_allow_all ON public.check_ins;
+CREATE POLICY checkins_select_all ON public.check_ins FOR SELECT USING (true);
+CREATE POLICY checkins_insert_own ON public.check_ins FOR INSERT WITH CHECK (lower(user_email) = lower(coalesce(auth.jwt()->>'email','')));
+CREATE POLICY checkins_update_own ON public.check_ins FOR UPDATE USING (lower(user_email) = lower(coalesce(auth.jwt()->>'email','')));
+CREATE POLICY checkins_delete_own ON public.check_ins FOR DELETE USING (lower(user_email) = lower(coalesce(auth.jwt()->>'email','')));

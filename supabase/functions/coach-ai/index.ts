@@ -16,7 +16,7 @@ function buildCors(req: Request) {
 }
 
 async function callClaude(systemPrompt: string, userMessage: string, maxTokens = 600): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch(Deno.env.get("AI_GATEWAY_URL") || "https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": ANTHROPIC_KEY!,

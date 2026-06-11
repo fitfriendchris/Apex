@@ -76,3 +76,11 @@ Stripe / Resend / Anthropic ───────────────┘    
 - Sprint 3.1: coach signup flow + Coach Pro Stripe payment link + RLS tenancy enforcement
 - Sprint 4.1: server push notifications (VAPID) + weekly APEX Report email cron
 - Sprint 5.1: verify broadcast_message/flag_client column mappings against live messages/coach_notes schema
+
+---
+## Audit Pass (Jun 11) — Kimi migration + security
+- **ai-gateway** edge function: Anthropic→Ollama Kimi K2.6 translator (vision-capable). All 9 AI functions now call `AI_GATEWAY_URL` when set, else fall back to Anthropic. Set OLLAMA_API_KEY + AI_GATEWAY_URL secrets to flip to Kimi with zero code change.
+- **CRITICAL fix**: set_client_tier RPC was anon-callable — anyone could self-grant Diamond. EXECUTE revoked.
+- Internal trigger fns + increment_ai_usage locked down; search_path pinned on 8 functions.
+- check_ins RLS was wide open (any user could edit/delete any check-in) — now owner-scoped writes, open reads for coach.
+- TODO (dashboard, manual): enable Leaked Password Protection in Auth settings.

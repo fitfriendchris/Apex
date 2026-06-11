@@ -48,7 +48,7 @@ function buildFoodObject(items, name) {
 }
 async function analyzeText(meal, userContext) {
   const prompt = `You are a precise nutrition analyzer. The user ate: "${meal}"\n\nReturn ONLY a JSON array of food items. No explanation, no markdown, no preamble. Each item must have ALL these fields (use 0 if unknown):\nfood, grams, calories, protein, carbs, fats, fiber, vitaminA, vitaminC, vitaminD, vitaminE, calcium, iron, magnesium, zinc, potassium, sodium, omega3, folate, b12, selenium\n\nStart your response with [ and end with ]. Nothing before or after.`;
-  const res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"}, body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:1500, messages:[{role:"user",content:prompt}] }) });
+  const res = await fetch(Deno.env.get("AI_GATEWAY_URL") || "https://api.anthropic.com/v1/messages", { method:"POST", headers:{"x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"}, body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:1500, messages:[{role:"user",content:prompt}] }) });
   if (!res.ok) throw new Error("Anthropic error: " + res.status);
   const data = await res.json();
   const text = data.content?.[0]?.text || "";
@@ -70,7 +70,7 @@ async function analyzePhoto(base64, mediaType) {
   }
 }
 async function analyzePhotoFallback(base64, mediaType) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"}, body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:1500, messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:mediaType,data:base64}},{type:"text",text:"Analyze this food photo. Return ONLY a JSON array starting with [ and ending with ]. Fields: food,grams,calories,protein,carbs,fats,fiber,vitaminA,vitaminC,vitaminD,vitaminE,calcium,iron,magnesium,zinc,potassium,sodium,omega3,folate,b12,selenium"}]}] }) });
+  const res = await fetch(Deno.env.get("AI_GATEWAY_URL") || "https://api.anthropic.com/v1/messages", { method:"POST", headers:{"x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"}, body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:1500, messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:mediaType,data:base64}},{type:"text",text:"Analyze this food photo. Return ONLY a JSON array starting with [ and ending with ]. Fields: food,grams,calories,protein,carbs,fats,fiber,vitaminA,vitaminC,vitaminD,vitaminE,calcium,iron,magnesium,zinc,potassium,sodium,omega3,folate,b12,selenium"}]}] }) });
   if (!res.ok) throw new Error("Anthropic vision error: " + res.status);
   const data = await res.json();
   const text = data.content?.[0]?.text || "";
