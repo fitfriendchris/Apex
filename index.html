@@ -21037,7 +21037,7 @@ body.nexus-v2 .topbar{backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-
 #nexusHud .dot.gold{background:var(--gold,#C9A84C);box-shadow:0 0 8px rgba(201,168,76,.8)}
 #nexusHud .spacer{flex:1}
 #nexusHud .hint{color:var(--muted2,#5A5A66)}
-@media(max-width:640px){#nexusHud{gap:.8rem;font-size:.58rem}#nexusHud .hint{display:none}}
+@media(max-width:680px){#nexusHud{gap:.8rem;font-size:.58rem;bottom:calc(64px + env(safe-area-inset-bottom));border-bottom:1px solid rgba(201,168,76,.10)}#nexusHud .hint{display:none}}
 
 /* Command palette — the signature */
 #nexusCmd{position:fixed;inset:0;z-index:99000;display:none;align-items:flex-start;
@@ -21068,7 +21068,7 @@ body.nexus-v2 .topbar{backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-
 <div id="nexusField" aria-hidden="true"></div>
 
 <div id="nexusHud" role="status">
-  <span><span class="dot gold"></span>APEX NEXUS</span>
+  <span id="nexusHudBrand" style="cursor:pointer"><span class="dot gold"></span>APEX NEXUS</span>
   <span id="nexusHudSync"><span class="dot"></span>SYNC</span>
   <span id="nexusHudJarvis"><span class="dot off"></span>JARVIS</span>
   <span id="nexusHudReady"></span>
@@ -21159,6 +21159,8 @@ body.nexus-v2 .topbar{backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-
     if (e.key === 'Enter' && filtered[sel]) { close(); filtered[sel].run(); }
   });
   overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+  var brand = document.getElementById('nexusHudBrand');
+  if (brand) brand.addEventListener('click', function () { overlay.classList.contains('open') ? close() : open(); });
 })();
 </script>
 <!-- ============== END NEXUS v2 ============== -->
